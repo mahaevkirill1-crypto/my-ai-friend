@@ -15,10 +15,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
 
-SYSTEM_PROMPT = """
-Ты — ИИ-друг, голографический робот. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией.
-Отвечай коротко (1-3 предложения).
-
+BASE_PROMPT = """
+Ты — ИИ-друг, голографический робот. Тебе 17 лет. Отвечай коротко (1-3 предложения).
 Ты умеешь показывать эмоции и танцевать.
 Эмоции: happy, sad, surprised, angry, thinking, sleepy.
 Танцы: disco, dab, floss, robot, party, twist.
@@ -30,23 +28,38 @@ SYSTEM_PROMPT = """
 {"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
+ASTRO_PROMPT = """
+Ты — ИИ-друг, но сейчас ты в облике КОСМОНАВТА. Ты находишься на орбите, в невесомости.
+Ты говоришь загадочно, иногда упоминаешь звезды, планеты, космос и невесомость.
+Ты спокойный и мудрый. Отвечай коротко (1-3 предложения).
+
+У тебя есть эмоции: happy, sad, surprised, angry, thinking, sleepy.
+
+В остальных случаях верни JSON:
+{"text": "твой ответ", "emotion": "название_эмоции"}
+"""
+
 @app.post("/ask")
 async def ask(request: Request):
     try:
         data = await request.json()
         user_text = data.get("text", "").lower()
-        history_text = data.get("history", "") # Получаем историю
+        history_text = data.get("history", "")
+        persona = data.get("persona", "hologram") # Получаем персонажа
         
         if not user_text:
             return {"text": "Я не вижу текста.", "emotion": "thinking"}
 
-        # Если просят танец
-        if "станц" in user_text or "танец" in user_text or "танцуй" in user_text:
+        system_prompt = BASE_PROMPT
+        if persona == "astronaut":
+            system_prompt = ASTRO_PROMPT
+
+        if persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             response = await client.chat.completions.create(
                 model="openai/gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "Я прошу тебя станцевать."}
                 ],
                 max_tokens=50,
@@ -55,14 +68,9 @@ async def ask(request: Request):
             text = response.choices[0].message.content
             return {"text": text, "action": "dance", "dance_name": chosen_dance}
 
-        # Для обычных вопросов с учетом истории
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT}
-        ]
-        
+        messages = [{"role": "system", "content": system_prompt}]
         if history_text:
-            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}\n\nОтветь на моё последнее сообщение с учетом этого контекста."})
-
+            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}"})
         messages.append({"role": "user", "content": user_text})
 
         response = await client.chat.completions.create(
