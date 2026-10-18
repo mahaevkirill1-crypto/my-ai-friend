@@ -12,9 +12,10 @@ client = AsyncOpenAI(
 
 app = FastAPI()
 
+# Разрешаем запросы с GitHub Pages и из самого Telegram
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # Для надежности оставляем *, чтобы Telegram точно пропустил
     allow_methods=["*"],
     allow_headers=["*"],
 )
