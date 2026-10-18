@@ -221,7 +221,7 @@ function frame(t){
   for (let i = 0; i < 3; i++){ colC[i] += (tgC[i] - colC[i]) * .1; colS[i] += (tgS[i] - colS[i]) * .1; }
   const m = (a, b) => Math.round(a + (b - a) * ang); $('sv').style.setProperty('--c', `rgb(${m(colC[0],ANGC[0])},${m(colC[1],ANGC[1])},${m(colC[2],ANGC[2])})`); $('sv').style.setProperty('--s', `rgb(${m(colS[0],ANGS[0])},${m(colS[1],ANGS[1])},${m(colS[2],ANGS[2])})`);
   const L = 22 + sp * 3 / SC * .5 + 5 * Math.sin(t / 50) + (st === 'mad' ? 20 : 0); flame('f1', 'i1', 143, L); flame('f2', 'i2', 237, L);
-  const w = Math.sin(t / 110), s3 = Math.sin(t / 350); const b *L = cur.aL + cur.oL * w + 28 * ang, ang bR = cur.aR + cur.oR * w - 28;
+  const w = Math.sin(t / 110), s3 = Math.sin(t / 350); const bL = cur.aL + cur.oL * w + 28 * ang, bR = cur.aR + cur.oR * w - 28 * ang;
   const d = dance ? DANCES[dance].f((t - t0) / 1000) : [bL, bR, 0, 0, 0, 0, 0, 0];
   A('aL', 'transform', `rotate(${bL + (d[0]-bL)*dw} 136 204)`); A('aR', 'transform', `rotate(${bR + (d[1]-bR)*dw} 244 204)`);
   A('fig', 'transform', `translate(${d[2]*dw} ${d[3]*dw}) rotate(${d[4]*dw} 190 362)`); A('hd', 'transform', `rotate(${d[5]*dw} 190 186)`);
@@ -302,7 +302,6 @@ async function sendMessage(text) {
     sendBtn.disabled = true;
     
     if (st === 'mad') { angT = 0; st = 'hover'; }
-
     Hologram.react('thinking', 'think');
 
     const historyForServer = chatMessages.slice(-10).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
@@ -313,4 +312,72 @@ async function sendMessage(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 text: text,
-                history: historyForServer
+                history: historyForServer 
+            })
+        });
+
+        if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (data.action === 'dance') {
+            Hologram.dance(data.dance_name || 'floss', 5000);
+        } else {
+            let pose = 'idle';
+            if (data.emotion === 'happy') pose = 'wave';
+            if (data.emotion === 'surprised') pose = 'cheer';
+            Hologram.react(data.emotion, pose, 4000); 
+        }
+        
+        addToHistory(data.text, 'bot');
+
+    } catch (error) {
+        Hologram.react('sad', 'idle');
+        addToHistory(`Ошибка: ${error.message}`, 'bot');
+    } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        isSending = false; 
+    }
+}
+
+sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
+input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
+
+function onFirstArrive(){
+    ang = 0; angT = 0; st = 'hover'; 
+    if (chatMessages.length === 0) {
+        Hologram.react('happy', 'wave', 3500);
+        addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
+    }
+}
+
+/* ===== 3. УДАЛЕНИЕ ЧАТА ===== */
+const confirmBox = $('confirm');
+$('clear-btn').addEventListener('click', () => { if (!isSending) confirmBox.classList.add('open'); });
+$('cancel-clear').addEventListener('click', () => confirmBox.classList.remove('open'));
+$('do-clear').addEventListener('click', async () => {
+    confirmBox.classList.remove('open');
+    
+    // Очищаем память телефона
+    chatMessages = [];
+    saveHistory();
+    chatHistory.innerHTML = '';
+    
+    Hologram.react('surprised', 'idle', 2000);
+    addToHistory('Чат очищен. Начнём заново?', 'bot');
+});
+
+/* ===== 4. МАГАЗИН ===== */
+$('shop-btn').addEventListener('click', () => {
+    document.getElementById('shop').classList.add('open');
+});
+$('shop-close').addEventListener('click', () => {
+    document.getElementById('shop').classList.remove('open');
+});
+
+enter();
+</script>
+</body>
+</html>
