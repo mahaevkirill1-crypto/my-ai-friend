@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1.0,user-scalable=no">
-<title>Голограмма-бот v4</title>
+<title>Holo Friend</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
     :root {
@@ -42,8 +42,6 @@
     .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
     .msg-row.user .avatar { background: var(--user-msg-bg); }
     .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
-    .message::-webkit-scrollbar { width: 4px; }
-    .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
     .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
 
@@ -141,22 +139,24 @@ function layout(){
     $('sv').setAttribute('viewBox', `0 0 ${W} ${H}`); 
     SC = cl(Math.min(W, H) / 760, .38, .6); 
     const r = $('stage').getBoundingClientRect(); 
-    // Исправлено: добавляем отступы, чтобы робот не залетал за край
-    const pad = 80; 
+    // Увеличенный отступ сверху (120), чтобы антенна не обрезалась
+    const padTop = 120; 
     SPOTS = [
         [W*.5, r.top + r.height*.5], 
-        [W*.2, Math.max(pad, r.top*.85)], 
-        [W*.8, Math.max(pad, r.top*.85)], 
+        [W*.2, Math.max(padTop, r.top*.85)], 
+        [W*.8, Math.max(padTop, r.top*.85)], 
         [W*.2, H*.55], 
         [W*.8, H*.55]
     ]; 
     if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } 
 }
 addEventListener('resize', layout); layout();
+
 function enter(){ const m = 100; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[Math.floor(Math.random() * 4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
 function annoy(){ if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; const tg = window.Telegram && Telegram.WebApp; if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
 $('fly').addEventListener('pointerdown', annoy);
 function flame(o, i, cx, L){ A(o, 'points', `${cx-8},276 ${cx+8},276 ${cx},${276+L}`); A(i, 'points', `${cx-4},276 ${cx+4},276 ${cx},${276+L*.6}`); }
+
 function frame(t){
   const dt = Math.min(2.5, (t - last) / 16.7); last = t;
   if (st === 'mad' && t - madT > 650){ let far = []; SPOTS.forEach((s, i) => { if (i !== spot && Math.hypot(s[0]-x, s[1]-y) > Math.min(W, H) * .3) far.push(i); }); if (!far.length) SPOTS.forEach((s, i) => { if (i !== spot) far.push(i); }); spot = far[Math.floor(Math.random() * far.length)]; tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; k = .03; st = 'flee'; }
@@ -201,9 +201,23 @@ const input = $('user-input');
 const sendBtn = $('send-btn');
 const chatHistory = $('chat-history');
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
-let isSending = false;
 
-function addToHistory(text, sender) {
+let chatMessages = JSON.parse(localStorage.getItem('holo_chat_history') || '[]');
+
+if (chatMessages.length > 0) {
+    chatMessages.forEach(msg => addToHistoryDOM(msg.text, msg.sender));
+} else {
+    setTimeout(() => {
+        Hologram.react('happy', 'wave', 3500);
+        addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
+    }, 500);
+}
+
+function saveHistory() {
+    localStorage.setItem('holo_chat_history', JSON.stringify(chatMessages));
+}
+
+function addToHistoryDOM(text, sender) {
     const row = document.createElement('div');
     row.className = `msg-row ${sender}`;
     const avatar = document.createElement('div');
@@ -217,6 +231,14 @@ function addToHistory(text, sender) {
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
+function addToHistory(text, sender) {
+    addToHistoryDOM(text, sender);
+    chatMessages.push({ sender, text });
+    saveHistory();
+}
+
+let isSending = false;
+
 async function sendMessage(text) {
     if (!text || isSending) return;
     isSending = true;
@@ -226,12 +248,12 @@ async function sendMessage(text) {
     input.disabled = true;
     sendBtn.disabled = true;
     
+    // Сбрасываем злость, если она была
+    if (st === 'mad') { angT = 0; st = 'hover'; }
+
     Hologram.react('thinking', 'think');
 
-    // Собираем историю последних 5 сообщений для памяти
-    const historyElements = Array.from(chatHistory.querySelectorAll('.message'));
-    const lastMessages = historyElements.slice(-5).map(el => el.textContent);
-    const historyContext = lastMessages.join('\n');
+    const historyForServer = chatMessages.slice(-10).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
 
     try {
         const response = await fetch(`${BACKEND_URL}/ask`, {
@@ -239,7 +261,7 @@ async function sendMessage(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 text: text,
-                history: historyContext 
+                history: historyForServer 
             })
         });
 
@@ -272,9 +294,11 @@ async function sendMessage(text) {
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
 
+// Функция запуска при первом прилете
 function onFirstArrive(){
-    Hologram.react('happy', 'wave', 3500);
-    if (chatHistory.children.length === 0) {
+    ang = 0; angT = 0; st = 'hover'; // Сбрасываем злость при старте
+    if (chatMessages.length === 0) {
+        Hologram.react('happy', 'wave', 3500);
         addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
     }
 }
