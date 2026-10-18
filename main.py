@@ -35,7 +35,7 @@ SYSTEM_PROMPT = """
 async def ask(request: UserRequest):
     try:
         response = await client.chat.completions.create(
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-5.4-mini"
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": request.text}
