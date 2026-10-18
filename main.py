@@ -13,19 +13,18 @@ client = AsyncOpenAI(
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Список танцев для случайного выбора на бэкенде
 DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
 
 SYSTEM_PROMPT = """
 Ты — ИИ-друг, голографический робот. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией.
 Отвечай коротко (1-3 предложения).
 
-Ты умеешь не только говорить, но и показывать эмоции и танцевать.
-Доступные эмоции: happy, sad, surprised, angry, thinking, sleepy.
-Доступные танцы: disco, dab, floss, robot, party, twist.
+Ты умеешь показывать эмоции и танцевать.
+Эмоции: happy, sad, surprised, angry, thinking, sleepy.
+Танцы: disco, dab, floss, robot, party, twist.
 
-Если пользователь просит станцевать (например, "станцуй", "покажи танец"), верни JSON:
-{"text": "твой ответ (например: Лови мой флосс!)", "action": "dance"}
+Если тебя просят станцевать, верни JSON:
+{"text": "твой ответ", "action": "dance"}
 
 В остальных случаях верни JSON:
 {"text": "твой ответ", "emotion": "название_эмоции"}
@@ -36,14 +35,14 @@ async def ask(request: Request):
     try:
         data = await request.json()
         user_text = data.get("text", "").lower()
+        history_text = data.get("history", "") # Получаем историю
         
         if not user_text:
             return {"text": "Я не вижу текста.", "emotion": "thinking"}
 
-        # Если просят танец, мы не спрашиваем ИИ, а сами выбираем случайный танец
+        # Если просят танец
         if "станц" in user_text or "танец" in user_text or "танцуй" in user_text:
             chosen_dance = random.choice(DANCE_LIST)
-            # Просим ИИ придумать короткую фразу
             response = await client.chat.completions.create(
                 model="openai/gpt-4o-mini",
                 messages=[
@@ -56,13 +55,19 @@ async def ask(request: Request):
             text = response.choices[0].message.content
             return {"text": text, "action": "dance", "dance_name": chosen_dance}
 
-        # Для обычных вопросов
+        # Для обычных вопросов с учетом истории
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT}
+        ]
+        
+        if history_text:
+            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}\n\nОтветь на моё последнее сообщение с учетом этого контекста."})
+
+        messages.append({"role": "user", "content": user_text})
+
         response = await client.chat.completions.create(
             model="openai/gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_text}
-            ],
+            messages=messages,
             max_tokens=200,
             temperature=0.7,
             response_format={"type": "json_object"}
