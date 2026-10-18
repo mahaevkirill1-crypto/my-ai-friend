@@ -164,8 +164,8 @@
             <!-- Облачко для последнего ответа -->
             <div class="speech-bubble" id="speech-bubble"></div>
             
-            <!-- Картинка робота с твоим точным именем файла -->
-            <img src="IMG_1204.jpeg" alt="Robot" class="character-img" id="character-img">
+            <!-- Картинка робота с твоим точным именем файла (и защитой от кэша ?v=2) -->
+            <img src="IMG_1204.jpeg?v=2" alt="Robot" class="character-img" id="character-img">
         </div>
     </div>
 
@@ -263,6 +263,7 @@
 
         // Приветствие при загрузке
         setTimeout(() => showBubble("Привет! Как дела?"), 500);
-    </script>
+    </script> 
+    <!-- v2 для сброса кэша -->
 </body>
 </html>
