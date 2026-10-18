@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -15,12 +15,12 @@
     }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, sans-serif; overflow: hidden; }
-    body { display: flex; flex-direction: column; align-items: center; height: 100vh; }
+    html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
+    body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 10px; }
 
-    /* SVG Робот */
-    #stage { width: 100%; flex: 0 0 35vh; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 10px; }
-    svg { width: 100%; max-width: 300px; height: 100%; display: block; overflow: visible; }
+    /* Сцена с роботом */
+    #stage { width: 100%; flex: 0 0 38vh; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 10px; }
+    svg { width: 100%; max-width: 320px; height: 100%; display: block; overflow: visible; }
     .c { fill: var(--c); transition: fill .5s; }
     .s { stroke: var(--s); transition: stroke .5s; }
     .float { animation: fl 3.2s ease-in-out infinite; }
@@ -58,31 +58,39 @@
 <body>
 
 <div id="stage">
-    <svg id="svg" viewBox="80 60 220 350" role="img" aria-label="Голограмма-бот" style="--c:#4FD1E8;--s:#9AF0FF">
-      <polygon class="c" points="140,380 240,380 285,150 95,150" fill-opacity=".1"/>
-      <ellipse cx="190" cy="385" rx="85" ry="16" fill="#123A4A" class="s" stroke-width="1.5"/>
-      <ellipse class="s pulse" cx="190" cy="385" rx="55" ry="9" fill="none" stroke-width="1"/>
-      <g class="float">
-        <rect class="c s" x="160" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/>
-        <rect class="c s" x="198" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/>
-        <rect class="c s" x="148" y="188" width="84" height="100" rx="26" fill-opacity=".6" stroke-width="1.5"/>
-        <circle class="c s" cx="190" cy="140" r="46" fill-opacity=".7" stroke-width="2"/>
-        <line class="s" x1="190" y1="94" x2="190" y2="80" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="190" cy="76" r="5" fill="#FFD166"/>
-        <ellipse id="ckL" cx="160" cy="154" rx="7" ry="4" fill="#FF9EC4"/>
-        <ellipse id="ckR" cx="220" cy="154" rx="7" ry="4" fill="#FF9EC4"/>
-        <line id="brL" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>
-        <line id="brR" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>
-        <ellipse id="eL" cx="174" cy="136" fill="#0E1726"/>
-        <ellipse id="eR" cx="206" cy="136" fill="#0E1726"/>
-        <circle id="hL" r="2.5" fill="#fff"/>
-        <circle id="hR" r="2.5" fill="#fff"/>
-        <path id="mouth" stroke="#0E1726" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="#0E1726"/>
-        <rect id="aL" class="c s" x="124" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
-        <rect id="aR" class="c s" x="232" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
-        <text id="z" x="236" y="104" fill="#C8F8FF" font-size="18" font-family="system-ui,sans-serif">z z</text>
-      </g>
-    </svg>
+<svg id="svg" viewBox="80 60 220 350" role="img" aria-label="Голограмма-бот" style="--c:#4FD1E8;--s:#9AF0FF">
+  <polygon class="c" points="140,380 240,380 285,150 95,150" fill-opacity=".1"/>
+  <ellipse cx="190" cy="385" rx="85" ry="16" fill="#123A4A" class="s" stroke-width="1.5"/>
+  <ellipse class="s pulse" cx="190" cy="385" rx="55" ry="9" fill="none" stroke-width="1"/>
+
+  <g class="float">
+   <g id="fig">
+    <g id="lgL"><rect class="c s" x="160" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/></g>
+    <g id="lgR"><rect class="c s" x="198" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/></g>
+    <rect class="c s" x="148" y="188" width="84" height="100" rx="26" fill-opacity=".6" stroke-width="1.5"/>
+
+    <g id="hd">
+      <circle class="c s" cx="190" cy="140" r="46" fill-opacity=".7" stroke-width="2"/>
+      <line class="s" x1="190" y1="94" x2="190" y2="80" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="190" cy="76" r="5" fill="#FFD166"/>
+      <ellipse id="ckL" cx="160" cy="154" rx="7" ry="4" fill="#FF9EC4"/>
+      <ellipse id="ckR" cx="220" cy="154" rx="7" ry="4" fill="#FF9EC4"/>
+      <line id="brL" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>
+      <line id="brR" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>
+      <ellipse id="eL" cx="174" cy="136" fill="#0E1726"/>
+      <ellipse id="eR" cx="206" cy="136" fill="#0E1726"/>
+      <circle id="hL" r="2.5" fill="#fff"/>
+      <circle id="hR" r="2.5" fill="#fff"/>
+      <path id="mouth" stroke="#0E1726" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="#0E1726"/>
+    </g>
+
+    <rect id="aL" class="c s" x="124" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
+    <rect id="aR" class="c s" x="232" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
+
+    <text id="z" x="236" y="104" fill="#C8F8FF" font-size="18" font-family="system-ui,sans-serif">z z</text>
+   </g>
+  </g>
+</svg>
 </div>
 
 <div id="chat-history"></div>
@@ -95,7 +103,7 @@
 </div>
 
 <script>
-/* ===== 1. ЛОГИКА РОБОТА ===== */
+/* ===== 1. ЭМОЦИИ, ПОЗЫ И ТАНЦЫ ===== */
 const EMOTIONS = {
   happy:     {label:'Радость',   c:'#4FD1E8', s:'#9AF0FF', eRx:7, eRy:9,   eDx:0, eDy:0,  bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:174,my0:158,mcx:190,mcy:174,mx1:206,my1:158, mf:0, ck:.7, zo:0},
   sad:       {label:'Грусть',    c:'#6C8CF0', s:'#B4C6FF', eRx:7, eRy:8,   eDx:0, eDy:2,  bo:1, bLO:122,bLI:114,bRO:122,bRI:114, mx0:176,my0:166,mcx:190,mcy:154,mx1:204,my1:166, mf:0, ck:.1, zo:0},
@@ -110,68 +118,75 @@ const POSES = {
   cheer: {label:'Ура',       aL:150, aR:-150, oL:8, oR:8},
   think: {label:'Задумался', aL:8,   aR:112,  oL:0, oR:0}
 };
+const ROBOT = [[90,-90],[150,-90],[90,-150],[10,-10],[150,-150],[90,-90]];
+const DANCES = {
+  disco: {label:'Диско', f(w){ const k = Math.sin(w*3.1); return [80-70*k, -80-70*k, 3*k, 0, 6*k, -6*k, 5*k, 5*k]; }},
+  dab: {label:'Дэб', f(w){ const c = w/1.6, a = Math.pow(Math.max(0, Math.sin((c%1)*Math.PI)), .6); const s = Math.floor(c)%2 ? -1 : 1; return [6+(s>0?-126:129)*a, -6+(s>0?-129:126)*a, 0, 0, -4*s*a, -18*s*a, 0, 0]; }},
+  floss: {label:'Флосс', f(w){ const k = Math.sin(w*12); return [10-55*k, -10-55*k, -7*k, 0, -4*k, 3*k, 8*k, 8*k]; }},
+  robot: {label:'Робот', f(w){ const q = w/.55, i = Math.floor(q), e = Math.min(1, (q%1)*8), n = ROBOT.length; const p = ROBOT[(i+n-1)%n], m = ROBOT[i%n]; const h0 = ((i+n-1)%2 ? 1 : -1)*12, h1 = (i%2 ? 1 : -1)*12; return [p[0]+(m[0]-p[0])*e, p[1]+(m[1]-p[1])*e, 0, 0, 0, h0+(h1-h0)*e, 0, 0]; }},
+  party: {label:'Вечеринка', f(w){ const k = Math.sin(w*9); return [145+16*k, -145-16*k, 0, -7*Math.abs(Math.sin(w*4.5)), 0, 5*Math.sin(w*4.5), 0, 0]; }},
+  twist: {label:'Твист', f(w){ const k = Math.sin(w*8); return [20-30*k, -20-30*k, 4*k, 0, 14*k, -6*k, 6*k, 6*k]; }}
+};
 
 const $ = id => document.getElementById(id);
+const tr = (id, v) => $(id).setAttribute('transform', v);
 const svg = $('svg');
 const cur = {}, tgt = {};
-let blink = 0;
+let blink = 0, dance = null, t0 = 0, want = 0, dw = 0;
 
 function setTargets(obj){
-  for (const k in obj){
-    if (typeof obj[k] !== 'number') continue;
-    tgt[k] = obj[k];
-    if (!(k in cur)) cur[k] = obj[k];
-  }
+  for (const k in obj){ if (typeof obj[k] !== 'number') continue; tgt[k] = obj[k]; if (!(k in cur)) cur[k] = obj[k]; }
 }
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 
 function frame(t){
   for (const k in tgt) cur[k] += (tgt[k] - cur[k]) * 0.14;
+
+  dw += (want - dw) * 0.12;
+  if (!want && dance && dw < .02) dance = null;
+
   const w = Math.sin(t / 110);
-  $('aL').setAttribute('transform', `rotate(${cur.aL + cur.oL * w} 136 204)`);
-  $('aR').setAttribute('transform', `rotate(${cur.aR + cur.oR * w} 244 204)`);
+  const bL = cur.aL + cur.oL * w, bR = cur.aR + cur.oR * w;
+  const d = dance ? DANCES[dance].f((t - t0) / 1000) : [bL, bR, 0, 0, 0, 0, 0, 0];
+
+  tr('aL',  `rotate(${bL + (d[0]-bL)*dw} 136 204)`);
+  tr('aR',  `rotate(${bR + (d[1]-bR)*dw} 244 204)`);
+  tr('fig', `translate(${d[2]*dw} ${d[3]*dw}) rotate(${d[4]*dw} 190 362)`);
+  tr('hd',  `rotate(${d[5]*dw} 190 186)`);
+  tr('lgL', `rotate(${d[6]*dw} 171 270)`);
+  tr('lgR', `rotate(${d[7]*dw} 209 270)`);
 
   const ry = cur.eRy * (blink ? 0.12 : 1);
   for (const [e, h, x] of [['eL','hL',174], ['eR','hR',206]]){
-    $(e).setAttribute('rx', cur.eRx);
-    $(e).setAttribute('ry', Math.max(ry, 1));
-    $(e).setAttribute('cy', 136 + cur.eDy);
-    $(e).setAttribute('cx', x + cur.eDx);
-    $(h).setAttribute('cx', x + cur.eDx + 2);
-    $(h).setAttribute('cy', 133 + cur.eDy);
-    $(h).setAttribute('opacity', ry > 2 ? 1 : 0);
+    $(e).setAttribute('rx', cur.eRx); $(e).setAttribute('ry', Math.max(ry, 1));
+    $(e).setAttribute('cy', 136 + cur.eDy); $(e).setAttribute('cx', x + cur.eDx);
+    $(h).setAttribute('cx', x + cur.eDx + 2); $(h).setAttribute('cy', 133 + cur.eDy); $(h).setAttribute('opacity', ry > 2 ? 1 : 0);
   }
   for (const [b, o, i, x1, x2] of [['brL','bLO','bLI',164,182], ['brR','bRI','bRO',198,216]]){
-    const el = $(b);
-    el.setAttribute('x1', x1); el.setAttribute('y1', cur[o]);
-    el.setAttribute('x2', x2); el.setAttribute('y2', cur[i]);
-    el.setAttribute('opacity', cur.bo);
+    const el = $(b); el.setAttribute('x1', x1); el.setAttribute('y1', cur[o]);
+    el.setAttribute('x2', x2); el.setAttribute('y2', cur[i]); el.setAttribute('opacity', cur.bo);
   }
   $('mouth').setAttribute('d', `M${cur.mx0} ${cur.my0} Q${cur.mcx} ${cur.mcy} ${cur.mx1} ${cur.my1}`);
   $('mouth').setAttribute('fill-opacity', cur.mf);
-  $('ckL').setAttribute('opacity', cur.ck);
-  $('ckR').setAttribute('opacity', cur.ck);
-  $('z').setAttribute('opacity', cur.zo);
+  $('ckL').setAttribute('opacity', cur.ck); $('ckR').setAttribute('opacity', cur.ck); $('z').setAttribute('opacity', cur.zo);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-(function loop(){
-  setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000);
-})();
+(function loop(){ setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000); })();
 
-let resetTimer;
+/* ===== 2. УПРАВЛЕНИЕ РОБОТОМ ===== */
+let resetTimer, danceTimer;
 const Hologram = {
-  emotion(name){
-    const e = EMOTIONS[name]; if (!e) return;
-    setTargets(e);
-    svg.style.setProperty('--c', e.c);
-    svg.style.setProperty('--s', e.s);
+  emotion(name){ const e = EMOTIONS[name]; if (!e) return; setTargets(e); svg.style.setProperty('--c', e.c); svg.style.setProperty('--s', e.s); },
+  pose(name){ const p = POSES[name]; if (!p) return; this.stopDance(); setTargets(p); },
+  dance(name, ms){
+    if (!DANCES[name]) return;
+    clearTimeout(resetTimer); clearTimeout(danceTimer);
+    this.emotion('happy'); dance = name; t0 = performance.now(); want = 1;
+    if (ms) danceTimer = setTimeout(() => this.stopDance(), ms);
   },
-  pose(name){
-    const p = POSES[name]; if (!p) return;
-    setTargets(p);
-  },
+  stopDance(){ clearTimeout(danceTimer); want = 0; },
   react(emotion, pose, ms){
     clearTimeout(resetTimer);
     this.emotion(emotion); this.pose(pose);
@@ -179,14 +194,13 @@ const Hologram = {
   }
 };
 
-/* ===== 2. ЛОГИКА ЧАТА И ИИ ===== */
+/* ===== 3. ЛОГИКА ЧАТА И ИИ ===== */
 const tg = window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); }
 
 const input = $('user-input');
 const sendBtn = $('send-btn');
 const chatHistory = $('chat-history');
-
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 let isSending = false;
 
@@ -199,8 +213,7 @@ function addToHistory(text, sender) {
     const msg = document.createElement('div');
     msg.className = 'message';
     msg.textContent = text;
-    row.appendChild(avatar);
-    row.appendChild(msg);
+    row.appendChild(avatar); row.appendChild(msg);
     chatHistory.appendChild(row);
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
@@ -214,7 +227,6 @@ async function sendMessage(text) {
     input.disabled = true;
     sendBtn.disabled = true;
     
-    // Робот задумался, пока ИИ думает
     Hologram.react('thinking', 'think');
 
     try {
@@ -228,12 +240,17 @@ async function sendMessage(text) {
         
         const data = await response.json();
         
-        // Робот радуется и машет, показывая ответ
-        let pose = 'idle';
-        if (data.emotion === 'happy') pose = 'wave';
-        if (data.emotion === 'surprised') pose = 'cheer';
+        // Если ИИ попросил танец
+        if (data.action === 'dance') {
+            Hologram.dance(data.dance_name || 'floss', 5000);
+        } else {
+            // Иначе просто эмоция
+            let pose = 'idle';
+            if (data.emotion === 'happy') pose = 'wave';
+            if (data.emotion === 'surprised') pose = 'cheer';
+            Hologram.react(data.emotion, pose, 4000); 
+        }
         
-        Hologram.react(data.emotion, pose, 4000); // Эмоция держится 4 секунды, потом сброс
         addToHistory(data.text, 'bot');
 
     } catch (error) {
@@ -248,11 +265,8 @@ async function sendMessage(text) {
 }
 
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
-input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage(input.value.trim());
-});
+input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
 
-// Приветствие
 setTimeout(() => {
     Hologram.react('happy', 'wave');
     addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
