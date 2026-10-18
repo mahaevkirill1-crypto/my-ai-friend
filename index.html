@@ -8,6 +8,7 @@
 <style>
     :root {
         --bg-color: #0E1726; 
+        --panel-bg: #1A2638;
         --bot-msg-bg: #1c2533; 
         --user-msg-bg: #2b5278; 
         --text-color: #ffffff;
@@ -18,20 +19,46 @@
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 10px; }
 
-    #stage { width: 100%; flex: 0 0 38vh; }
-    #sv {
-        position: fixed; inset: 0; width: 100%; height: 100%;
-        z-index: 30; pointer-events: none; display: block;
-        touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
-        --c: #4FD1E8; --s: #9AF0FF;
+    #header {
+        width: 100%; max-width: 450px; display: flex; justify-content: space-between; align-items: center;
+        padding: 0 16px; z-index: 40; flex-shrink: 0;
     }
+    #menu-btn {
+        background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color);
+        border-radius: 8px; padding: 6px 12px; font-size: 14px; cursor: pointer;
+    }
+
+    #sidebar {
+        position: fixed; top: 0; left: -100%; width: 80%; max-width: 300px; height: 100%;
+        background: var(--panel-bg); z-index: 100; transition: left 0.3s ease;
+        display: flex; flex-direction: column; padding: 20px;
+        box-shadow: 5px 0 20px rgba(0,0,0,0.5);
+    }
+    #sidebar.open { left: 0; }
+    #sidebar h2 { font-size: 18px; margin-top: 0; color: var(--accent-color); }
+    #new-chat-btn {
+        background: var(--accent-color); color: #000; border: none; border-radius: 8px;
+        padding: 10px; font-weight: bold; cursor: pointer; margin-bottom: 20px;
+    }
+    #chat-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .chat-item {
+        padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer;
+        border: 1px solid transparent; transition: all 0.2s; font-size: 14px;
+    }
+    .chat-item:hover { border-color: var(--accent-color); }
+    .chat-item.active { border-color: var(--accent-color); background: rgba(79, 209, 232, 0.1); }
+    
+    #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 90; display: none; }
+    #overlay.open { display: block; }
+
+    #stage { width: 100%; flex: 0 0 30vh; }
+    #sv { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; display: block; touch-action: manipulation; user-select: none; --c: #4FD1E8; --s: #9AF0FF; }
     #fly { pointer-events: visiblePainted; cursor: pointer; }
     .c { fill: var(--c); }
     .s { stroke: var(--s); }
 
     #chat-history {
-        flex: 1; width: 100%; max-width: 450px;
-        overflow-y: auto; padding: 10px 16px;
+        flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 10px 16px;
         display: flex; flex-direction: column; gap: 10px; z-index: 20;
         mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
         -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
@@ -43,8 +70,6 @@
     .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
     .msg-row.user .avatar { background: var(--user-msg-bg); }
     .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
-    .message::-webkit-scrollbar { width: 4px; }
-    .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
     .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
 
@@ -55,6 +80,17 @@
 </style>
 </head>
 <body>
+
+<div id="header">
+    <button id="menu-btn">☰ Чаты</button>
+</div>
+
+<div id="overlay"></div>
+<div id="sidebar">
+    <h2>Мои чаты</h2>
+    <button id="new-chat-btn">+ Новый чат</button>
+    <div id="chat-list"></div>
+</div>
 
 <div id="stage"></div>
 
@@ -67,11 +103,9 @@
     <rect x="136" y="266" width="14" height="12" rx="3" fill="#1B2633" stroke="#4FD1E8"/>
     <rect x="230" y="266" width="14" height="12" rx="3" fill="#1B2633" stroke="#4FD1E8"/>
     <rect x="138" y="198" width="104" height="72" rx="12" fill="#2B3A4A" stroke="#4FD1E8" stroke-width="1.5"/>
-
     <g id="lgL"><rect class="c s" x="160" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/></g>
     <g id="lgR"><rect class="c s" x="198" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/></g>
     <rect class="c s" x="148" y="188" width="84" height="100" rx="26" fill-opacity=".6" stroke-width="1.5"/>
-
     <g id="hd">
       <circle class="c s" cx="190" cy="140" r="46" fill-opacity=".7" stroke-width="2"/>
       <line class="s" x1="190" y1="94" x2="190" y2="80" stroke-width="2" stroke-linecap="round"/>
@@ -86,10 +120,8 @@
       <circle id="hR" r="2.5" fill="#fff"/>
       <path id="mouth" stroke="#0E1726" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="#0E1726"/>
     </g>
-
     <rect id="aL" class="c s" x="124" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
     <rect id="aR" class="c s" x="232" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
-
     <text id="z" x="236" y="104" fill="#C8F8FF" font-size="18" font-family="system-ui,sans-serif">z z</text>
    </g>
   </g>
@@ -105,195 +137,146 @@
 </div>
 
 <script>
-/* ===== 1. ЭМОЦИИ, ПОЗЫ И ТАНЦЫ ===== */
+/* ===== 1. РОБОТ ===== */
 const EMOTIONS = {
-  happy:     {label:'Радость',   c:'#4FD1E8', s:'#9AF0FF', eRx:7, eRy:9,   eDx:0, eDy:0,  bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:174,my0:158,mcx:190,mcy:174,mx1:206,my1:158, mf:0, ck:.7, zo:0},
-  sad:       {label:'Грусть',    c:'#6C8CF0', s:'#B4C6FF', eRx:7, eRy:8,   eDx:0, eDy:2,  bo:1, bLO:122,bLI:114,bRO:122,bRI:114, mx0:176,my0:166,mcx:190,mcy:154,mx1:204,my1:166, mf:0, ck:.1, zo:0},
-  surprised: {label:'Удивление', c:'#FFC857', s:'#FFE6A8', eRx:8, eRy:12,  eDx:0, eDy:0,  bo:1, bLO:112,bLI:110,bRO:112,bRI:110, mx0:183,my0:158,mcx:190,mcy:184,mx1:197,my1:158, mf:1, ck:.4, zo:0},
-  angry:     {label:'Злость',    c:'#FF6B6B', s:'#FFB3B3', eRx:7, eRy:6,   eDx:0, eDy:0,  bo:1, bLO:113,bLI:123,bRO:113,bRI:123, mx0:177,my0:164,mcx:190,mcy:156,mx1:203,my1:164, mf:0, ck:0,  zo:0},
-  thinking:  {label:'Думает',    c:'#A78BFA', s:'#D4C5FF', eRx:7, eRy:9,   eDx:3, eDy:-3, bo:1, bLO:120,bLI:120,bRO:112,bRI:114, mx0:180,my0:162,mcx:190,mcy:162,mx1:200,my1:162, mf:0, ck:.3, zo:0},
-  sleepy:    {label:'Сон',       c:'#5E8CA8', s:'#A9C7DB', eRx:8, eRy:1.5, eDx:0, eDy:0,  bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:182,my0:162,mcx:190,mcy:166,mx1:198,my1:162, mf:0, ck:.5, zo:1}
+  happy: {label:'Радость', c:'#4FD1E8', s:'#9AF0FF', eRx:7, eRy:9, eDx:0, eDy:0, bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:174,my0:158,mcx:190,mcy:174,mx1:206,my1:158, mf:0, ck:.7, zo:0},
+  sad: {label:'Грусть', c:'#6C8CF0', s:'#B4C6FF', eRx:7, eRy:8, eDx:0, eDy:2, bo:1, bLO:122,bLI:114,bRO:122,bRI:114, mx0:176,my0:166,mcx:190,mcy:154,mx1:204,my1:166, mf:0, ck:.1, zo:0},
+  surprised: {label:'Удивление', c:'#FFC857', s:'#FFE6A8', eRx:8, eRy:12, eDx:0, eDy:0, bo:1, bLO:112,bLI:110,bRO:112,bRI:110, mx0:183,my0:158,mcx:190,mcy:184,mx1:197,my1:158, mf:1, ck:.4, zo:0},
+  angry: {label:'Злость', c:'#FF6B6B', s:'#FFB3B3', eRx:7, eRy:6, eDx:0, eDy:0, bo:1, bLO:113,bLI:123,bRO:113,bRI:123, mx0:177,my0:164,mcx:190,mcy:156,mx1:203,my1:164, mf:0, ck:0, zo:0},
+  thinking: {label:'Думает', c:'#A78BFA', s:'#D4C5FF', eRx:7, eRy:9, eDx:3, eDy:-3, bo:1, bLO:120,bLI:120,bRO:112,bRI:114, mx0:180,my0:162,mcx:190,mcy:162,mx1:200,my1:162, mf:0, ck:.3, zo:0},
+  sleepy: {label:'Сон', c:'#5E8CA8', s:'#A9C7DB', eRx:8, eRy:1.5, eDx:0, eDy:0, bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:182,my0:162,mcx:190,mcy:166,mx1:198,my1:162, mf:0, ck:.5, zo:1}
 };
-const POSES = {
-  idle:  {label:'Стоит',     aL:6,   aR:-6,   oL:0, oR:0},
-  wave:  {label:'Машет',     aL:6,   aR:-148, oL:0, oR:14},
-  cheer: {label:'Ура',       aL:150, aR:-150, oL:8, oR:8},
-  think: {label:'Задумался', aL:8,   aR:112,  oL:0, oR:0}
-};
+const POSES = { idle: {aL:6, aR:-6, oL:0, oR:0}, wave: {aL:6, aR:-148, oL:0, oR:14}, cheer: {aL:150, aR:-150, oL:8, oR:8}, think: {aL:8, aR:112, oL:0, oR:0} };
 const ROBOT = [[90,-90],[150,-90],[90,-150],[10,-10],[150,-150],[90,-90]];
 const DANCES = {
-  disco: {label:'Диско', f(w){ const k = Math.sin(w*3.1); return [80-70*k, -80-70*k, 3*k, 0, 6*k, -6*k, 5*k, 5*k]; }},
-  dab: {label:'Дэб', f(w){ const c = w/1.6, a = Math.pow(Math.max(0, Math.sin((c%1)*Math.PI)), .6); const s = Math.floor(c)%2 ? -1 : 1; return [6+(s>0?-126:129)*a, -6+(s>0?-129:126)*a, 0, 0, -4*s*a, -18*s*a, 0, 0]; }},
-  floss: {label:'Флосс', f(w){ const k = Math.sin(w*12); return [10-55*k, -10-55*k, -7*k, 0, -4*k, 3*k, 8*k, 8*k]; }},
-  robot: {label:'Робот', f(w){ const q = w/.55, i = Math.floor(q), e = Math.min(1, (q%1)*8), n = ROBOT.length; const p = ROBOT[(i+n-1)%n], m = ROBOT[i%n]; const h0 = ((i+n-1)%2 ? 1 : -1)*12, h1 = (i%2 ? 1 : -1)*12; return [p[0]+(m[0]-p[0])*e, p[1]+(m[1]-p[1])*e, 0, 0, 0, h0+(h1-h0)*e, 0, 0]; }},
-  party: {label:'Вечеринка', f(w){ const k = Math.sin(w*9); return [145+16*k, -145-16*k, 0, -7*Math.abs(Math.sin(w*4.5)), 0, 5*Math.sin(w*4.5), 0, 0]; }},
-  twist: {label:'Твист', f(w){ const k = Math.sin(w*8); return [20-30*k, -20-30*k, 4*k, 0, 14*k, -6*k, 6*k, 6*k]; }}
+  disco: {f(w){ const k = Math.sin(w*3.1); return [80-70*k, -80-70*k, 3*k, 0, 6*k, -6*k, 5*k, 5*k]; }},
+  dab: {f(w){ const c = w/1.6, a = Math.pow(Math.max(0, Math.sin((c%1)*Math.PI)), .6); const s = Math.floor(c)%2 ? -1 : 1; return [6+(s>0?-126:129)*a, -6+(s>0?-129:126)*a, 0, 0, -4*s*a, -18*s*a, 0, 0]; }},
+  floss: {f(w){ const k = Math.sin(w*12); return [10-55*k, -10-55*k, -7*k, 0, -4*k, 3*k, 8*k, 8*k]; }},
+  robot: {f(w){ const q = w/.55, i = Math.floor(q), e = Math.min(1, (q%1)*8), n = ROBOT.length; const p = ROBOT[(i+n-1)%n], m = ROBOT[i%n]; const h0 = ((i+n-1)%2 ? 1 : -1)*12, h1 = (i%2 ? 1 : -1)*12; return [p[0]+(m[0]-p[0])*e, p[1]+(m[1]-p[1])*e, 0, 0, 0, h0+(h1-h0)*e, 0, 0]; }},
+  party: {f(w){ const k = Math.sin(w*9); return [145+16*k, -145-16*k, 0, -7*Math.abs(Math.sin(w*4.5)), 0, 5*Math.sin(w*4.5), 0, 0]; }},
+  twist: {f(w){ const k = Math.sin(w*8); return [20-30*k, -20-30*k, 4*k, 0, 14*k, -6*k, 6*k, 6*k]; }}
 };
-
 const $ = id => document.getElementById(id);
-const tr = (id, v) => $(id).setAttribute('transform', v);
 const A = (id, a, v) => $(id).setAttribute(a, v);
 const cl = (x, a, b) => Math.max(a, Math.min(b, x));
-const svg = $('sv');
 const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
-
 const cur = {}, tgt = {};
 let blink = 0, dance = null, t0 = 0, want = 0, dw = 0;
 let colC = hex('#4FD1E8'), colS = hex('#9AF0FF'), tgC = colC, tgS = colS;
 const ANG = EMOTIONS.angry, ANGC = hex(ANG.c), ANGS = hex(ANG.s);
-
 let W = 0, H = 0, SC = .5, SPOTS = [];
 let st = 'enter', spot = 0, firstArrival = true;
 let x = 0, y = 0, vx = 0, vy = 0, tx = 0, ty = 0, k = .01;
 let ang = 0, angT = 0, madT = 0, coolTimer = 0, last = 0;
 
-function setTargets(obj){
-  for (const key in obj){ if (typeof obj[key] !== 'number') continue; tgt[key] = obj[key]; if (!(key in cur)) cur[key] = obj[key]; }
-}
+function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'number') continue; tgt[key] = obj[key]; if (!(key in cur)) cur[key] = obj[key]; } }
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
-
-function layout(){
-  W = innerWidth; H = innerHeight;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  SC = cl(Math.min(W, H) / 760, .38, .6);
-  const r = $('stage').getBoundingClientRect();
-  const sy = r.top + r.height * .5;
-  SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]];
-  if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; }
-}
-addEventListener('resize', layout);
-layout();
-
-function enter(){
-  const m = 100;
-  const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]];
-  const c = corners[Math.floor(Math.random() * 4)];
-  x = c[0]; y = c[1]; vx = vy = 0;
-  spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1];
-  k = .01; ang = angT = 0; st = 'enter';
-  clearTimeout(coolTimer);
-}
-
-function annoy(){
-  if (st === 'mad') return;
-  clearTimeout(coolTimer); clearTimeout(resetTimer);
-  Hologram.stopDance();
-  st = 'mad'; madT = performance.now();
-  angT = 1; tx = x; ty = y;
-  const tg = window.Telegram && Telegram.WebApp;
-  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-}
+function layout(){ W = innerWidth; H = innerHeight; $('sv').setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); const r = $('stage').getBoundingClientRect(); SPOTS = [[W*.5, r.top + r.height*.5], [W*.2, r.top*.85], [W*.8, r.top*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
+addEventListener('resize', layout); layout();
+function enter(){ const m = 100; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[Math.floor(Math.random() * 4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
+function annoy(){ if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; const tg = window.Telegram && Telegram.WebApp; if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
 $('fly').addEventListener('pointerdown', annoy);
-
-function flame(outer, inner, cx, L){
-  A(outer, 'points', `${cx-8},276 ${cx+8},276 ${cx},${276+L}`);
-  A(inner, 'points', `${cx-4},276 ${cx+4},276 ${cx},${276+L*.6}`);
-}
-
+function flame(o, i, cx, L){ A(o, 'points', `${cx-8},276 ${cx+8},276 ${cx},${276+L}`); A(i, 'points', `${cx-4},276 ${cx+4},276 ${cx},${276+L*.6}`); }
 function frame(t){
   const dt = Math.min(2.5, (t - last) / 16.7); last = t;
-
-  if (st === 'mad' && t - madT > 650){
-    let far = [];
-    SPOTS.forEach((s, i) => { if (i !== spot && Math.hypot(s[0]-x, s[1]-y) > Math.min(W, H) * .3) far.push(i); });
-    if (!far.length) SPOTS.forEach((s, i) => { if (i !== spot) far.push(i); });
-    spot = far[Math.floor(Math.random() * far.length)];
-    tx = SPOTS[spot][0]; ty = SPOTS[spot][1];
-    k = .03; st = 'flee';
-  }
-
-  const dm = 1.8 * Math.sqrt(k);
-  vx += ((tx - x) * k - vx * dm) * dt;
-  vy += ((ty - y) * k - vy * dm) * dt;
-  x += vx * dt; y += vy * dt;
-  const sp = Math.hypot(vx, vy);
-
-  if ((st === 'enter' || st === 'flee') && Math.hypot(tx - x, ty - y) < 5 && sp < .4){
-    const was = st;
-    st = 'hover'; k = .012;
-    if (was === 'flee') coolTimer = setTimeout(() => { angT = 0; }, 2500);
-    else angT = 0;
-    if (firstArrival){ firstArrival = false; onFirstArrive(); }
-  }
-
-  ang += (angT - ang) * .08 * dt;
-  for (const key in tgt) cur[key] += (tgt[key] - cur[key]) * 0.14;
-  dw += (want - dw) * 0.12;
-  if (!want && dance && dw < .02) dance = null;
-
-  const rx = x + (st === 'mad' ? 3 * Math.sin(t / 40) : 0);
-  const ry = y + 6 * Math.sin(t / 420);
-  const tilt = cl(vx * 2.2, -22, 22) + (st === 'mad' ? 4 * Math.sin(t / 45) : 0);
-  tr('fly', `translate(${rx} ${ry}) rotate(${tilt}) scale(${SC}) translate(-190 -220)`);
-
+  if (st === 'mad' && t - madT > 650){ let far = []; SPOTS.forEach((s, i) => { if (i !== spot && Math.hypot(s[0]-x, s[1]-y) > Math.min(W, H) * .3) far.push(i); }); if (!far.length) SPOTS.forEach((s, i) => { if (i !== spot) far.push(i); }); spot = far[Math.floor(Math.random() * far.length)]; tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; k = .03; st = 'flee'; }
+  const dm = 1.8 * Math.sqrt(k); vx += ((tx - x) * k - vx * dm) * dt; vy += ((ty - y) * k - vy * dm) * dt; x += vx * dt; y += vy * dt; const sp = Math.hypot(vx, vy);
+  if ((st === 'enter' || st === 'flee') && Math.hypot(tx - x, ty - y) < 5 && sp < .4){ const was = st; st = 'hover'; k = .012; if (was === 'flee') coolTimer = setTimeout(() => { angT = 0; }, 2500); else angT = 0; if (firstArrival){ firstArrival = false; onFirstArrive(); } }
+  ang += (angT - ang) * .08 * dt; for (const key in tgt) cur[key] += (tgt[key] - cur[key]) * 0.14; dw += (want - dw) * 0.12; if (!want && dance && dw < .02) dance = null;
+  const rx = x + (st === 'mad' ? 3 * Math.sin(t / 40) : 0); const ry = y + 6 * Math.sin(t / 420); const tilt = cl(vx * 2.2, -22, 22) + (st === 'mad' ? 4 * Math.sin(t / 45) : 0);
+  $('fly').setAttribute('transform', `translate(${rx} ${ry}) rotate(${tilt}) scale(${SC}) translate(-190 -220)`);
   for (let i = 0; i < 3; i++){ colC[i] += (tgC[i] - colC[i]) * .1; colS[i] += (tgS[i] - colS[i]) * .1; }
-  const m = (a, b) => Math.round(a + (b - a) * ang);
-  svg.style.setProperty('--c', `rgb(${m(colC[0],ANGC[0])},${m(colC[1],ANGC[1])},${m(colC[2],ANGC[2])})`);
-  svg.style.setProperty('--s', `rgb(${m(colS[0],ANGS[0])},${m(colS[1],ANGS[1])},${m(colS[2],ANGS[2])})`);
-
-  const L = 22 + sp * 3 / SC * .5 + 5 * Math.sin(t / 50) + (st === 'mad' ? 20 : 0);
-  flame('f1', 'i1', 143, L); flame('f2', 'i2', 237, L);
-
-  const w = Math.sin(t / 110), s3 = Math.sin(t / 350);
-  const bL = cur.aL + cur.oL * w + 28 * ang, bR = cur.aR + cur.oR * w - 28 * ang;
+  const m = (a, b) => Math.round(a + (b - a) * ang); $('sv').style.setProperty('--c', `rgb(${m(colC[0],ANGC[0])},${m(colC[1],ANGC[1])},${m(colC[2],ANGC[2])})`); $('sv').style.setProperty('--s', `rgb(${m(colS[0],ANGS[0])},${m(colS[1],ANGS[1])},${m(colS[2],ANGS[2])})`);
+  const L = 22 + sp * 3 / SC * .5 + 5 * Math.sin(t / 50) + (st === 'mad' ? 20 : 0); flame('f1', 'i1', 143, L); flame('f2', 'i2', 237, L);
+  const w = Math.sin(t / 110), s3 = Math.sin(t / 350); const bL = cur.aL + cur.oL * w + 28 * ang, bR = cur.aR + cur.oR * w - 28 * ang;
   const d = dance ? DANCES[dance].f((t - t0) / 1000) : [bL, bR, 0, 0, 0, 0, 0, 0];
-  tr('aL',  `rotate(${bL + (d[0]-bL)*dw} 136 204)`);
-  tr('aR',  `rotate(${bR + (d[1]-bR)*dw} 244 204)`);
-  tr('fig', `translate(${d[2]*dw} ${d[3]*dw}) rotate(${d[4]*dw} 190 362)`);
-  tr('hd',  `rotate(${d[5]*dw} 190 186)`);
-  tr('lgL', `rotate(${d[6]*dw + 5*s3 - tilt*.3} 171 270)`);
-  tr('lgR', `rotate(${d[7]*dw - 5*s3 - tilt*.3} 209 270)`);
-
-  const E = key => cur[key] + (ANG[key] - cur[key]) * ang;
-  const ry2 = E('eRy') * (blink ? 0.12 : 1);
-  for (const [e, h, ex] of [['eL','hL',174], ['eR','hR',206]]){
-    A(e, 'rx', E('eRx')); A(e, 'ry', Math.max(ry2, 1));
-    A(e, 'cy', 136 + E('eDy')); A(e, 'cx', ex + E('eDx'));
-    A(h, 'cx', ex + E('eDx') + 2); A(h, 'cy', 133 + E('eDy')); A(h, 'opacity', ry2 > 2 ? 1 : 0);
-  }
-  for (const [b, o, i, x1, x2] of [['brL','bLO','bLI',164,182], ['brR','bRI','bRO',198,216]]){
-    A(b, 'x1', x1); A(b, 'y1', E(o)); A(b, 'x2', x2); A(b, 'y2', E(i)); A(b, 'opacity', E('bo'));
-  }
-  A('mouth', 'd', `M${E('mx0')} ${E('my0')} Q${E('mcx')} ${E('mcy')} ${E('mx1')} ${E('my1')}`);
-  A('mouth', 'fill-opacity', E('mf'));
-  A('ckL', 'opacity', E('ck')); A('ckR', 'opacity', E('ck')); A('z', 'opacity', E('zo'));
-
+  A('aL', 'transform', `rotate(${bL + (d[0]-bL)*dw} 136 204)`); A('aR', 'transform', `rotate(${bR + (d[1]-bR)*dw} 244 204)`);
+  A('fig', 'transform', `translate(${d[2]*dw} ${d[3]*dw}) rotate(${d[4]*dw} 190 362)`); A('hd', 'transform', `rotate(${d[5]*dw} 190 186)`);
+  A('lgL', 'transform', `rotate(${d[6]*dw + 5*s3 - tilt*.3} 171 270)`); A('lgR', 'transform', `rotate(${d[7]*dw - 5*s3 - tilt*.3} 209 270)`);
+  const E = key => cur[key] + (ANG[key] - cur[key]) * ang; const ry2 = E('eRy') * (blink ? 0.12 : 1);
+  for (const [e, h, ex] of [['eL','hL',174], ['eR','hR',206]]){ A(e, 'rx', E('eRx')); A(e, 'ry', Math.max(ry2, 1)); A(e, 'cy', 136 + E('eDy')); A(e, 'cx', ex + E('eDx')); A(h, 'cx', ex + E('eDx') + 2); A(h, 'cy', 133 + E('eDy')); A(h, 'opacity', ry2 > 2 ? 1 : 0); }
+  for (const [b, o, i, x1, x2] of [['brL','bLO','bLI',164,182], ['brR','bRI','bRO',198,216]]){ A(b, 'x1', x1); A(b, 'y1', E(o)); A(b, 'x2', x2); A(b, 'y2', E(i)); A(b, 'opacity', E('bo')); }
+  A('mouth', 'd', `M${E('mx0')} ${E('my0')} Q${E('mcx')} ${E('mcy')} ${E('mx1')} ${E('my1')}`); A('mouth', 'fill-opacity', E('mf')); A('ckL', 'opacity', E('ck')); A('ckR', 'opacity', E('ck')); A('z', 'opacity', E('zo'));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-
 (function loop(){ setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000); })();
 
 let resetTimer, danceTimer;
 const Hologram = {
   emotion(name){ const e = EMOTIONS[name]; if (!e) return; setTargets(e); tgC = hex(e.c); tgS = hex(e.s); },
   pose(name){ const p = POSES[name]; if (!p) return; this.stopDance(); setTargets(p); },
-  dance(name, ms){
-    if (!DANCES[name]) return;
-    clearTimeout(resetTimer); clearTimeout(danceTimer);
-    this.emotion('happy'); dance = name; t0 = performance.now(); want = 1;
-    if (ms) danceTimer = setTimeout(() => this.stopDance(), ms);
-  },
+  dance(name, ms){ if (!DANCES[name]) return; clearTimeout(resetTimer); clearTimeout(danceTimer); this.emotion('happy'); dance = name; t0 = performance.now(); want = 1; if (ms) danceTimer = setTimeout(() => this.stopDance(), ms); },
   stopDance(){ clearTimeout(danceTimer); want = 0; },
-  react(emotion, pose, ms){
-    clearTimeout(resetTimer);
-    this.emotion(emotion); this.pose(pose);
-    if (ms) resetTimer = setTimeout(() => { this.emotion('happy'); this.pose('idle'); }, ms);
-  },
+  react(emotion, pose, ms){ clearTimeout(resetTimer); this.emotion(emotion); this.pose(pose); if (ms) resetTimer = setTimeout(() => { this.emotion('happy'); this.pose('idle'); }, ms); },
   enter, annoy
 };
 window.Hologram = Hologram;
 
+/* ===== 2. ЛОГИКА ЧАТОВ И ПАМЯТИ ===== */
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} }
 
 const input = $('user-input');
 const sendBtn = $('send-btn');
 const chatHistory = $('chat-history');
+const sidebar = $('sidebar');
+const overlay = $('overlay');
+const chatList = $('chat-list');
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
-let isSending = false;
 
-function addToHistory(text, sender) {
+let chats = JSON.parse(localStorage.getItem('tg_chats') || '[]');
+let currentChatId = localStorage.getItem('tg_current_chat') || null;
+
+if (chats.length === 0) { createNewChat(); } else { loadChat(currentChatId || chats[0].id); }
+
+function saveChats() { localStorage.setItem('tg_chats', JSON.stringify(chats)); localStorage.setItem('tg_current_chat', currentChatId); }
+
+function createNewChat() {
+    const id = Date.now().toString();
+    const newChat = { id: id, title: "Новый чат", messages: [] };
+    chats.unshift(newChat); 
+    currentChatId = id;
+    saveChats();
+    renderChatList();
+    loadChat(id);
+}
+
+function loadChat(id) {
+    currentChatId = id;
+    saveChats();
+    const chat = chats.find(c => c.id === id);
+    if (!chat) return;
+    chatHistory.innerHTML = ''; 
+    
+    if (chat.messages.length === 0) {
+        addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
+        chat.messages.push({ sender: 'bot', text: "Привет! Я твой голо-друг. Давай поболтаем?" });
+        saveChats();
+    } else {
+        chat.messages.forEach(msg => { addToHistoryDOM(msg.text, msg.sender); });
+    }
+    renderChatList(); 
+    closeSidebar();
+}
+
+function renderChatList() {
+    chatList.innerHTML = '';
+    chats.forEach(chat => {
+        const div = document.createElement('div');
+        div.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
+        div.textContent = chat.title;
+        div.onclick = () => loadChat(chat.id);
+        chatList.appendChild(div);
+    });
+}
+
+$('menu-btn').onclick = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
+overlay.onclick = closeSidebar;
+function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+$('new-chat-btn').onclick = createNewChat;
+
+function addToHistoryDOM(text, sender) {
     const row = document.createElement('div');
     row.className = `msg-row ${sender}`;
     const avatar = document.createElement('div');
@@ -307,10 +290,24 @@ function addToHistory(text, sender) {
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
+function addToHistory(text, sender) {
+    addToHistoryDOM(text, sender);
+    const chat = chats.find(c => c.id === currentChatId);
+    if (chat) {
+        chat.messages.push({ sender, text });
+        if (sender === 'user' && chat.title === "Новый чат") {
+            chat.title = text.substring(0, 20) + (text.length > 20 ? '...' : '');
+            renderChatList();
+        }
+        saveChats();
+    }
+}
+
+let isSending = false;
+
 async function sendMessage(text) {
     if (!text || isSending) return;
     isSending = true;
-
     addToHistory(text, 'user');
     input.value = '';
     input.disabled = true;
@@ -326,7 +323,6 @@ async function sendMessage(text) {
         });
 
         if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
-        
         const data = await response.json();
         
         if (data.action === 'dance') {
@@ -337,29 +333,7 @@ async function sendMessage(text) {
             if (data.emotion === 'surprised') pose = 'cheer';
             Hologram.react(data.emotion, pose, 4000); 
         }
-        
         addToHistory(data.text, 'bot');
 
     } catch (error) {
-        Hologram.react('sad', 'idle');
-        addToHistory(`Ошибка: ${error.message}`, 'bot');
-    } finally {
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
-        isSending = false; 
-    }
-}
-
-sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
-input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
-
-function onFirstArrive(){
-    Hologram.react('happy', 'wave', 3500);
-    addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
-}
-
-enter();
-</script>
-</body>
-</html>
+        Hologram
