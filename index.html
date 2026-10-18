@@ -1,339 +1,262 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ИИ-Друг</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        :root {
-            --bg-color: #0d1117; 
-            --bot-msg-bg: #1c2533; 
-            --user-msg-bg: #2b5278; 
-            --text-color: #ffffff;
-            --accent-color: #58a6ff; 
-            --user-color: #2b5278;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1.0,user-scalable=no">
+<title>Голограмма-бот</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+    :root {
+        --bg-color: #0E1726; 
+        --bot-msg-bg: #1c2533; 
+        --user-msg-bg: #2b5278; 
+        --text-color: #ffffff;
+        --accent-color: #4FD1E8; 
+    }
 
-        * { box-sizing: border-box; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, sans-serif; overflow: hidden; }
+    body { display: flex; flex-direction: column; align-items: center; height: 100vh; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: radial-gradient(circle at top, #1a2433 0%, var(--bg-color) 100%);
-            color: var(--text-color);
-            margin: 0; padding: 0;
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-        }
+    /* SVG Робот */
+    #stage { width: 100%; flex: 0 0 35vh; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 10px; }
+    svg { width: 100%; max-width: 300px; height: 100%; display: block; overflow: visible; }
+    .c { fill: var(--c); transition: fill .5s; }
+    .s { stroke: var(--s); transition: stroke .5s; }
+    .float { animation: fl 3.2s ease-in-out infinite; }
+    .pulse { animation: pu 2.4s ease-in-out infinite; }
+    @keyframes fl { 50% { transform: translateY(-6px); } }
+    @keyframes pu { 50% { stroke-opacity: .3; } }
 
-        #top-area {
-            flex: 0 0 auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: center;
-            position: relative;
-            padding-top: 10px;
-            padding-bottom: 10px;
-            min-height: 35vh;
-        }
+    /* История чата */
+    #chat-history {
+        flex: 1; width: 100%; max-width: 450px;
+        overflow-y: auto; padding: 10px 16px;
+        display: flex; flex-direction: column; gap: 10px; z-index: 20;
+        mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
+        -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
+    }
+    .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 85%; animation: slideIn 0.3s ease-out forwards; opacity: 0; transform: translateY(10px); }
+    .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-row.bot { align-self: flex-start; }
+    @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
+    .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
+    .msg-row.user .avatar { background: var(--user-msg-bg); }
+    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
+    .message::-webkit-scrollbar { width: 4px; }
+    .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
+    .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
 
-        .character-container {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 95%;
-            width: 100%;
-        }
-
-        .character-img {
-            width: 180px; 
-            max-width: 60vw;
-            height: auto;
-            filter: drop-shadow(0 10px 20px rgba(88, 166, 255, 0.2));
-            transition: opacity 0.3s ease;
-            animation: float 4s ease-in-out infinite;
-            flex-shrink: 0;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-
-        /* Облачко */
-        .speech-bubble {
-            position: relative;
-            background: rgba(28, 37, 51, 0.9);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 2px solid var(--accent-color);
-            border-radius: 16px;
-            padding: 12px 18px;
-            margin-bottom: 20px;
-            max-width: 90%;
-            font-size: 14px;
-            line-height: 1.4;
-            color: #e6edf3;
-            display: none;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            z-index: 10;
-            max-height: 20vh;
-            overflow-y: auto;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
-        }
-
-        .speech-bubble::before {
-            content: '';
-            position: absolute;
-            top: -2px; left: -2px;
-            width: 18px; height: 18px;
-            border-top: 3px solid #f1c40f;
-            border-left: 3px solid #f1c40f;
-            border-top-left-radius: 16px;
-        }
-        .speech-bubble::after {
-            content: '';
-            position: absolute;
-            bottom: -2px; right: -2px;
-            width: 18px; height: 18px;
-            border-bottom: 3px solid #f1c40f;
-            border-right: 3px solid #f1c40f;
-            border-bottom-right-radius: 16px;
-        }
-
-        @keyframes popIn {
-            0% { opacity: 0; transform: scale(0.9) translateY(15px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        /* Анимация "Думает" */
-        .thinking-dots {
-            display: flex;
-            gap: 6px;
-            justify-content: center;
-            padding: 5px 0;
-        }
-        .thinking-dots span {
-            width: 8px; height: 8px;
-            background-color: var(--accent-color);
-            border-radius: 50%;
-            animation: bounce 1.4s infinite ease-in-out both;
-        }
-        .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
-        .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
-
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
-            40% { transform: scale(1); opacity: 1; }
-        }
-
-        /* История чата */
-        #chat-history {
-            flex: 1; 
-            overflow-y: auto;
-            padding: 10px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 20;
-            mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
-            -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
-        }
-
-        .msg-row {
-            display: flex; align-items: flex-end; gap: 8px; max-width: 85%;
-            animation: slideIn 0.3s ease-out forwards; opacity: 0; transform: translateY(10px);
-        }
-        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
-        .msg-row.bot { align-self: flex-start; }
-        @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
-
-        .avatar {
-            width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .msg-row.user .avatar { background: var(--user-msg-bg); }
-        
-        .message { 
-            padding: 10px 14px; 
-            border-radius: 16px; 
-            font-size: 14px; 
-            line-height: 1.4; 
-            word-wrap: break-word; 
-            max-height: 180px;
-            overflow-y: auto;
-        }
-        .message::-webkit-scrollbar { width: 4px; }
-        .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-
-        .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
-        .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
-
-        /* HUD Интерфейс (без микрофона) */
-        #hud-panel {
-            padding: 12px 16px;
-            background: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            z-index: 20;
-            padding-bottom: max(16px, env(safe-area-inset-bottom));
-            flex-shrink: 0;
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .input-container {
-            display: flex; align-items: center;
-            background: #0d1117; border: 1px solid var(--accent-color);
-            border-radius: 8px; position: relative;
-            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-            padding: 4px;
-            width: 100%; /* Поле ввода теперь на всю ширину */
-        }
-
-        #user-input {
-            flex: 1; background: transparent; border: none;
-            color: #fff; padding: 10px 12px; font-size: 15px; outline: none;
-        }
-
-        #send-btn {
-            width: 40px; height: 40px; background: var(--accent-color);
-            border: none; border-radius: 6px; color: #000; font-size: 18px;
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; margin-right: 2px;
-            flex-shrink: 0;
-        }
-    </style>
+    /* HUD (панель ввода) */
+    #hud-panel { padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); }
+    .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 8px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
+    #user-input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px 12px; font-size: 15px; outline: none; }
+    #send-btn { width: 40px; height: 40px; background: var(--accent-color); border: none; border-radius: 6px; color: #000; font-size: 18px; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-right: 2px; flex-shrink: 0; }
+</style>
 </head>
 <body>
-    <div id="top-area">
-        <div class="character-container">
-            <div class="speech-bubble" id="speech-bubble">
-                <div id="bubble-content"></div>
-            </div>
-            <img src="IMG_1209.png?v=10" alt="Robot" class="character-img" id="character-img">
-        </div>
+
+<div id="stage">
+    <svg id="svg" viewBox="80 60 220 350" role="img" aria-label="Голограмма-бот" style="--c:#4FD1E8;--s:#9AF0FF">
+      <polygon class="c" points="140,380 240,380 285,150 95,150" fill-opacity=".1"/>
+      <ellipse cx="190" cy="385" rx="85" ry="16" fill="#123A4A" class="s" stroke-width="1.5"/>
+      <ellipse class="s pulse" cx="190" cy="385" rx="55" ry="9" fill="none" stroke-width="1"/>
+      <g class="float">
+        <rect class="c s" x="160" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/>
+        <rect class="c s" x="198" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/>
+        <rect class="c s" x="148" y="188" width="84" height="100" rx="26" fill-opacity=".6" stroke-width="1.5"/>
+        <circle class="c s" cx="190" cy="140" r="46" fill-opacity=".7" stroke-width="2"/>
+        <line class="s" x1="190" y1="94" x2="190" y2="80" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="190" cy="76" r="5" fill="#FFD166"/>
+        <ellipse id="ckL" cx="160" cy="154" rx="7" ry="4" fill="#FF9EC4"/>
+        <ellipse id="ckR" cx="220" cy="154" rx="7" ry="4" fill="#FF9EC4"/>
+        <line id="brL" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>
+        <line id="brR" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>
+        <ellipse id="eL" cx="174" cy="136" fill="#0E1726"/>
+        <ellipse id="eR" cx="206" cy="136" fill="#0E1726"/>
+        <circle id="hL" r="2.5" fill="#fff"/>
+        <circle id="hR" r="2.5" fill="#fff"/>
+        <path id="mouth" stroke="#0E1726" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="#0E1726"/>
+        <rect id="aL" class="c s" x="124" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
+        <rect id="aR" class="c s" x="232" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5"/>
+        <text id="z" x="236" y="104" fill="#C8F8FF" font-size="18" font-family="system-ui,sans-serif">z z</text>
+      </g>
+    </svg>
+</div>
+
+<div id="chat-history"></div>
+
+<div id="hud-panel">
+    <div class="input-container">
+        <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off">
+        <button id="send-btn">➤</button>
     </div>
+</div>
 
-    <div id="chat-history"></div>
+<script>
+/* ===== 1. ЛОГИКА РОБОТА ===== */
+const EMOTIONS = {
+  happy:     {label:'Радость',   c:'#4FD1E8', s:'#9AF0FF', eRx:7, eRy:9,   eDx:0, eDy:0,  bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:174,my0:158,mcx:190,mcy:174,mx1:206,my1:158, mf:0, ck:.7, zo:0},
+  sad:       {label:'Грусть',    c:'#6C8CF0', s:'#B4C6FF', eRx:7, eRy:8,   eDx:0, eDy:2,  bo:1, bLO:122,bLI:114,bRO:122,bRI:114, mx0:176,my0:166,mcx:190,mcy:154,mx1:204,my1:166, mf:0, ck:.1, zo:0},
+  surprised: {label:'Удивление', c:'#FFC857', s:'#FFE6A8', eRx:8, eRy:12,  eDx:0, eDy:0,  bo:1, bLO:112,bLI:110,bRO:112,bRI:110, mx0:183,my0:158,mcx:190,mcy:184,mx1:197,my1:158, mf:1, ck:.4, zo:0},
+  angry:     {label:'Злость',    c:'#FF6B6B', s:'#FFB3B3', eRx:7, eRy:6,   eDx:0, eDy:0,  bo:1, bLO:113,bLI:123,bRO:113,bRI:123, mx0:177,my0:164,mcx:190,mcy:156,mx1:203,my1:164, mf:0, ck:0,  zo:0},
+  thinking:  {label:'Думает',    c:'#A78BFA', s:'#D4C5FF', eRx:7, eRy:9,   eDx:3, eDy:-3, bo:1, bLO:120,bLI:120,bRO:112,bRI:114, mx0:180,my0:162,mcx:190,mcy:162,mx1:200,my1:162, mf:0, ck:.3, zo:0},
+  sleepy:    {label:'Сон',       c:'#5E8CA8', s:'#A9C7DB', eRx:8, eRy:1.5, eDx:0, eDy:0,  bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:182,my0:162,mcx:190,mcy:166,mx1:198,my1:162, mf:0, ck:.5, zo:1}
+};
+const POSES = {
+  idle:  {label:'Стоит',     aL:6,   aR:-6,   oL:0, oR:0},
+  wave:  {label:'Машет',     aL:6,   aR:-148, oL:0, oR:14},
+  cheer: {label:'Ура',       aL:150, aR:-150, oL:8, oR:8},
+  think: {label:'Задумался', aL:8,   aR:112,  oL:0, oR:0}
+};
 
-    <div id="hud-panel">
-        <div class="input-container">
-            <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off">
-            <button id="send-btn">➤</button>
-        </div>
-    </div>
+const $ = id => document.getElementById(id);
+const svg = $('svg');
+const cur = {}, tgt = {};
+let blink = 0;
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor('#0d1117');
-        tg.setBackgroundColor('#0d1117');
+function setTargets(obj){
+  for (const k in obj){
+    if (typeof obj[k] !== 'number') continue;
+    tgt[k] = obj[k];
+    if (!(k in cur)) cur[k] = obj[k];
+  }
+}
+setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 
-        const input = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const speechBubble = document.getElementById('speech-bubble');
-        const bubbleContent = document.getElementById('bubble-content');
-        const characterImg = document.getElementById('character-img');
-        const chatHistory = document.getElementById('chat-history');
+function frame(t){
+  for (const k in tgt) cur[k] += (tgt[k] - cur[k]) * 0.14;
+  const w = Math.sin(t / 110);
+  $('aL').setAttribute('transform', `rotate(${cur.aL + cur.oL * w} 136 204)`);
+  $('aR').setAttribute('transform', `rotate(${cur.aR + cur.oR * w} 244 204)`);
 
-        const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
-        let isSending = false;
+  const ry = cur.eRy * (blink ? 0.12 : 1);
+  for (const [e, h, x] of [['eL','hL',174], ['eR','hR',206]]){
+    $(e).setAttribute('rx', cur.eRx);
+    $(e).setAttribute('ry', Math.max(ry, 1));
+    $(e).setAttribute('cy', 136 + cur.eDy);
+    $(e).setAttribute('cx', x + cur.eDx);
+    $(h).setAttribute('cx', x + cur.eDx + 2);
+    $(h).setAttribute('cy', 133 + cur.eDy);
+    $(h).setAttribute('opacity', ry > 2 ? 1 : 0);
+  }
+  for (const [b, o, i, x1, x2] of [['brL','bLO','bLI',164,182], ['brR','bRI','bRO',198,216]]){
+    const el = $(b);
+    el.setAttribute('x1', x1); el.setAttribute('y1', cur[o]);
+    el.setAttribute('x2', x2); el.setAttribute('y2', cur[i]);
+    el.setAttribute('opacity', cur.bo);
+  }
+  $('mouth').setAttribute('d', `M${cur.mx0} ${cur.my0} Q${cur.mcx} ${cur.mcy} ${cur.mx1} ${cur.my1}`);
+  $('mouth').setAttribute('fill-opacity', cur.mf);
+  $('ckL').setAttribute('opacity', cur.ck);
+  $('ckR').setAttribute('opacity', cur.ck);
+  $('z').setAttribute('opacity', cur.zo);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
 
-        function showBubble(text) {
-            speechBubble.style.display = 'block';
-            speechBubble.style.animation = 'none';
-            void speechBubble.offsetWidth;
-            speechBubble.style.animation = 'popIn 0.3s forwards';
-            
-            bubbleContent.textContent = '';
-            let i = 0;
-            function typeWriter() {
-                if (i < text.length) {
-                    bubbleContent.textContent += text.charAt(i);
-                    i++;
-                    bubbleContent.scrollTop = bubbleContent.scrollHeight;
-                    setTimeout(typeWriter, 20);
-                }
-            }
-            typeWriter();
-        }
+(function loop(){
+  setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000);
+})();
 
-        function showThinking() {
-            speechBubble.style.display = 'block';
-            speechBubble.style.animation = 'none';
-            void speechBubble.offsetWidth;
-            speechBubble.style.animation = 'popIn 0.3s forwards';
-            
-            bubbleContent.innerHTML = `
-                <div class="thinking-dots">
-                    <span></span><span></span><span></span>
-                </div>
-            `;
-        }
+let resetTimer;
+const Hologram = {
+  emotion(name){
+    const e = EMOTIONS[name]; if (!e) return;
+    setTargets(e);
+    svg.style.setProperty('--c', e.c);
+    svg.style.setProperty('--s', e.s);
+  },
+  pose(name){
+    const p = POSES[name]; if (!p) return;
+    setTargets(p);
+  },
+  react(emotion, pose, ms){
+    clearTimeout(resetTimer);
+    this.emotion(emotion); this.pose(pose);
+    if (ms) resetTimer = setTimeout(() => { this.emotion('happy'); this.pose('idle'); }, ms);
+  }
+};
 
-        function addToHistory(text, sender) {
-            const row = document.createElement('div');
-            row.className = `msg-row ${sender}`;
-            const avatar = document.createElement('div');
-            avatar.className = 'avatar';
-            avatar.textContent = sender === 'user' ? '👤' : '🤖';
-            const msg = document.createElement('div');
-            msg.className = 'message';
-            msg.textContent = text;
-            row.appendChild(avatar);
-            row.appendChild(msg);
-            chatHistory.appendChild(row);
-            
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-        }
+/* ===== 2. ЛОГИКА ЧАТА И ИИ ===== */
+const tg = window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); }
 
-        async function sendMessage(text) {
-            if (!text || isSending) return;
-            isSending = true;
+const input = $('user-input');
+const sendBtn = $('send-btn');
+const chatHistory = $('chat-history');
 
-            addToHistory(text, 'user');
-            input.value = '';
-            input.disabled = true;
-            sendBtn.disabled = true;
-            
-            showThinking(); 
-            characterImg.style.opacity = '0.5';
+const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
+let isSending = false;
 
-            try {
-                const response = await fetch(`${BACKEND_URL}/ask`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text })
-                });
+function addToHistory(text, sender) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${sender}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = sender === 'user' ? '👤' : '🤖';
+    const msg = document.createElement('div');
+    msg.className = 'message';
+    msg.textContent = text;
+    row.appendChild(avatar);
+    row.appendChild(msg);
+    chatHistory.appendChild(row);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
 
-                if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
-                
-                const data = await response.json();
-                
-                characterImg.style.opacity = '1';
-                showBubble(data.text); 
-                addToHistory(data.text, 'bot');
+async function sendMessage(text) {
+    if (!text || isSending) return;
+    isSending = true;
 
-            } catch (error) {
-                characterImg.style.opacity = '1';
-                showBubble(`Ошибка: ${error.message}`);
-                addToHistory(`Ошибка: ${error.message}`, 'bot');
-            } finally {
-                input.disabled = false;
-                sendBtn.disabled = false;
-                input.focus();
-                isSending = false; 
-            }
-        }
+    addToHistory(text, 'user');
+    input.value = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+    
+    // Робот задумался, пока ИИ думает
+    Hologram.react('thinking', 'think');
 
-        sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage(input.value.trim());
+    try {
+        const response = await fetch(`${BACKEND_URL}/ask`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
         });
 
-        setTimeout(() => showBubble("Привет! Я твой голо-друг. Давай поболтаем?"), 500);
-    </script>
+        if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
+        
+        const data = await response.json();
+        
+        // Робот радуется и машет, показывая ответ
+        let pose = 'idle';
+        if (data.emotion === 'happy') pose = 'wave';
+        if (data.emotion === 'surprised') pose = 'cheer';
+        
+        Hologram.react(data.emotion, pose, 4000); // Эмоция держится 4 секунды, потом сброс
+        addToHistory(data.text, 'bot');
+
+    } catch (error) {
+        Hologram.react('sad', 'idle');
+        addToHistory(`Ошибка: ${error.message}`, 'bot');
+    } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        isSending = false; 
+    }
+}
+
+sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
+input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage(input.value.trim());
+});
+
+// Приветствие
+setTimeout(() => {
+    Hologram.react('happy', 'wave');
+    addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
+}, 500);
+</script>
 </body>
 </html>
