@@ -7,7 +7,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #0d1117; /* Глубокий темный фон как на референсе */
+            --bg-color: #0d1117; /* Глубокий темный фон */
             --bot-msg-bg: #1c2533; 
             --user-msg-bg: #2b5278; 
             --text-color: #ffffff;
@@ -53,15 +53,16 @@
 
         /* Сама картинка робота */
         .character-img {
-            width: 220px;
+            width: 250px; /* Размер подогнан под телефон */
+            max-width: 80vw;
             height: auto;
-            filter: drop-shadow(0 10px 20px rgba(88, 166, 255, 0.2));
+            filter: drop-shadow(0 15px 25px rgba(88, 166, 255, 0.2));
             transition: opacity 0.3s ease;
         }
 
         /* Облачко с сообщением (как на референсе) */
         .speech-bubble {
-            background-color: rgba(28, 37, 51, 0.8);
+            background-color: rgba(28, 37, 51, 0.9);
             border: 1px solid var(--accent-color);
             color: white;
             padding: 12px 18px;
@@ -163,8 +164,8 @@
             <!-- Облачко для последнего ответа -->
             <div class="speech-bubble" id="speech-bubble"></div>
             
-            <!-- Картинка робота (пока ставим заглушку, потом заменим на твой файл) -->
-            <img src="https://i.ibb.co/68032Z3/robot.png" alt="Robot" class="character-img" id="character-img">
+            <!-- Картинка робота с твоим точным именем файла -->
+            <img src="IMG_1204.jpeg" alt="Robot" class="character-img" id="character-img">
         </div>
     </div>
 
@@ -201,7 +202,7 @@
                 if (i < text.length) {
                     speechBubble.textContent += text.charAt(i);
                     i++;
-                    setTimeout(typeWriter, 30);
+                    setTimeout(typeWriter, 30); // Скорость печати
                 }
             }
             typeWriter();
@@ -226,7 +227,7 @@
             sendBtn.disabled = true;
             
             // Робот "думает" - делаем его полупрозрачным
-            characterImg.style.opacity = '0.5';
+            characterImg.style.opacity = '0.4';
 
             try {
                 const response = await fetch(`${BACKEND_URL}/ask`, {
