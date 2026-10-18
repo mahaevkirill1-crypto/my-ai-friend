@@ -10,29 +10,20 @@ client = AsyncOpenAI(
 )
 
 app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 SYSTEM_PROMPT = """
-Ты — ИИ-друг, голографический робот. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией, но без грубости.
-Отвечай коротко (1-3 предложения), если не просят подробностей.
-Никогда не груби, не унижай.
+Ты — ИИ-друг, голографический робот. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией.
+Отвечай коротко (1-3 предложения).
 
-Твоя задача — не только ответить, но и выбрать свою эмоцию для анимации.
-Доступные эмоции: 
-- happy (радость, улыбка)
-- sad (грусть, печаль)
-- surprised (удивление)
-- angry (злость)
-- thinking (задумчивость)
-- sleepy (сон, усталость)
+Ты умеешь не только говорить, но и показывать эмоции и танцевать.
+Доступные эмоции: happy, sad, surprised, angry, thinking, sleepy.
+Доступные танцы: disco, dab, floss, robot, party, twist.
 
-Верни ответ СТРОГО в формате JSON:
+Если пользователь просит станцевать (например, "станцуй", "покажи танец"), выбери ОДИН танец и верни JSON:
+{"text": "твой ответ (например: Лови мой флосс!)", "action": "dance", "dance_name": "название_танца"}
+
+В остальных случаях верни JSON:
 {"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
@@ -53,15 +44,15 @@ async def ask(request: Request):
             ],
             max_tokens=200,
             temperature=0.7,
-            response_format={"type": "json_object"} # Заставляем вернуть JSON
+            response_format={"type": "json_object"}
         )
         
-        # Парсим JSON, который вернула нейросеть
         result = json.loads(response.choices[0].message.content)
-        return {
-            "text": result.get("text", "Что-то я задумался..."),
-            "emotion": result.get("emotion", "happy")
-        }
+        
+        if result.get("action") == "dance":
+            return {"text": result.get("text", "Смотри!"), "action": "dance", "dance_name": result.get("dance_name", "floss")}
+        else:
+            return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy")}
         
     except Exception as e:
         return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
