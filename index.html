@@ -11,8 +11,7 @@
             --bot-msg-bg: #1c2533; 
             --user-msg-bg: #2b5278; 
             --text-color: #ffffff;
-            --accent-color: #58a6ff; /* Голубой цвет */
-            --yellow-accent: #f1c40f; /* Желтый акцент с референса */
+            --accent-color: #58a6ff; 
             --user-color: #2b5278;
         }
 
@@ -26,7 +25,6 @@
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
 
-        /* Верхняя часть с роботом */
         #top-area {
             flex: 1;
             display: flex;
@@ -34,9 +32,9 @@
             justify-content: flex-end;
             align-items: center;
             position: relative;
-            padding-top: 20px;
+            padding-top: 10px;
             padding-bottom: 10px;
-            min-height: 35vh;
+            min-height: 30vh;
         }
 
         .character-container {
@@ -48,11 +46,12 @@
             width: 100%;
         }
 
+        /* Уменьшили робота */
         .character-img {
-            width: 240px; 
-            max-width: 70vw;
+            width: 180px; 
+            max-width: 60vw;
             height: auto;
-            filter: drop-shadow(0 15px 25px rgba(88, 166, 255, 0.2));
+            filter: drop-shadow(0 10px 20px rgba(88, 166, 255, 0.2));
             transition: opacity 0.3s ease;
             animation: float 4s ease-in-out infinite;
             flex-shrink: 0;
@@ -60,79 +59,49 @@
 
         @keyframes float {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-8px); }
         }
 
-        /* --- Новое облачко со скошенными углами --- */
+        /* Облачко */
         .speech-bubble {
             position: relative;
-            background: #0f1822;
+            background: rgba(28, 37, 51, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border: 2px solid var(--accent-color);
-            padding: 14px 22px;
-            margin-bottom: 25px;
+            border-radius: 16px;
+            padding: 12px 18px; /* Чуть уменьшили отступы */
+            margin-bottom: 20px;
             max-width: 90%;
-            font-size: 15px;
-            line-height: 1.5;
+            font-size: 14px; /* Чуть уменьшили шрифт */
+            line-height: 1.4;
             color: #e6edf3;
             display: none;
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            /* Скошенные углы с помощью clip-path */
-            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
             z-index: 10;
-            max-height: 30vh;
+            max-height: 25vh;
             overflow-y: auto;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
         }
 
-        /* Хвостик облачка (треугольник вниз) */
-        .speech-bubble::after {
-            content: '';
-            position: absolute;
-            bottom: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 12px solid var(--accent-color);
-        }
-
-        /* Закрашиваем хвостик изнутри, чтобы он был полым */
+        /* Желтые уголки */
         .speech-bubble::before {
             content: '';
             position: absolute;
-            bottom: -9px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 10px solid #0f1822;
-            z-index: 1;
+            top: -2px; left: -2px;
+            width: 18px; height: 18px;
+            border-top: 3px solid #f1c40f;
+            border-left: 3px solid #f1c40f;
+            border-top-left-radius: 16px;
         }
-
-        /* Желтые акценты на углах (имитация референса) */
-        .corner-accent {
+        .speech-bubble::after {
+            content: '';
             position: absolute;
-            width: 15px; height: 15px;
-            border: 2px solid var(--yellow-accent);
-            pointer-events: none;
-        }
-        .corner-accent.top-left {
-            top: 0; left: 0;
-            border-right: none; border-bottom: none;
-            clip-path: polygon(0 0, 100% 0, 100% 2px, 2px 2px, 2px 100%, 0 100%);
-        }
-        .corner-accent.bottom-right {
-            bottom: 0; right: 0;
-            border-left: none; border-top: none;
-            clip-path: polygon(calc(100% - 2px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(100% - 2px), calc(100% - 2px) calc(100% - 2px));
-        }
-
-        /* Стиль для пользователя (если нужно) */
-        .speech-bubble.user-bubble {
-            border-color: var(--user-color);
-            clip-path: none; /* Пользователю можно оставить обычный */
-            border-radius: 16px;
+            bottom: -2px; right: -2px;
+            width: 18px; height: 18px;
+            border-bottom: 3px solid #f1c40f;
+            border-right: 3px solid #f1c40f;
+            border-bottom-right-radius: 16px;
         }
 
         @keyframes popIn {
@@ -140,15 +109,15 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        /* --- Анимация "Думает" (Три точки) --- */
+        /* Анимация "Думает" */
         .thinking-dots {
             display: flex;
             gap: 6px;
             justify-content: center;
-            padding: 10px 0;
+            padding: 5px 0;
         }
         .thinking-dots span {
-            width: 10px; height: 10px;
+            width: 8px; height: 8px;
             background-color: var(--accent-color);
             border-radius: 50%;
             animation: bounce 1.4s infinite ease-in-out both;
@@ -163,7 +132,7 @@
 
         /* История чата */
         #chat-history {
-            flex: 0.8;
+            flex: 1; /* Чат теперь занимает больше места */
             overflow-y: auto;
             padding: 10px 16px;
             display: flex;
@@ -191,9 +160,9 @@
         .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
         .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
 
-        /* --- HUD Интерфейс (внизу) --- */
+        /* HUD Интерфейс */
         #hud-panel {
-            padding: 16px;
+            padding: 12px 16px;
             background: var(--bg-color);
             display: flex;
             flex-direction: column;
@@ -237,23 +206,21 @@
     </style>
 </head>
 <body>
-    <!-- Верхняя зона с роботом -->
+    <!-- Верхняя зона -->
     <div id="top-area">
         <div class="character-container">
             <div class="speech-bubble" id="speech-bubble">
-                <!-- Желтые акценты -->
-                <div class="corner-accent top-left"></div>
-                <div class="corner-accent bottom-right"></div>
                 <div id="bubble-content"></div>
             </div>
-            <img src="IMG_1209.png?v=6" alt="Robot" class="character-img" id="character-img">
+            <!-- Уменьшенный робот -->
+            <img src="IMG_1209.png?v=8" alt="Robot" class="character-img" id="character-img">
         </div>
     </div>
 
     <!-- История чата -->
     <div id="chat-history"></div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ (HUD) -->
+    <!-- HUD (панель ввода) -->
     <div id="hud-panel">
         <div class="input-wrapper">
             <button class="mic-btn">🎤</button>
@@ -281,36 +248,27 @@
         const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
         let isSending = false;
 
-        // Показать текст в облачке
-        function showBubble(text, isUser = false) {
+        function showBubble(text) {
             speechBubble.style.display = 'block';
-            speechBubble.className = `speech-bubble ${isUser ? 'user-bubble' : ''}`;
             speechBubble.style.animation = 'none';
             void speechBubble.offsetWidth;
             speechBubble.style.animation = 'popIn 0.3s forwards';
             
             bubbleContent.textContent = '';
-            
-            if (isUser) {
-                bubbleContent.textContent = text;
-            } else {
-                let i = 0;
-                function typeWriter() {
-                    if (i < text.length) {
-                        bubbleContent.textContent += text.charAt(i);
-                        i++;
-                        bubbleContent.scrollTop = bubbleContent.scrollHeight;
-                        setTimeout(typeWriter, 20);
-                    }
+            let i = 0;
+            function typeWriter() {
+                if (i < text.length) {
+                    bubbleContent.textContent += text.charAt(i);
+                    i++;
+                    bubbleContent.scrollTop = bubbleContent.scrollHeight;
+                    setTimeout(typeWriter, 20);
                 }
-                typeWriter();
             }
+            typeWriter();
         }
 
-        // Показать анимацию "Думает"
         function showThinking() {
             speechBubble.style.display = 'block';
-            speechBubble.className = 'speech-bubble';
             speechBubble.style.animation = 'none';
             void speechBubble.offsetWidth;
             speechBubble.style.animation = 'popIn 0.3s forwards';
@@ -341,44 +299,39 @@
             if (!text || isSending) return;
             isSending = true;
 
-            showBubble(text, true);
             addToHistory(text, 'user');
             input.value = '';
             input.disabled = true;
             sendBtn.disabled = true;
             
+            showThinking(); 
             characterImg.style.opacity = '0.5';
 
-            // Задержка перед показом "Думает" (чтобы пользователь прочитал свой текст)
-            setTimeout(async () => {
-                showThinking(); // Включаем три точки
+            try {
+                const response = await fetch(`${BACKEND_URL}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
                 
-                try {
-                    const response = await fetch(`${BACKEND_URL}/ask`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: text })
-                    });
+                const data = await response.json();
+                
+                characterImg.style.opacity = '1';
+                showBubble(data.text); 
+                addToHistory(data.text, 'bot');
 
-                    if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
-                    
-                    const data = await response.json();
-                    
-                    characterImg.style.opacity = '1';
-                    showBubble(data.text, false); 
-                    addToHistory(data.text, 'bot');
-
-                } catch (error) {
-                    characterImg.style.opacity = '1';
-                    showBubble(`Ошибка: ${error.message}`, false);
-                    addToHistory(`Ошибка: ${error.message}`, 'bot');
-                } finally {
-                    input.disabled = false;
-                    sendBtn.disabled = false;
-                    input.focus();
-                    isSending = false; 
-                }
-            }, 800);
+            } catch (error) {
+                characterImg.style.opacity = '1';
+                showBubble(`Ошибка: ${error.message}`);
+                addToHistory(`Ошибка: ${error.message}`, 'bot');
+            } finally {
+                input.disabled = false;
+                sendBtn.disabled = false;
+                input.focus();
+                isSending = false; 
+            }
         }
 
         sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
@@ -386,7 +339,6 @@
             if (e.key === 'Enter') sendMessage(input.value.trim());
         });
 
-        // Приветствие при загрузке
         setTimeout(() => showBubble("Привет! Я твой голо-друг. Давай поболтаем?"), 500);
     </script>
 </body>
