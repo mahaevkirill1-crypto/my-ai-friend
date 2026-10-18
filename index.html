@@ -318,7 +318,33 @@ input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(i
 const confirmBox = $('confirm');
 $('clear-btn').addEventListener('click', () => { if (!isSending) confirmBox.classList.add('open'); });
 $('cancel-clear').addEventListener('click', () => confirmBox.classList.remove('open'));
-$('do-clear').addEventListener('click', async () => { const forget = $('forget').checked; confirmBox.classList.remove('open'); $('forget').checked = false; chatHistory.innerHTML = ''; if (char === 'holo') Hologram.react('surprised', 'idle', 2000); if (forget) { localStorage.removeItem('holo_history'); chatHistoryForServer = []; } else { chatHistoryForServer = []; } addToHistory(char === 'astro' ? (forget ? 'Всё стёрто, даже из памяти. Остались только звёзды.' : 'Тишина… чат очищен.') : (forget ? 'Всё стёрто, даже из памяти. Давай знакомиться заново?' : 'Чат очищен. Начнём заново?'), 'bot'); try { await fetch(`${BACKEND_URL}/clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId(), forget_memory: forget }) }); } catch (e) {} });
+$('do-clear').addEventListener('click', async () => {
+    const forget = $('forget').checked; 
+    confirmBox.classList.remove('open'); 
+    $('forget').checked = false; 
+    
+    chatHistory.innerHTML = '';
+    if (char === 'holo') Hologram.react('surprised', 'idle', 2000);
+    
+    if (forget) {
+        // Если галочка СТОИТ - стираем память полностью
+        localStorage.removeItem('holo_history');
+        chatHistoryForServer = [];
+        addToHistory('Всё стёрто, даже из памяти. Давай знакомиться заново?', 'bot');
+    } else {
+        // Если галочка НЕ стоит - просто начинаем новый визуальный чат, 
+        // НО массив chatHistoryForServer НЕ ТРОГАЕМ! Он остается в памяти.
+        addToHistory('Чат очищен. Но я всё ещё помню, о чём мы говорили.', 'bot');
+    }
+
+    try {
+        await fetch(`${BACKEND_URL}/clear`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId(), forget_memory: forget })
+        });
+    } catch (e) {}
+});
 const SHOP_ITEMS = [ { id: 'astro', char: 'astro', name: 'Космонавт', desc: 'Прилетает на тарелке и говорит загадками о звёздах и невесомости. Если написать «смотри пришельцы», начнётся перестрелка.', price: 299 } ];
 const shop = $('shop');
 const findItem = id => byId[id] || SHOP_ITEMS.find(i => i.id === id);
