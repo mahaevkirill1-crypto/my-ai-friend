@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1.0,user-scalable=no">
-<title>Голограмма-бот v3</title>
+<title>Голограмма-бот v4</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
     :root {
@@ -13,7 +13,6 @@
         --text-color: #ffffff;
         --accent-color: #4FD1E8; 
     }
-
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 10px; }
@@ -58,7 +57,7 @@
 
 <div id="stage"></div>
 
-<svg id="sv" role="img" aria-label="Голограмма-бот с реактивным ранцем">
+<svg id="sv" role="img" aria-label="Голограмма-бот">
   <g id="fly">
    <rect x="100" y="50" width="180" height="340" fill="#000" fill-opacity=".001"/>
    <g id="fig">
@@ -101,7 +100,7 @@
 </div>
 
 <script>
-/* ===== 1. ЛОГИКА РОБОТА ===== */
+/* ===== 1. РОБОТ ===== */
 const EMOTIONS = {
   happy: {label:'Радость', c:'#4FD1E8', s:'#9AF0FF', eRx:7, eRy:9, eDx:0, eDy:0, bo:0, bLO:118,bLI:118,bRO:118,bRI:118, mx0:174,my0:158,mcx:190,mcy:174,mx1:206,my1:158, mf:0, ck:.7, zo:0},
   sad: {label:'Грусть', c:'#6C8CF0', s:'#B4C6FF', eRx:7, eRy:8, eDx:0, eDy:2, bo:1, bLO:122,bLI:114,bRO:122,bRI:114, mx0:176,my0:166,mcx:190,mcy:154,mx1:204,my1:166, mf:0, ck:.1, zo:0},
@@ -120,8 +119,8 @@ const DANCES = {
   party: {f(w){ const k = Math.sin(w*9); return [145+16*k, -145-16*k, 0, -7*Math.abs(Math.sin(w*4.5)), 0, 5*Math.sin(w*4.5), 0, 0]; }},
   twist: {f(w){ const k = Math.sin(w*8); return [20-30*k, -20-30*k, 4*k, 0, 14*k, -6*k, 6*k, 6*k]; }}
 };
+
 const $ = id => document.getElementById(id);
-const tr = (id, v) => $(id).setAttribute('transform', v);
 const A = (id, a, v) => $(id).setAttribute(a, v);
 const cl = (x, a, b) => Math.max(a, Math.min(b, x));
 const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
@@ -136,7 +135,23 @@ let ang = 0, angT = 0, madT = 0, coolTimer = 0, last = 0;
 
 function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'number') continue; tgt[key] = obj[key]; if (!(key in cur)) cur[key] = obj[key]; } }
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
-function layout(){ W = innerWidth; H = innerHeight; $('sv').setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); const r = $('stage').getBoundingClientRect(); SPOTS = [[W*.5, r.top + r.height*.5], [W*.2, r.top*.85], [W*.8, r.top*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
+
+function layout(){ 
+    W = innerWidth; H = innerHeight; 
+    $('sv').setAttribute('viewBox', `0 0 ${W} ${H}`); 
+    SC = cl(Math.min(W, H) / 760, .38, .6); 
+    const r = $('stage').getBoundingClientRect(); 
+    // Исправлено: добавляем отступы, чтобы робот не залетал за край
+    const pad = 80; 
+    SPOTS = [
+        [W*.5, r.top + r.height*.5], 
+        [W*.2, Math.max(pad, r.top*.85)], 
+        [W*.8, Math.max(pad, r.top*.85)], 
+        [W*.2, H*.55], 
+        [W*.8, H*.55]
+    ]; 
+    if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } 
+}
 addEventListener('resize', layout); layout();
 function enter(){ const m = 100; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[Math.floor(Math.random() * 4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
 function annoy(){ if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; const tg = window.Telegram && Telegram.WebApp; if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
@@ -178,7 +193,7 @@ const Hologram = {
 };
 window.Hologram = Hologram;
 
-/* ===== 2. ЛОГИКА ЧАТА И ИИ ===== */
+/* ===== 2. ЧАТ И ПАМЯТЬ ===== */
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} }
 
@@ -213,11 +228,19 @@ async function sendMessage(text) {
     
     Hologram.react('thinking', 'think');
 
+    // Собираем историю последних 5 сообщений для памяти
+    const historyElements = Array.from(chatHistory.querySelectorAll('.message'));
+    const lastMessages = historyElements.slice(-5).map(el => el.textContent);
+    const historyContext = lastMessages.join('\n');
+
     try {
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: text })
+            body: JSON.stringify({ 
+                text: text,
+                history: historyContext 
+            })
         });
 
         if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
@@ -251,7 +274,9 @@ input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(i
 
 function onFirstArrive(){
     Hologram.react('happy', 'wave', 3500);
-    addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
+    if (chatHistory.children.length === 0) {
+        addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
+    }
 }
 
 enter();
