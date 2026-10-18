@@ -40,7 +40,7 @@
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
 
-        // Сюда потом вставим ссылку от Render
+        // Твоя ссылка от Render (без слэша в конце)
         const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 
         function addMessage(text, sender) {
@@ -70,13 +70,14 @@
                     })
                 });
 
-                if (!response.ok) throw new Error('Network response was not ok');
+                if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
                 
                 const data = await response.json();
                 addMessage(data.text, 'bot');
 
             } catch (error) {
-                addMessage('Ошибка связи. Попробуй позже.', 'bot');
+                // Выводим точную техническую ошибку в чат
+                addMessage(`ОШИБКА СЕТИ: ${error.message}`, 'bot');
                 console.error(error);
             } finally {
                 input.disabled = false;
