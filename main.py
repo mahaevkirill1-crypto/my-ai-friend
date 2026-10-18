@@ -44,6 +44,8 @@ async def ask(request: UserRequest):
             temperature=0.7,
         )
         answer = response.choices[0].message.content
+        return {"text": answer}
+    except Exception as e:
         return {"text": f"ОШИБКА: {str(e)}"}
 
 @app.get("/")
