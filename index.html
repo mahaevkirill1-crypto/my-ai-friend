@@ -25,24 +25,26 @@
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
 
-        /* Верхняя часть с роботом и облачком */
+        /* Верхняя часть с роботом */
         #top-area {
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-end; /* Прижимаем всё к низу этой зоны */
             align-items: center;
-            position: relative;
+           %;
+ position: relative;
             padding-top: 20px;
-            min-height: 35vh;
+                       padding-bottom: 10px;
+            min width-height: 35vh;
         }
 
-        .character-container {
+        .:character-container {
             position: relative;
-            display: flex;
+            display: flex 100;
             flex-direction: column;
             align-items: center;
-            max-width: 90%;
+            max-width: 95%;
         }
 
         .character-img {
@@ -52,6 +54,7 @@
             filter: drop-shadow(0 15px 25px rgba(88, 166, 255, 0.2));
             transition: opacity 0.3s ease;
             animation: float 4s ease-in-out infinite;
+            flex-shrink: 0; /* Запрещаем картинке сжиматься */
         }
 
         @keyframes float {
@@ -59,7 +62,7 @@
             50% { transform: translateY(-10px); }
         }
 
-        /* Стеклянное облачко над роботом */
+        /* Облачко */
         .speech-bubble {
             background: rgba(28, 37, 51, 0.85);
             backdrop-filter: blur(10px);
@@ -71,7 +74,7 @@
             border-bottom-left-radius: 4px;
             font-size: 15px;
             line-height: 1.4;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
             display: none;
             animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
@@ -79,6 +82,9 @@
             z-index: 10;
             max-width: 95%;
             word-wrap: break-word;
+            /* Ограничиваем высоту облачка, чтобы оно не выталкивало робота */
+            max-height: 30vh; 
+            overflow-y: auto;
         }
 
         .speech-bubble.user-bubble {
@@ -111,9 +117,9 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        /* История чата (прокручиваемая) */
+        /* История чата */
         #chat-history {
-            flex: 0.8; /* Занимает меньше места, чем робот, но скроллится */
+            flex: 0.8;
             overflow-y: auto;
             padding: 10px 16px;
             display: flex;
@@ -143,7 +149,7 @@
 
         /* --- HUD Интерфейс (внизу) --- */
         #hud-panel {
-            padding: 0 16px 16px 16px;
+            padding: 16px;
             background: var(--bg-color);
             display: flex;
             flex-direction: column;
@@ -184,18 +190,6 @@
             display: flex; justify-content: center; align-items: center;
             cursor: pointer; margin-right: 2px;
         }
-
-        .quick-actions {
-            display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
-        }
-        .quick-actions::-webkit-scrollbar { display: none; }
-
-        .quick-btn {
-            background: rgba(28, 37, 51, 0.5); border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #e6edf3; padding: 8px 16px; border-radius: 20px;
-            font-size: 14px; white-space: nowrap; cursor: pointer; transition: all 0.2s;
-        }
-        .quick-btn:active { background: rgba(88, 166, 255, 0.2); border-color: var(--accent-color); }
     </style>
 </head>
 <body>
@@ -203,21 +197,15 @@
     <div id="top-area">
         <div class="character-container">
             <div class="speech-bubble" id="speech-bubble"></div>
-            <img src="IMG_1209.png?v=4" alt="Robot" class="character-img" id="character-img">
+            <img src="IMG_1209.png?v=5" alt="Robot" class="character-img" id="character-img">
         </div>
     </div>
 
-    <!-- История чата (вернули) -->
+    <!-- История чата -->
     <div id="chat-history"></div>
 
     <!-- НИЖНЯЯ ПАНЕЛЬ (HUD) -->
     <div id="hud-panel">
-        <div class="quick-actions">
-            <button class="quick-btn" onclick="quickSend('Привет')">Привет</button>
-            <button class="quick-btn" onclick="quickSend('Рассмеши меня')">Рассмеши меня</button>
-            <button class="quick-btn" onclick="quickSend('Станцуй')">Станцуй</button>
-        </div>
-
         <div class="input-wrapper">
             <button class="mic-btn">🎤</button>
             <div class="input-container">
@@ -241,6 +229,7 @@
         const chatHistory = document.getElementById('chat-history');
 
         const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
+        let isSending = false;
 
         function showBubble(text, isUser = false) {
             speechBubble.style.display = 'block';
@@ -258,6 +247,7 @@
                     if (i < text.length) {
                         speechBubble.textContent += text.charAt(i);
                         i++;
+                        speechBubble.scrollTop = speechBubble.scrollHeight; // Автоскролл внутри облачка
                         setTimeout(typeWriter, 20);
                     }
                 }
@@ -268,31 +258,27 @@
         function addToHistory(text, sender) {
             const row = document.createElement('div');
             row.className = `msg-row ${sender}`;
-            
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
             avatar.textContent = sender === 'user' ? '👤' : '🤖';
-            
             const msg = document.createElement('div');
             msg.className = 'message';
             msg.textContent = text;
-            
             row.appendChild(avatar);
             row.appendChild(msg);
             chatHistory.appendChild(row);
-            
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
         async function sendMessage(text) {
-            if (!text) return;
+            if (!text || isSending) return;
+            isSending = true;
 
             showBubble(text, true);
-            addToHistory(text, 'user'); // Добавляем в историю
+            addToHistory(text, 'user');
             input.value = '';
             input.disabled = true;
             sendBtn.disabled = true;
-            
             characterImg.style.opacity = '0.5';
 
             setTimeout(async () => {
@@ -309,7 +295,7 @@
                     
                     characterImg.style.opacity = '1';
                     showBubble(data.text, false); 
-                    addToHistory(data.text, 'bot'); // Добавляем ответ в историю
+                    addToHistory(data.text, 'bot');
 
                 } catch (error) {
                     characterImg.style.opacity = '1';
@@ -319,6 +305,7 @@
                     input.disabled = false;
                     sendBtn.disabled = false;
                     input.focus();
+                    isSending = false; 
                 }
             }, 800);
         }
@@ -327,10 +314,6 @@
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage(input.value.trim());
         });
-
-        window.quickSend = function(text) {
-            sendMessage(text);
-        };
 
         setTimeout(() => showBubble("Привет! Как дела?"), 500);
     </script>
