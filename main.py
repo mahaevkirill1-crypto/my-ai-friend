@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI
 import os
 
+# Используем новый единый шлюз ProxyAPI и стандартную рабочую модель
 client = AsyncOpenAI(
     api_key=os.getenv("PROXYAPI_KEY"),
-    base_url="https://api.proxyapi.ru/openai/v1"
+    base_url="https://api.proxyapi.ru/v1"
 )
 
 app = FastAPI()
@@ -35,7 +36,7 @@ SYSTEM_PROMPT = """
 async def ask(request: UserRequest):
     try:
         response = await client.chat.completions.create(
-            model="openai/gpt-5.4-mini",
+            model="openai/gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": request.text}
