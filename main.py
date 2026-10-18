@@ -44,7 +44,7 @@ async def ask(request: Request):
     try:
         data = await request.json()
         user_text = data.get("text", "").lower()
-        history_text = data.get("history", "")
+        history_text = data.get("history", "") # ПРИНИМАЕМ ИСТОРИЮ
         persona = data.get("persona", "hologram")
         
         if not user_text:
@@ -68,9 +68,13 @@ async def ask(request: Request):
             text = response.choices[0].message.content
             return {"text": text, "action": "dance", "dance_name": chosen_dance}
 
+        # СБОРКА ЗАПРОСА С УЧЕТОМ ИСТОРИИ
         messages = [{"role": "system", "content": system_prompt}]
+        
         if history_text:
-            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}"})
+            # Добавляем историю как контекст
+            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}\n\nТеперь ответь на моё новое сообщение с учетом этого контекста."})
+        
         messages.append({"role": "user", "content": user_text})
 
         response = await client.chat.completions.create(
@@ -89,7 +93,6 @@ async def ask(request: Request):
 
 @app.post("/clear")
 async def clear(request: Request):
-    # Просто возвращаем ок, так как память мы храним на клиенте (в localStorage)
     return {"status": "ok"}
 
 @app.get("/")
