@@ -1,10 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 import os
 
-# Используем новый единый шлюз ProxyAPI и стандартную рабочую модель
 client = AsyncOpenAI(
     api_key=os.getenv("PROXYAPI_KEY"),
     base_url="https://api.proxyapi.ru/v1"
@@ -12,10 +11,9 @@ client = AsyncOpenAI(
 
 app = FastAPI()
 
-# Разрешаем запросы с GitHub Pages и из самого Telegram
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Для надежности оставляем *, чтобы Telegram точно пропустил
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
