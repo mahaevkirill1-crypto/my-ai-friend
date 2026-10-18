@@ -11,7 +11,8 @@
             --bot-msg-bg: #1c2533; 
             --user-msg-bg: #2b5278; 
             --text-color: #ffffff;
-            --accent-color: #58a6ff; 
+            --accent-color: #58a6ff; /* Голубой цвет */
+            --yellow-accent: #f1c40f; /* Желтый акцент с референса */
             --user-color: #2b5278;
         }
 
@@ -30,21 +31,21 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end; /* Прижимаем всё к низу этой зоны */
+            justify-content: flex-end;
             align-items: center;
-           %;
- position: relative;
+            position: relative;
             padding-top: 20px;
-                       padding-bottom: 10px;
-            min width-height: 35vh;
+            padding-bottom: 10px;
+            min-height: 35vh;
         }
 
-        .:character-container {
+        .character-container {
             position: relative;
-            display: flex 100;
+            display: flex;
             flex-direction: column;
             align-items: center;
             max-width: 95%;
+            width: 100%;
         }
 
         .character-img {
@@ -54,7 +55,7 @@
             filter: drop-shadow(0 15px 25px rgba(88, 166, 255, 0.2));
             transition: opacity 0.3s ease;
             animation: float 4s ease-in-out infinite;
-            flex-shrink: 0; /* Запрещаем картинке сжиматься */
+            flex-shrink: 0;
         }
 
         @keyframes float {
@@ -62,59 +63,102 @@
             50% { transform: translateY(-10px); }
         }
 
-        /* Облачко */
+        /* --- Новое облачко со скошенными углами --- */
         .speech-bubble {
-            background: rgba(28, 37, 51, 0.85);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid var(--accent-color);
-            color: #e6edf3;
-            padding: 12px 18px;
-            border-radius: 16px;
-            border-bottom-left-radius: 4px;
-            font-size: 15px;
-            line-height: 1.4;
-            margin-bottom: 15px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            display: none;
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             position: relative;
+            background: #0f1822;
+            border: 2px solid var(--accent-color);
+            padding: 14px 22px;
+            margin-bottom: 25px;
+            max-width: 90%;
+            font-size: 15px;
+            line-height: 1.5;
+            color: #e6edf3;
+            display: none;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            /* Скошенные углы с помощью clip-path */
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
             z-index: 10;
-            max-width: 95%;
-            word-wrap: break-word;
-            /* Ограничиваем высоту облачка, чтобы оно не выталкивало робота */
-            max-height: 30vh; 
+            max-height: 30vh;
             overflow-y: auto;
         }
 
-        .speech-bubble.user-bubble {
-            border-color: var(--user-color);
-            border-bottom-left-radius: 16px;
-            border-bottom-right-radius: 4px;
-            background: rgba(43, 82, 120, 0.85);
-        }
-
+        /* Хвостик облачка (треугольник вниз) */
         .speech-bubble::after {
             content: '';
             position: absolute;
-            bottom: -8px; left: 20px;
-            width: 16px; height: 16px;
-            background: rgba(28, 37, 51, 0.85);
-            border-bottom: 1px solid var(--accent-color);
-            border-left: 1px solid var(--accent-color);
-            transform: rotate(-45deg);
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 12px solid var(--accent-color);
         }
-        
-        .speech-bubble.user-bubble::after {
-            background: rgba(43, 82, 120, 0.85);
+
+        /* Закрашиваем хвостик изнутри, чтобы он был полым */
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -9px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #0f1822;
+            z-index: 1;
+        }
+
+        /* Желтые акценты на углах (имитация референса) */
+        .corner-accent {
+            position: absolute;
+            width: 15px; height: 15px;
+            border: 2px solid var(--yellow-accent);
+            pointer-events: none;
+        }
+        .corner-accent.top-left {
+            top: 0; left: 0;
+            border-right: none; border-bottom: none;
+            clip-path: polygon(0 0, 100% 0, 100% 2px, 2px 2px, 2px 100%, 0 100%);
+        }
+        .corner-accent.bottom-right {
+            bottom: 0; right: 0;
+            border-left: none; border-top: none;
+            clip-path: polygon(calc(100% - 2px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(100% - 2px), calc(100% - 2px) calc(100% - 2px));
+        }
+
+        /* Стиль для пользователя (если нужно) */
+        .speech-bubble.user-bubble {
             border-color: var(--user-color);
-            left: auto; right: 20px;
-            transform: rotate(45deg);
+            clip-path: none; /* Пользователю можно оставить обычный */
+            border-radius: 16px;
         }
 
         @keyframes popIn {
             0% { opacity: 0; transform: scale(0.9) translateY(15px); }
             100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* --- Анимация "Думает" (Три точки) --- */
+        .thinking-dots {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            padding: 10px 0;
+        }
+        .thinking-dots span {
+            width: 10px; height: 10px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+            40% { transform: scale(1); opacity: 1; }
         }
 
         /* История чата */
@@ -196,8 +240,13 @@
     <!-- Верхняя зона с роботом -->
     <div id="top-area">
         <div class="character-container">
-            <div class="speech-bubble" id="speech-bubble"></div>
-            <img src="IMG_1209.png?v=5" alt="Robot" class="character-img" id="character-img">
+            <div class="speech-bubble" id="speech-bubble">
+                <!-- Желтые акценты -->
+                <div class="corner-accent top-left"></div>
+                <div class="corner-accent bottom-right"></div>
+                <div id="bubble-content"></div>
+            </div>
+            <img src="IMG_1209.png?v=6" alt="Robot" class="character-img" id="character-img">
         </div>
     </div>
 
@@ -225,34 +274,52 @@
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
         const speechBubble = document.getElementById('speech-bubble');
+        const bubbleContent = document.getElementById('bubble-content');
         const characterImg = document.getElementById('character-img');
         const chatHistory = document.getElementById('chat-history');
 
         const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
         let isSending = false;
 
+        // Показать текст в облачке
         function showBubble(text, isUser = false) {
             speechBubble.style.display = 'block';
             speechBubble.className = `speech-bubble ${isUser ? 'user-bubble' : ''}`;
             speechBubble.style.animation = 'none';
             void speechBubble.offsetWidth;
             speechBubble.style.animation = 'popIn 0.3s forwards';
-            speechBubble.textContent = '';
+            
+            bubbleContent.textContent = '';
             
             if (isUser) {
-                speechBubble.textContent = text;
+                bubbleContent.textContent = text;
             } else {
                 let i = 0;
                 function typeWriter() {
                     if (i < text.length) {
-                        speechBubble.textContent += text.charAt(i);
+                        bubbleContent.textContent += text.charAt(i);
                         i++;
-                        speechBubble.scrollTop = speechBubble.scrollHeight; // Автоскролл внутри облачка
+                        bubbleContent.scrollTop = bubbleContent.scrollHeight;
                         setTimeout(typeWriter, 20);
                     }
                 }
                 typeWriter();
             }
+        }
+
+        // Показать анимацию "Думает"
+        function showThinking() {
+            speechBubble.style.display = 'block';
+            speechBubble.className = 'speech-bubble';
+            speechBubble.style.animation = 'none';
+            void speechBubble.offsetWidth;
+            speechBubble.style.animation = 'popIn 0.3s forwards';
+            
+            bubbleContent.innerHTML = `
+                <div class="thinking-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
         }
 
         function addToHistory(text, sender) {
@@ -279,9 +346,13 @@
             input.value = '';
             input.disabled = true;
             sendBtn.disabled = true;
+            
             characterImg.style.opacity = '0.5';
 
+            // Задержка перед показом "Думает" (чтобы пользователь прочитал свой текст)
             setTimeout(async () => {
+                showThinking(); // Включаем три точки
+                
                 try {
                     const response = await fetch(`${BACKEND_URL}/ask`, {
                         method: 'POST',
@@ -315,7 +386,8 @@
             if (e.key === 'Enter') sendMessage(input.value.trim());
         });
 
-        setTimeout(() => showBubble("Привет! Как дела?"), 500);
+        // Приветствие при загрузке
+        setTimeout(() => showBubble("Привет! Я твой голо-друг. Давай поболтаем?"), 500);
     </script>
 </body>
 </html>
