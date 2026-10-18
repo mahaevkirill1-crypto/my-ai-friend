@@ -53,14 +53,14 @@
 
         /* Сама картинка робота */
         .character-img {
-            width: 250px; /* Размер подогнан под телефон */
-            max-width: 80vw;
+            width: 280px; /* Размер подогнан под телефон */
+            max-width: 85vw;
             height: auto;
             filter: drop-shadow(0 15px 25px rgba(88, 166, 255, 0.2));
             transition: opacity 0.3s ease;
         }
 
-        /* Облачко с сообщением (как на референсе) */
+        /* Облачко с сообщением */
         .speech-bubble {
             background-color: rgba(28, 37, 51, 0.9);
             border: 1px solid var(--accent-color);
@@ -73,7 +73,7 @@
             max-width: 100%;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             backdrop-filter: blur(5px);
-            display: none; /* По умолчанию скрыто */
+            display: none;
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
@@ -82,7 +82,7 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        /* История чата (внизу экрана) */
+        /* История чата */
         #chat-history {
             height: 30vh;
             overflow-y: auto;
@@ -164,8 +164,8 @@
             <!-- Облачко для последнего ответа -->
             <div class="speech-bubble" id="speech-bubble"></div>
             
-            <!-- Картинка робота с твоим точным именем файла (и защитой от кэша ?v=2) -->
-            <img src="IMG_1204.jpeg?v=2" alt="Robot" class="character-img" id="character-img">
+            <!-- Твоя картинка робота (?v=3 нужен для сброса кэша Telegram) -->
+            <img src="IMG_1209.png?v=3" alt="Robot" class="character-img" id="character-img">
         </div>
     </div>
 
@@ -191,6 +191,7 @@
         const speechBubble = document.getElementById('speech-bubble');
         const characterImg = document.getElementById('character-img');
 
+        // Твоя ссылка на сервер
         const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 
         // Функция для облачка с печатной машинкой
@@ -208,7 +209,7 @@
             typeWriter();
         }
 
-        // Функция для добавления в историю (внизу)
+        // Функция для добавления в историю
         function addToHistory(text, sender) {
             const div = document.createElement('div');
             div.className = `message ${sender}`;
@@ -263,7 +264,6 @@
 
         // Приветствие при загрузке
         setTimeout(() => showBubble("Привет! Как дела?"), 500);
-    </script> 
-    <!-- v2 для сброса кэша -->
+    </script>
 </body>
 </html>
