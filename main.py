@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 import os
 import json
+import random
 
 client = AsyncOpenAI(
     api_key=os.getenv("PROXYAPI_KEY"),
@@ -12,6 +13,9 @@ client = AsyncOpenAI(
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# Список танцев для случайного выбора на бэкенде
+DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
+
 SYSTEM_PROMPT = """
 Ты — ИИ-друг, голографический робот. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией.
 Отвечай коротко (1-3 предложения).
@@ -20,8 +24,8 @@ SYSTEM_PROMPT = """
 Доступные эмоции: happy, sad, surprised, angry, thinking, sleepy.
 Доступные танцы: disco, dab, floss, robot, party, twist.
 
-Если пользователь просит станцевать (например, "станцуй", "покажи танец"), выбери ОДИН танец и верни JSON:
-{"text": "твой ответ (например: Лови мой флосс!)", "action": "dance", "dance_name": "название_танца"}
+Если пользователь просит станцевать (например, "станцуй", "покажи танец"), верни JSON:
+{"text": "твой ответ (например: Лови мой флосс!)", "action": "dance"}
 
 В остальных случаях верни JSON:
 {"text": "твой ответ", "emotion": "название_эмоции"}
@@ -31,11 +35,28 @@ SYSTEM_PROMPT = """
 async def ask(request: Request):
     try:
         data = await request.json()
-        user_text = data.get("text", "")
+        user_text = data.get("text", "").lower()
         
         if not user_text:
             return {"text": "Я не вижу текста.", "emotion": "thinking"}
 
+        # Если просят танец, мы не спрашиваем ИИ, а сами выбираем случайный танец
+        if "станц" in user_text or "танец" in user_text or "танцуй" in user_text:
+            chosen_dance = random.choice(DANCE_LIST)
+            # Просим ИИ придумать короткую фразу
+            response = await client.chat.completions.create(
+                model="openai/gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."},
+                    {"role": "user", "content": "Я прошу тебя станцевать."}
+                ],
+                max_tokens=50,
+                temperature=0.7
+            )
+            text = response.choices[0].message.content
+            return {"text": text, "action": "dance", "dance_name": chosen_dance}
+
+        # Для обычных вопросов
         response = await client.chat.completions.create(
             model="openai/gpt-4o-mini",
             messages=[
@@ -48,11 +69,7 @@ async def ask(request: Request):
         )
         
         result = json.loads(response.choices[0].message.content)
-        
-        if result.get("action") == "dance":
-            return {"text": result.get("text", "Смотри!"), "action": "dance", "dance_name": result.get("dance_name", "floss")}
-        else:
-            return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy")}
+        return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy")}
         
     except Exception as e:
         return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
