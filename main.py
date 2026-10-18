@@ -44,7 +44,7 @@ async def ask(request: Request):
     try:
         data = await request.json()
         user_text = data.get("text", "").lower()
-        history_text = data.get("history", "") # ПРИНИМАЕМ ИСТОРИЮ
+        history_text = data.get("history", "") # Принимаем историю
         persona = data.get("persona", "hologram")
         
         if not user_text:
@@ -68,12 +68,11 @@ async def ask(request: Request):
             text = response.choices[0].message.content
             return {"text": text, "action": "dance", "dance_name": chosen_dance}
 
-        # СБОРКА ЗАПРОСА С УЧЕТОМ ИСТОРИИ
         messages = [{"role": "system", "content": system_prompt}]
         
+        # Если есть история - передаем её
         if history_text:
-            # Добавляем историю как контекст
-            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}\n\nТеперь ответь на моё новое сообщение с учетом этого контекста."})
+            messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}\n\nТеперь ответь на моё новое сообщение."})
         
         messages.append({"role": "user", "content": user_text})
 
