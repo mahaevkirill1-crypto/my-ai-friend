@@ -15,9 +15,16 @@
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
-    body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 10px; }
+    body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 6px; }
 
-    #stage { width: 100%; flex: 0 0 38vh; }
+    /* Верхняя панель */
+    #topbar { width: 100%; max-width: 450px; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; position: relative; z-index: 40; flex-shrink: 0; }
+    .ibtn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #0B2230; border: 1px solid rgba(79,209,232,.4); border-radius: 8px; color: #9AF0FF; cursor: pointer; padding: 0; }
+    .ibtn:active { background: #123A4A; }
+    .ibtn.danger { color: #FF9E9E; }
+
+    #stage { width: 100%; flex: 0 0 34vh; }
+
     #sv {
         position: fixed; inset: 0; width: 100%; height: 100%;
         z-index: 30; pointer-events: none; display: block;
@@ -42,6 +49,8 @@
     .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
     .msg-row.user .avatar { background: var(--user-msg-bg); }
     .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
+    .message::-webkit-scrollbar { width: 4px; }
+    .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
     .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
 
@@ -49,7 +58,6 @@
     .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 8px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
     #user-input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px 12px; font-size: 15px; outline: none; }
     
-    /* НОВАЯ СТИЛЬНАЯ КНОПКА */
     #send-btn { 
         width: 44px; height: 44px; 
         background: rgba(79, 209, 232, 0.1); 
@@ -62,9 +70,38 @@
     }
     #send-btn:active { background: var(--accent-color); color: #000; }
     #send-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+    /* Окна */
+    .overlay { position: fixed; inset: 0; display: none; }
+    .overlay.open { display: flex; }
+    #shop { background: var(--bg-color); flex-direction: column; z-index: 50; }
+    #shop-head { display: flex; align-items: center; justify-content: space-between; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    #shop-head h2 { margin: 0; font-size: 17px; font-weight: 500; color: #fff; }
+    .txtbtn { background: #0B2230; border: 1px solid #2E8FA3; color: #9AF0FF; font: inherit; font-size: 13px; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    #shop-list { flex: 1; overflow-y: auto; padding: 16px; }
+    .empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; color: #7FE5F5; }
+    .empty small { color: #4B8FA0; font-size: 13px; max-width: 240px; }
+
+    #confirm { background: rgba(7,12,20,.82); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
+    .dialog { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; }
+    .dialog h3 { margin: 0 0 6px; font-size: 16px; font-weight: 500; color: #fff; }
+    .dialog p { margin: 0 0 12px; font-size: 13px; color: #7FE5F5; line-height: 1.5; }
+    .dialog label { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-bottom: 14px; cursor: pointer; }
+    .dialog .btns { display: flex; gap: 8px; }
+    .dialog .btns button { flex: 1; }
+    #do-clear { background: #FF6B6B; border: none; color: #0E1726; font: inherit; font-size: 13px; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
 </style>
 </head>
 <body>
+
+<div id="topbar">
+  <button class="ibtn" id="shop-btn" aria-label="Магазин">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+  </button>
+  <button class="ibtn danger" id="clear-btn" aria-label="Удалить чат">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
+  </button>
+</div>
 
 <div id="stage"></div>
 
@@ -106,14 +143,29 @@
 <div id="hud-panel">
     <div class="input-container">
         <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off">
-        
-        <!-- НОВАЯ КНОПКА С SVG-СТРЕЛКОЙ -->
         <button id="send-btn">
             <svg viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>
         </button>
     </div>
+</div>
+
+<div id="shop" class="overlay">
+  <div id="shop-head"><h2>Магазин</h2><button class="txtbtn" id="shop-close">Закрыть</button></div>
+  <div id="shop-list"></div>
+</div>
+
+<div id="confirm" class="overlay">
+  <div class="dialog">
+    <h3>Удалить чат?</h3>
+    <p>Вся переписка исчезнет. Вернуть её будет нельзя.</p>
+    <label><input type="checkbox" id="forget" style="margin-top:2px"><span>Забыть и то, что бот запомнил обо мне</span></label>
+    <div class="btns">
+      <button class="txtbtn" id="cancel-clear">Отмена</button>
+      <button id="do-clear">Удалить</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -152,29 +204,12 @@ let ang = 0, angT = 0, madT = 0, coolTimer = 0, last = 0;
 
 function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'number') continue; tgt[key] = obj[key]; if (!(key in cur)) cur[key] = obj[key]; } }
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
-
-function layout(){ 
-    W = innerWidth; H = innerHeight; 
-    $('sv').setAttribute('viewBox', `0 0 ${W} ${H}`); 
-    SC = cl(Math.min(W, H) / 760, .38, .6); 
-    const r = $('stage').getBoundingClientRect(); 
-    const padTop = 120; 
-    SPOTS = [
-        [W*.5, r.top + r.height*.5], 
-        [W*.2, Math.max(padTop, r.top*.85)], 
-        [W*.8, Math.max(padTop, r.top*.85)], 
-        [W*.2, H*.55], 
-        [W*.8, H*.55]
-    ]; 
-    if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } 
-}
+function layout(){ W = innerWidth; H = innerHeight; $('sv').setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); const r = $('stage').getBoundingClientRect(); const padTop = 120; SPOTS = [[W*.5, r.top + r.height*.5], [W*.2, Math.max(padTop, r.top*.85)], [W*.8, Math.max(padTop, r.top*.85)], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
 addEventListener('resize', layout); layout();
-
 function enter(){ const m = 100; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[Math.floor(Math.random() * 4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
 function annoy(){ if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; const tg = window.Telegram && Telegram.WebApp; if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
 $('fly').addEventListener('pointerdown', annoy);
 function flame(o, i, cx, L){ A(o, 'points', `${cx-8},276 ${cx+8},276 ${cx},${276+L}`); A(i, 'points', `${cx-4},276 ${cx+4},276 ${cx},${276+L*.6}`); }
-
 function frame(t){
   const dt = Math.min(2.5, (t - last) / 16.7); last = t;
   if (st === 'mad' && t - madT > 650){ let far = []; SPOTS.forEach((s, i) => { if (i !== spot && Math.hypot(s[0]-x, s[1]-y) > Math.min(W, H) * .3) far.push(i); }); if (!far.length) SPOTS.forEach((s, i) => { if (i !== spot) far.push(i); }); spot = far[Math.floor(Math.random() * far.length)]; tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; k = .03; st = 'flee'; }
@@ -186,7 +221,7 @@ function frame(t){
   for (let i = 0; i < 3; i++){ colC[i] += (tgC[i] - colC[i]) * .1; colS[i] += (tgS[i] - colS[i]) * .1; }
   const m = (a, b) => Math.round(a + (b - a) * ang); $('sv').style.setProperty('--c', `rgb(${m(colC[0],ANGC[0])},${m(colC[1],ANGC[1])},${m(colC[2],ANGC[2])})`); $('sv').style.setProperty('--s', `rgb(${m(colS[0],ANGS[0])},${m(colS[1],ANGS[1])},${m(colS[2],ANGS[2])})`);
   const L = 22 + sp * 3 / SC * .5 + 5 * Math.sin(t / 50) + (st === 'mad' ? 20 : 0); flame('f1', 'i1', 143, L); flame('f2', 'i2', 237, L);
-  const w = Math.sin(t / 110), s3 = Math.sin(t / 350); const bL = cur.aL + cur.oL * w + 28 * ang, bR = cur.aR + cur.oR * w - 28 * ang;
+  const w = Math.sin(t / 110), s3 = Math.sin(t / 350); const b *L = cur.aL + cur.oL * w + 28 * ang, ang bR = cur.aR + cur.oR * w - 28;
   const d = dance ? DANCES[dance].f((t - t0) / 1000) : [bL, bR, 0, 0, 0, 0, 0, 0];
   A('aL', 'transform', `rotate(${bL + (d[0]-bL)*dw} 136 204)`); A('aR', 'transform', `rotate(${bR + (d[1]-bR)*dw} 244 204)`);
   A('fig', 'transform', `translate(${d[2]*dw} ${d[3]*dw}) rotate(${d[4]*dw} 190 362)`); A('hd', 'transform', `rotate(${d[5]*dw} 190 186)`);
@@ -278,48 +313,4 @@ async function sendMessage(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 text: text,
-                history: historyForServer 
-            })
-        });
-
-        if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
-        
-        const data = await response.json();
-        
-        if (data.action === 'dance') {
-            Hologram.dance(data.dance_name || 'floss', 5000);
-        } else {
-            let pose = 'idle';
-            if (data.emotion === 'happy') pose = 'wave';
-            if (data.emotion === 'surprised') pose = 'cheer';
-            Hologram.react(data.emotion, pose, 4000); 
-        }
-        
-        addToHistory(data.text, 'bot');
-
-    } catch (error) {
-        Hologram.react('sad', 'idle');
-        addToHistory(`Ошибка: ${error.message}`, 'bot');
-    } finally {
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
-        isSending = false; 
-    }
-}
-
-sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
-input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
-
-function onFirstArrive(){
-    ang = 0; angT = 0; st = 'hover'; 
-    if (chatMessages.length === 0) {
-        Hologram.react('happy', 'wave', 3500);
-        addToHistory("Привет! Я твой голо-друг. Давай поболтаем?", 'bot');
-    }
-}
-
-enter();
-</script>
-</body>
-</html>
+                history: historyForServer
