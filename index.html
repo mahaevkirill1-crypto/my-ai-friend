@@ -46,23 +46,8 @@
     .txtbtn { background: #0B2230; border: 1px solid #2E8FA3; color: #9AF0FF; font: inherit; font-size: 13px; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
     #shop-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
     
-    /* ИСПРАВЛЕННЫЕ СТИЛИ КАРТОЧКИ */
-    .card { 
-        background: #0B2230; 
-        border: 1px solid #2E8FA3; 
-        border-radius: 12px; 
-        padding: 12px; 
-        display: flex; 
-        gap: 12px; 
-        align-items: center; 
-        width: 100%; 
-        box-sizing: border-box; 
-    }
-    .card svg { 
-        width: 90px; 
-        height: 90px; 
-        flex: none; 
-    }
+    .card { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; width: 100%; box-sizing: border-box; }
+    .card svg { width: 90px; height: 90px; flex: none; }
     .card .info { flex: 1; min-width: 0; }
     .card .name { font-weight: 500; color: #fff; font-size: 15px; }
     .card .desc { font-size: 12px; color: #7FE5F5; margin: 4px 0 8px; line-height: 1.45; }
@@ -376,10 +361,22 @@ const confirmBox = $('confirm');
 $('clear-btn').addEventListener('click', () => { if (!isSending) confirmBox.classList.add('open'); });
 $('cancel-clear').addEventListener('click', () => confirmBox.classList.remove('open'));
 $('do-clear').addEventListener('click', async () => {
-    const forget = $('forget').checked; confirmBox.classList.remove('open'); $('forget').checked = false; chatHistory.innerHTML = '';
+    const forget = $('forget').checked; 
+    confirmBox.classList.remove('open'); 
+    $('forget').checked = false; 
+    
+    chatHistory.innerHTML = '';
     if (char === 'holo') Hologram.react('surprised', 'idle', 2000);
-    addToHistory(char === 'astro' ? (forget ? 'Всё стёрто, даже из памяти. Остались только звёзды.' : 'Тишина… чат очищен.') : (forget ? 'Всё стёрто, даже из памяти. Давай знакомиться заново?' : 'Чат очищен. Начнём заново?'), 'bot');
-    try { await fetch(`${BACKEND_URL}/clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId(), forget_memory: forget }) }); } catch (e) {}
+    
+    if (forget) {
+        // Если галочка СТОИТ - стираем память телефона
+        localStorage.removeItem('holo_chat_history');
+        try { await fetch(`${BACKEND_URL}/clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId(), forget_memory: true }) }); } catch (e) {}
+        addToHistory('Всё стёрто, даже из памяти. Давай знакомиться заново?', 'bot');
+    } else {
+        // Если галочка НЕ стоит - просто очищаем экран, память остается
+        addToHistory('Чат очищен. Но я всё ещё помню, о чём мы говорили.', 'bot');
+    }
 });
 
 const SHOP_ITEMS = [ { id: 'astro', char: 'astro', name: 'Космонавт', desc: 'Прилетает на тарелке и говорит загадками о звёздах и невесомости. Если написать «смотри пришельцы», начнётся перестрелка.', price: 299 } ];
