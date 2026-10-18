@@ -75,12 +75,8 @@
 </head>
 <body>
 <div id="topbar">
-  <button class="ibtn" id="shop-btn" aria-label="Магазин">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
-  </button>
-  <button class="ibtn danger" id="clear-btn" aria-label="Удалить чат">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
-  </button>
+  <button class="ibtn" id="shop-btn" aria-label="Магазин"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></button>
+  <button class="ibtn danger" id="clear-btn" aria-label="Удалить чат"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
 </div>
 <div id="stage"></div>
 <svg id="sv" role="img" aria-label="Персонаж чата">
@@ -208,7 +204,7 @@ const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} }
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
-const DEMO_BUY = true;
+const DEMO_BUY = false;
 const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
