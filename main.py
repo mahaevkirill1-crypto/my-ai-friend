@@ -45,7 +45,7 @@ async def ask(request: Request):
         data = await request.json()
         user_text = data.get("text", "").lower()
         history_text = data.get("history", "")
-        persona = data.get("persona", "hologram") # Получаем персонажа
+        persona = data.get("persona", "hologram")
         
         if not user_text:
             return {"text": "Я не вижу текста.", "emotion": "thinking"}
@@ -86,6 +86,11 @@ async def ask(request: Request):
         
     except Exception as e:
         return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
+
+@app.post("/clear")
+async def clear(request: Request):
+    # Просто возвращаем ок, так как память мы храним на клиенте (в localStorage)
+    return {"status": "ok"}
 
 @app.get("/")
 def health():
