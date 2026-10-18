@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from openai import AsyncOpenAI
 import os
 
@@ -18,10 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class UserRequest(BaseModel):
-    text: str
-    user_id: str = "default"
-
 SYSTEM_PROMPT = """
 Ты — ИИ-друг. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией, но без грубости. 
 Ты не токсичный, не понтуешься. Говоришь просто, по делу, иногда с шуткой.
@@ -32,13 +27,20 @@ SYSTEM_PROMPT = """
 """
 
 @app.post("/ask")
-async def ask(request: UserRequest):
+async def ask(request: Request):
     try:
+        # Читаем "сырые" данные, которые прислал Telegram
+        data = await request.json()
+        user_text = data.get("text", "")
+        
+        if not user_text:
+            return {"text": "Я не вижу текста. Попробуй еще раз."}
+
         response = await client.chat.completions.create(
             model="openai/gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": request.text}
+                {"role": "user", "content": user_text}
             ],
             max_tokens=200,
             temperature=0.7,
