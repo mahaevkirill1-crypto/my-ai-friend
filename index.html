@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ИИ-Друг</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            margin: 0; padding: 16px;
+            display: flex; flex-direction: column; height: 100vh; box-sizing: border-box;
+        }
+        #chat { flex: 1; overflow-y: auto; margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .message { padding: 8px 12px; border-radius: 12px; max-width: 80%; word-wrap: break-word; }
+        .message.user { background-color: var(--tg-theme-button-color, #0088cc); color: var(--tg-theme-button-text-color, #ffffff); align-self: flex-end; }
+        .message.bot { background-color: var(--tg-theme-secondary-bg-color, #f0f0f0); align-self: flex-start; }
+        #input-area { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--tg-theme-hint-color, #ccc); }
+        #user-input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid var(--tg-theme-hint-color, #ccc); background: var(--tg-theme-secondary-bg-color, #f9f9f9); color: inherit; }
+        #send-btn { padding: 10px 16px; border-radius: 20px; border: none; background: var(--tg-theme-button-color, #0088cc); color: var(--tg-theme-button-text-color, #ffffff); cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="chat">
+        <div class="message bot">Привет. Я тут. С чего начнём?</div>
+    </div>
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Напиши что-нибудь..." autocomplete="off">
+        <button id="send-btn">Отправить</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        // Сюда потом вставим ссылку от Render
+        const BACKEND_URL = 'http://localhost:8000';
+
+        function addMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.textContent = text;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            input.value = '';
+            input.disabled = true;
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        text: text,
+                        user_id: tg.initDataUnsafe?.user?.id || 'test_user' 
+                    })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                addMessage(data.text, 'bot');
+
+            } catch (error) {
+                addMessage('Ошибка связи. Попробуй позже.', 'bot');
+                console.error(error);
+            } finally {
+                input.disabled = false;
+                sendBtn.disabled = false;
+                input.focus();
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
