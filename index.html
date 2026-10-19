@@ -312,7 +312,79 @@ function addToHistory(text, sender) { const row = document.createElement('div');
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
 if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender)); }
-async function sendMessage(text) { if (!text || isSending) return; isSending = true; addToHistory(text, 'user'); input.value = ''; input.disabled = true; sendBtn.disabled = true; if (char === 'astro' && /пришельц|инопланет|нло/i.test(text)){ invade(); input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false; return; } if (char === 'astro') say('Слушаю звёзды…', 20000); else Hologram.react('thinking', 'think'); const historyText = chatHistoryForServer.slice(-10).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n'); try { const response = await fetch(`${BACKEND_URL}/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, persona: char === 'astro' ? 'astronaut' : 'hologram', history: historyText, user_id: userId() }) }); if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`); const data = await response.json(); if (char === 'astro'){ hideBubble(); if (data.action === 'aliens') invade(); } else if (data.action === 'dance') { Hologram.dance(data.dance_name || 'floss', 5000); } else { let pose = 'idle'; if (data.emotion === 'happy') pose = 'wave'; if (data.emotion === 'surprised') pose = 'cheer'; Hologram.react(data.emotion, pose, 4000); } addToHistory(data.text, 'bot'); chatHistoryForServer.push({ sender: 'user', text: text }); chatHistoryForServer.push({ sender: 'bot', text: data.text }); localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer)); } catch (error) { if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle'); addToHistory(`Ошибка: ${error.message}`, 'bot'); } finally { input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false; } }
+async function sendMessage(text) {
+    if (!text || isSending) return;
+    isSending = true;
+
+    addToHistory(text, 'user');
+    input.value = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+
+    if (char === 'astro' && /пришельц|инопланет|нло/i.test(text)){
+        invade();
+        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        return;
+    }
+
+    if (char === 'astro') say('Слушаю звёзды…', 20000);
+    else Hologram.react('thinking', 'think');
+
+    const historyText = chatHistoryForServer.slice(-10).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
+
+    try {
+        const response = await fetch(`${BACKEND_URL}/ask`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: text,
+                persona: char === 'astro' ? 'astronaut' : 'hologram',
+                history: historyText,
+                user_id: userId()
+            })
+        });
+
+        if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
+        const data = await response.json();
+
+        // Если бот обиделся - показываем грусть и краснеем
+        if (data.offended) {
+            Hologram.react('angry', 'idle', 4000);
+            hideBubble();
+            addToHistory(data.text, 'bot');
+            chatHistoryForServer.push({ sender: 'user', text: text });
+            chatHistoryForServer.push({ sender: 'bot', text: data.text });
+            localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+            return;
+        }
+
+        // Обычная логика
+        if (char === 'astro') {
+            hideBubble();
+            if (data.action === 'aliens') invade();
+        } else if (data.action === 'dance') {
+            Hologram.dance(data.dance_name || 'floss', 5000);
+        } else {
+            let pose = 'idle';
+            if (data.emotion === 'happy') pose = 'wave';
+            if (data.emotion === 'surprised') pose = 'cheer';
+            Hologram.react(data.emotion, pose, 4000);
+        }
+
+        addToHistory(data.text, 'bot');
+        chatHistoryForServer.push({ sender: 'user', text: text });
+        chatHistoryForServer.push({ sender: 'bot', text: data.text });
+        localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+
+    } catch (error) {
+        if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
+        addToHistory(`Ошибка: ${error.message}`, 'bot');
+    } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        isSending = false; 
+    }
+}
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
 const confirmBox = $('confirm');
@@ -327,13 +399,10 @@ $('do-clear').addEventListener('click', async () => {
     if (char === 'holo') Hologram.react('surprised', 'idle', 2000);
     
     if (forget) {
-        // Если галочка СТОИТ - стираем память полностью
         localStorage.removeItem('holo_history');
         chatHistoryForServer = [];
         addToHistory('Всё стёрто, даже из памяти. Давай знакомиться заново?', 'bot');
     } else {
-        // Если галочка НЕ стоит - просто начинаем новый визуальный чат, 
-        // НО массив chatHistoryForServer НЕ ТРОГАЕМ! Он остается в памяти.
         addToHistory('Чат очищен. Но я всё ещё помню, о чём мы говорили.', 'bot');
     }
 
@@ -366,6 +435,18 @@ const q = new URLSearchParams(location.search);
 applyOutfit();
 if (q.get('emotion')) Hologram.emotion(q.get('emotion'));
 setChar(char);
+setTimeout(() => {
+    Hologram.react('happy', 'wave', 3500);
+    const hour = new Date().getHours();
+    let greeting = GREET[char];
+    if (chatHistoryForServer.length === 0) {
+        if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?";
+        else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?";
+        else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?";
+        else greeting = "Ты чего не спишь? Давай поболтаем.";
+    }
+    addToHistory(greeting, 'bot');
+}, 500);
 </script>
 </body>
 </html>
