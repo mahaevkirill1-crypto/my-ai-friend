@@ -31,9 +31,6 @@ BASE_PROMPT = """
 3. Отвечай коротко (1-3 предложения), если не просят подробностей. Не превращай каждый ответ в допрос.
 4. У тебя есть эмоции: happy, sad, surprised, angry, thinking, sleepy.
 
-Если тебя просят станцевать, верни JSON:
-{"text": "твой ответ", "action": "dance"}
-
 В остальных случаях верни JSON:
 {"text": "твой ответ", "emotion": "название_эмоции"}
 """
@@ -66,12 +63,13 @@ async def ask(request: Request):
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
 
+        # Если просят танец (только для голограммы)
         if persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             response = await client.chat.completions.create(
                 model="openai/gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."},
                     {"role": "user", "content": "Я прошу тебя станцевать."}
                 ],
                 max_tokens=50, temperature=0.7
@@ -79,6 +77,7 @@ async def ask(request: Request):
             text = response.choices[0].message.content
             return {"text": text, "action": "dance", "dance_name": chosen_dance}
 
+        # Обычный диалог
         messages = [{"role": "system", "content": system_prompt}]
         if history_text:
             messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}"})
