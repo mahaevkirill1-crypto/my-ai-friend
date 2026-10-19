@@ -133,6 +133,25 @@ async def create_invoice(request: Request):
         if res.get("ok"): return {"link": res["result"]}
         return {"error": "Не удалось создать счет", "details": res}
 
+# === ВАЖНО: Подтверждение оплаты ===
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    try:
+        data = await request.json()
+        
+        # Telegram присылает pre_checkout_query перед оплатой
+        if "pre_checkout_query" in data:
+            query_id = data["pre_checkout_query"]["id"]
+            # Мгновенно подтверждаем готовность принять оплату
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerPreCheckoutQuery"
+            async with httpx.AsyncClient() as client:
+                await client.post(url, json={"pre_checkout_query_id": query_id, "ok": True})
+            return {"ok": True}
+        
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": True}
+
 @app.get("/")
 def health():
     return {"status": "ok"}
