@@ -329,7 +329,7 @@ async function sendMessage(text) {
     
     const insultPatterns = [
         /^ты\s+(тупой|тупая|дурак|идиот|глупый|дебил)/i,
-        /^тупой$/i, /^дурак$/i, /^идиот$/i, /^дебил$/i, /^глупый$/i
+        /^(тупой|дурак|идиот|дебил|глупый)$/i
     ];
     const isInsult = insultPatterns.some(regex => regex.test(lowText));
 
