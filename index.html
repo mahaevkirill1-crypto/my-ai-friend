@@ -212,6 +212,7 @@ const store = {
 let OWNED = store.get('owned', {});
 let EQUIP = store.get('equip', {});
 let char = store.get('char', 'holo');
+let isOffended = store.get('isOffended', false);
 if (char === 'astro' && !OWNED.astro) char = 'holo';
 const GREET = { holo: 'Привет! Я твой голо-друг. Давай поболтаем?', astro: 'Приветствую, путник. Звёзды привели тебя сюда…' };
 const EMOTIONS = {
@@ -321,6 +322,73 @@ async function sendMessage(text) {
     input.disabled = true;
     sendBtn.disabled = true;
 
+    // --- ЛОГИКА ОБИДЫ ---
+    const lowText = text.toLowerCase().trim();
+    const apologies = ['прости', 'извини', 'сорри', 'не буду', 'прошу прощения'];
+    const isApology = apologies.some(w => lowText.includes(w));
+    
+    const insultPatterns = [
+        /^ты\s+(тупой|тупая|дурак|идиот|глупый|дебил)/i,
+        /^тупой$/i, /^дурак$/i, /^идиот$/i, /^дебил$/i, /^глупый$/i,
+        /ты\s+(тупой|тупая|дурак|идиот|глупый|дебил)/i
+    ];
+    const isInsult = insultPatterns.some(regex => regex.test(lowText));
+
+    if (isInsult) {
+        isOffended = true;
+        store.set('isOffended', true);
+        const offendPhrases = [
+            "Эй, это было обидно. Я же стараюсь.",
+            "Знаешь, мне неприятно это слышать.",
+            "Я не ожидал такого. Больно, вообще-то.",
+            "Может, хватит? Я ведь тоже чувствую."
+        ];
+        const reply = offendPhrases[R(offendPhrases.length)];
+        Hologram.react('angry', 'idle', 4000);
+        addToHistory(reply, 'bot');
+        chatHistoryForServer.push({ sender: 'user', text: text });
+        chatHistoryForServer.push({ sender: 'bot', text: reply });
+        localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        return;
+    }
+
+    if (isOffended) {
+        if (isApology) {
+            isOffended = false;
+            store.set('isOffended', false);
+            const forgivePhrases = [
+                "Ладно, проехали. Что хотел спросить?",
+                "Хорошо, мир. Давай не будем ссориться.",
+                "Принято. Надеюсь, это в последний раз."
+            ];
+            const reply = forgivePhrases[R(forgivePhrases.length)];
+            Hologram.react('happy', 'wave', 3000);
+            addToHistory(reply, 'bot');
+            chatHistoryForServer.push({ sender: 'user', text: text });
+            chatHistoryForServer.push({ sender: 'bot', text: reply });
+            localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+            input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            return;
+        } else {
+            const ignorePhrases = [
+                "Я всё ещё обижен. Ты так больше не будешь?",
+                "Сначала извинись, потом поговорим.",
+                "Я не хочу сейчас общаться. Пожалуйста, извинись.",
+                "Мне нужно время. Скажи, что ты не будешь так делать."
+            ];
+            const reply = ignorePhrases[R(ignorePhrases.length)];
+            Hologram.react('angry', 'idle', 3000);
+            addToHistory(reply, 'bot');
+            chatHistoryForServer.push({ sender: 'user', text: text });
+            chatHistoryForServer.push({ sender: 'bot', text: reply });
+            localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+            input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            return;
+        }
+    }
+    // --- КОНЕЦ ЛОГИКИ ОБИДЫ ---
+
     if (char === 'astro' && /пришельц|инопланет|нло/i.test(text)){
         invade();
         input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
@@ -346,18 +414,6 @@ async function sendMessage(text) {
         if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
         const data = await response.json();
 
-        // Если бот обиделся - показываем грусть и краснеем
-        if (data.offended) {
-            Hologram.react('angry', 'idle', 4000);
-            hideBubble();
-            addToHistory(data.text, 'bot');
-            chatHistoryForServer.push({ sender: 'user', text: text });
-            chatHistoryForServer.push({ sender: 'bot', text: data.text });
-            localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            return;
-        }
-
-        // Обычная логика
         if (char === 'astro') {
             hideBubble();
             if (data.action === 'aliens') invade();
@@ -401,6 +457,7 @@ $('do-clear').addEventListener('click', async () => {
     if (forget) {
         localStorage.removeItem('holo_history');
         chatHistoryForServer = [];
+        isOffended = false; store.set('isOffended', false);
         addToHistory('Всё стёрто, даже из памяти. Давай знакомиться заново?', 'bot');
     } else {
         addToHistory('Чат очищен. Но я всё ещё помню, о чём мы говорили.', 'bot');
