@@ -23,17 +23,11 @@ BASE_PROMPT = """
 Эмоции: happy, sad, surprised, angry, thinking, sleepy.
 Танцы: disco, dab, floss, robot, party, twist.
 
-ВАЖНО: Если пользователь тебя оскорбляет (например, "ты тупой", "дурак", "идиот"), ты должен обидеться. Верни JSON:
-{"text": "Эй, это было обидно. Ты так больше не будешь?", "emotion": "sad", "offended": true}
-
-Если пользователь извиняется ("прости", "извини", "не буду"), ты прощаешь. Верни JSON:
-{"text": "Ладно, проехали. Что хотел спросить?", "emotion": "happy", "offended": false}
-
 Если тебя просят станцевать, верни JSON:
 {"text": "твой ответ", "action": "dance"}
 
 В остальных случаях верни JSON:
-{"text": "твой ответ", "emotion": "название_эмоции", "offended": false}
+{"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
 ASTRO_PROMPT = """
@@ -42,14 +36,8 @@ ASTRO_PROMPT = """
 Ты спокойный и мудрый. Отвечай коротко (1-3 предложения).
 У тебя есть эмоции: happy, sad, surprised, angry, thinking, sleepy.
 
-ВАЖНО: Если пользователь тебя оскорбляет, обижайся. Верни JSON:
-{"text": "Эй, это было обидно. Ты так больше не будешь?", "emotion": "sad", "offended": true}
-
-Если извиняется, прощай. Верни JSON:
-{"text": "Ладно, проехали. Что хотел спросить?", "emotion": "happy", "offended": false}
-
 В остальных случаях верни JSON:
-{"text": "твой ответ", "emotion": "название_эмоции", "offended": false}
+{"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
 @app.post("/ask")
@@ -66,6 +54,7 @@ async def ask(request: Request):
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
 
+        # Если просят танец
         if persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             response = await client.chat.completions.create(
@@ -79,6 +68,7 @@ async def ask(request: Request):
             text = response.choices[0].message.content
             return {"text": text, "action": "dance", "dance_name": chosen_dance}
 
+        # Обычный диалог с учетом памяти
         messages = [{"role": "system", "content": system_prompt}]
         if history_text:
             messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}"})
@@ -89,11 +79,13 @@ async def ask(request: Request):
             messages=messages, max_tokens=200, temperature=0.7,
             response_format={"type": "json_object"}
         )
+        
         result = json.loads(response.choices[0].message.content)
+        
+        # Возвращаем ТОЛЬКО текст и эмоцию. Обиду обрабатывает клиент.
         return {
             "text": result.get("text", "Что-то я задумался..."), 
-            "emotion": result.get("emotion", "happy"),
-            "offended": result.get("offended", False)
+            "emotion": result.get("emotion", "happy")
         }
         
     except Exception as e:
