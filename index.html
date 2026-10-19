@@ -11,10 +11,11 @@
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 6px; }
     #topbar { width: 100%; max-width: 450px; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; position: relative; z-index: 40; flex-shrink: 0; }
-    .ibtn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #0B2230; border: 1px solid rgba(79,209,232,.4); border-radius: 8px; color: #9AF0FF; cursor: pointer; padding: 0; }
+    .ibtn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #0B2230; border: 1px solid rgba(79,209,232,.4); border-radius: 8px; color: #9AF0FF; cursor: pointer; padding: 0; position: relative; }
     .ibtn:active { background: #123A4A; }
     .ibtn.danger { color: #FF9E9E; }
     .ibtn.muted { color: #4B8FA0; }
+    .ibtn.has::after { content: ''; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; background: #FF6B6B; border-radius: 50%; }
     #stage { width: 100%; flex: 0 0 34vh; }
     #sv { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; display: block; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; --c: #4FD1E8; --s: #9AF0FF; --su: #EEF3FA; --lc: #FFD166; }
     #fly, #astw { pointer-events: visiblePainted; cursor: pointer; }
@@ -44,8 +45,12 @@
     #shop { background: var(--bg-color); flex-direction: column; z-index: 50; }
     #shop-head { display: flex; align-items: center; justify-content: space-between; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     #shop-head h2 { margin: 0; font-size: 17px; font-weight: 500; color: #fff; }
-    .txtbtn { background: #0B2230; border: 1px solid #2E8FA3; color: #9AF0FF; font: inherit; font-size: 13px; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    .bal { font-size: 14px; color: #FFD166; margin-left: auto; margin-right: 12px; font-weight: 500; }
+    .txtbtn { background: #0B2230; border: 1px solid #2E8FA3; color: #9AF0FF; font: inherit; font-size: 13px; border-radius: 4px; padding: 6px 12px; cursor: pointer; position: relative; }
     .txtbtn.on { border-color: #FFD166; color: #FFD166; }
+    .txtbtn .dot { display: none; }
+    .txtbtn.has .dot { display: block; position: absolute; top: -4px; right: -4px; width: 8px; height: 8px; background: #FF6B6B; border-radius: 50%; }
+    #shop-tabs { display: flex; gap: 8px; padding: 12px 16px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
     #shop-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
     .sect { font-size: 13px; color: #4B8FA0; margin: 6px 0 -4px; }
     .hint { font-size: 12px; color: #4B8FA0; line-height: 1.5; }
@@ -64,6 +69,28 @@
     .gi .dot { display: block; width: 14px; height: 14px; border-radius: 50%; margin: 0 auto 6px; }
     .gi .pr { color: #FFD166; margin-top: 2px; }
     .gi .own { color: #7FE5F5; margin-top: 2px; }
+    
+    /* Бонусы */
+    #bonus-list { flex: 1; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+    .bcard { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .bt { font-weight: 500; color: #fff; font-size: 15px; }
+    .bs { font-size: 12px; color: #7FE5F5; line-height: 1.5; }
+    .week { display: flex; gap: 6px; justify-content: space-between; }
+    .wd { flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; color: #4B8FA0; }
+    .wd.f { background: #2E8FA3; color: #fff; }
+    .wd.t { border: 1px solid #FFD166; color: #FFD166; }
+    .q { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+    .qi { flex: 1; }
+    .qt { font-size: 13px; color: #fff; margin-bottom: 6px; }
+    .bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+    .bar i { display: block; height: 100%; background: #4FD1E8; transition: width 0.3s; }
+    .qr { font-size: 11px; color: #4B8FA0; }
+    .q button { width: 80px; flex-shrink: 0; }
+    .res { font-size: 13px; color: #FFD166; text-align: center; }
+
+    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #0B2230; border: 1px solid #2E8FA3; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
+    #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
+
     #confirm { background: rgba(7,12,20,.82); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
     .dialog { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; }
     .dialog h3 { margin: 0 0 6px; font-size: 16px; font-weight: 500; color: #fff; }
@@ -145,7 +172,15 @@
     </div>
 </div>
 <div id="shop" class="overlay">
-  <div id="shop-head"><h2>Магазин</h2><button class="txtbtn" id="shop-close">Закрыть</button></div>
+  <div id="shop-head">
+    <h2>Магазин</h2>
+    <span class="bal" id="bal-el">★ 0</span>
+    <button class="txtbtn" id="shop-close">Закрыть</button>
+  </div>
+  <div id="shop-tabs">
+    <button class="txtbtn on" data-t="shop">Магазин</button>
+    <button class="txtbtn" data-t="bonus">Бонусы<i class="dot"></i></button>
+  </div>
   <div id="shop-list">
     <div class="sect">Персонажи</div>
     <div id="chars"></div>
@@ -180,6 +215,7 @@
     <div class="hint">На каждую часть тела можно надеть что-то одно. Предметы на разных частях сочетаются: например, очки, корона и туфли сразу.</div>
     <div class="hint" id="w-note"></div>
   </div>
+  <div id="bonus-list"></div>
 </div>
 <div id="confirm" class="overlay">
   <div class="dialog">
@@ -192,6 +228,7 @@
     </div>
   </div>
 </div>
+<div id="toast"></div>
 <script>
 const $ = id => document.getElementById(id);
 const tr = (id, v) => $(id).setAttribute('transform', v);
@@ -213,131 +250,28 @@ const store = {
 };
 
 /* ============================================================
-   ЗВУКИ (синтезируются в коде, файлы не нужны)
+   ЗВУКИ
    ============================================================ */
 const Snd = (() => {
   const VOL = .6;
   let ctx = null, master = null, nbuf = null, jet = null;
   let on = store.get('sound', true);
-
-  function ac(){
-    if (!ctx){
-      const C = window.AudioContext || window.webkitAudioContext;
-      if (!C) return null;
-      ctx = new C();
-      master = ctx.createGain(); master.gain.value = VOL; master.connect(ctx.destination);
-      nbuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-      const d = nbuf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    if (ctx.state === 'suspended') ctx.resume();
-    return ctx;
-  }
+  function ac(){ if (!ctx){ const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C(); master = ctx.createGain(); master.gain.value = VOL; master.connect(ctx.destination); nbuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; } if (ctx.state === 'suspended') ctx.resume(); return ctx; }
   function run(){ const c = on ? ac() : null; return c && c.state === 'running' ? c : null; }
-
-  function tone(c, f, t, d, type, v, to){
-    const o = c.createOscillator(), g = c.createGain();
-    o.type = type; o.frequency.setValueAtTime(f, t);
-    if (to) o.frequency.exponentialRampToValueAtTime(to, t + d);
-    g.gain.setValueAtTime(.0001, t);
-    g.gain.exponentialRampToValueAtTime(v, t + .01);
-    g.gain.exponentialRampToValueAtTime(.0001, t + d);
-    o.connect(g); g.connect(master);
-    o.start(t); o.stop(t + d + .03);
-  }
-  function noise(c, t, d, f0, f1, f2, v, q){
-    const s = c.createBufferSource(); s.buffer = nbuf;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q || 1;
-    bp.frequency.setValueAtTime(f0, t);
-    if (f1) bp.frequency.exponentialRampToValueAtTime(f1, t + d * .5);
-    if (f2) bp.frequency.exponentialRampToValueAtTime(f2, t + d);
-    const g = c.createGain();
-    g.gain.setValueAtTime(.0001, t);
-    g.gain.exponentialRampToValueAtTime(v, t + d * .3);
-    g.gain.exponentialRampToValueAtTime(.0001, t + d);
-    s.connect(bp); bp.connect(g); g.connect(master);
-    s.start(t); s.stop(t + d + .05);
-  }
-
-  function click(){
-    const c = run(); if (!c) return; const t = c.currentTime;
-    tone(c, 1900, t, .05, 'square', .05, 1100);
-    tone(c, 950, t, .04, 'sine', .04);
-  }
-  function cash(){
-    const c = run(); if (!c) return; const t = c.currentTime;
-    noise(c, t, .06, 3000, null, null, .12, 2);
-    const bell = (f, at) => { tone(c, f, at, .7, 'sine', .12); tone(c, f * 2.76, at, .4, 'sine', .04); };
-    bell(1568, t + .06); bell(2093, t + .17);
-    [3136, 3520, 4186].forEach((f, i) => tone(c, f, t + .3 + i * .07, .18, 'sine', .03));
-  }
-  function whoosh(){
-    const c = run(); if (!c) return; const t = c.currentTime;
-    noise(c, t, 1.2, 250, 2200, 300, .25, 1.2);
-  }
-  function hurt(){
-    const c = run(); if (!c) return; const t = c.currentTime;
-    tone(c, 560, t, .14, 'sine', .12, 430);
-    tone(c, 430, t + .15, .28, 'sine', .12, 260);
-    tone(c, 280, t + .15, .28, 'triangle', .05, 170);
-  }
-  function fanfare(){
-    const c = run(); if (!c) return; const t = c.currentTime;
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-      tone(c, f, t + i * .11, .18, 'square', .045);
-      tone(c, f, t + i * .11, .18, 'triangle', .07);
-    });
-    [1046.5, 1318.5, 1568].forEach(f => {
-      tone(c, f, t + .5, .8, 'triangle', .07);
-      tone(c, f * 2, t + .5, .5, 'sine', .02);
-    });
-  }
-
-  function jetStart(){
-    const c = ac(); if (!c || !on || jet) return;
-    const src = c.createBufferSource(); src.buffer = nbuf; src.loop = true;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = .8;
-    const ng = c.createGain(); ng.gain.value = 0;
-    src.connect(bp); bp.connect(ng); ng.connect(master);
-    const hum = c.createOscillator(); hum.type = 'sawtooth'; hum.frequency.value = 70;
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300;
-    const hg = c.createGain(); hg.gain.value = 0;
-    hum.connect(lp); lp.connect(hg); hg.connect(master);
-    src.start(); hum.start();
-    jet = { src, bp, ng, hum, hg, kind: 'holo' };
-  }
-  function jetStop(){
-    if (!jet) return;
-    try { jet.src.stop(); jet.hum.stop(); } catch(e) {}
-    jet = null;
-  }
-  function jetSet(sp, astro){
-    if (!jet || !ctx) return;
-    const t = ctx.currentTime, v = Math.min(1, sp / 14);
-    const kind = astro ? 'astro' : 'holo';
-    if (jet.kind !== kind){ jet.kind = kind; jet.hum.type = astro ? 'sine' : 'sawtooth'; }
-    jet.ng.gain.setTargetAtTime(astro ? .012 + .03 * v : .02 + .07 * v, t, .08);
-    jet.bp.frequency.setTargetAtTime((astro ? 350 : 500) + v * 900, t, .1);
-    jet.hum.frequency.setTargetAtTime((astro ? 110 : 70) + v * 60, t, .1);
-    jet.hg.gain.setTargetAtTime(astro ? .03 : .025 + .03 * v, t, .1);
-  }
-
-  function unlock(){
-    const c = ac(); if (!c) return;
-    if (c.state === 'running'){ if (on && !jet) jetStart(); }
-    else c.resume().then(() => { if (on && !jet) jetStart(); }).catch(() => {});
-  }
+  function tone(c, f, t, d, type, v, to){ const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + d); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(master); o.start(t); o.stop(t + d + .03); }
+  function noise(c, t, d, f0, f1, f2, v, q){ const s = c.createBufferSource(); s.buffer = nbuf; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q || 1; bp.frequency.setValueAtTime(f0, t); if (f1) bp.frequency.exponentialRampToValueAtTime(f1, t + d * .5); if (f2) bp.frequency.exponentialRampToValueAtTime(f2, t + d); const g = c.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + d * .3); g.gain.exponentialRampToValueAtTime(.0001, t + d); s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t + d + .05); }
+  function click(){ const c = run(); if (!c) return; const t = c.currentTime; tone(c, 1900, t, .05, 'square', .05, 1100); tone(c, 950, t, .04, 'sine', .04); }
+  function cash(){ const c = run(); if (!c) return; const t = c.currentTime; noise(c, t, .06, 3000, null, null, .12, 2); const bell = (f, at) => { tone(c, f, at, .7, 'sine', .12); tone(c, f * 2.76, at, .4, 'sine', .04); }; bell(1568, t + .06); bell(2093, t + .17); [3136, 3520, 4186].forEach((f, i) => tone(c, f, t + .3 + i * .07, .18, 'sine', .03)); }
+  function whoosh(){ const c = run(); if (!c) return; const t = c.currentTime; noise(c, t, 1.2, 250, 2200, 300, .25, 1.2); }
+  function hurt(){ const c = run(); if (!c) return; const t = c.currentTime; tone(c, 560, t, .14, 'sine', .12, 430); tone(c, 430, t + .15, .28, 'sine', .12, 260); tone(c, 280, t + .15, .28, 'triangle', .05, 170); }
+  function fanfare(){ const c = run(); if (!c) return; const t = c.currentTime; [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => { tone(c, f, t + i * .11, .18, 'square', .045); tone(c, f, t + i * .11, .18, 'triangle', .07); }); [1046.5, 1318.5, 1568].forEach(f => { tone(c, f, t + .5, .8, 'triangle', .07); tone(c, f * 2, t + .5, .5, 'sine', .02); }); }
+  function jetStart(){ const c = ac(); if (!c || !on || jet) return; const src = c.createBufferSource(); src.buffer = nbuf; src.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = .8; const ng = c.createGain(); ng.gain.value = 0; src.connect(bp); bp.connect(ng); ng.connect(master); const hum = c.createOscillator(); hum.type = 'sawtooth'; hum.frequency.value = 70; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; const hg = c.createGain(); hg.gain.value = 0; hum.connect(lp); lp.connect(hg); hg.connect(master); src.start(); hum.start(); jet = { src, bp, ng, hum, hg, kind: 'holo' }; }
+  function jetStop(){ if (!jet) return; try { jet.src.stop(); jet.hum.stop(); } catch(e) {} jet = null; }
+  function jetSet(sp, astro){ if (!jet || !ctx) return; const t = ctx.currentTime, v = Math.min(1, sp / 14); const kind = astro ? 'astro' : 'holo'; if (jet.kind !== kind){ jet.kind = kind; jet.hum.type = astro ? 'sine' : 'sawtooth'; } jet.ng.gain.setTargetAtTime(astro ? .012 + .03 * v : .02 + .07 * v, t, .08); jet.bp.frequency.setTargetAtTime((astro ? 350 : 500) + v * 900, t, .1); jet.hum.frequency.setTargetAtTime((astro ? 110 : 70) + v * 60, t, .1); jet.hg.gain.setTargetAtTime(astro ? .03 : .025 + .03 * v, t, .1); }
+  function unlock(){ const c = ac(); if (!c) return; if (c.state === 'running'){ if (on && !jet) jetStart(); } else c.resume().then(() => { if (on && !jet) jetStart(); }).catch(() => {}); }
   ['pointerdown', 'touchend', 'keydown'].forEach(e => addEventListener(e, unlock, { passive: true }));
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) jetStop(); else if (on && ctx && ctx.state === 'running') jetStart();
-  });
-
-  function set(v){
-    on = !!v; store.set('sound', on);
-    if (!on) jetStop(); else unlock();
-  }
-
+  document.addEventListener('visibilitychange', () => { if (document.hidden) jetStop(); else if (on && ctx && ctx.state === 'running') jetStart(); });
+  function set(v){ on = !!v; store.set('sound', on); if (!on) jetStop(); else unlock(); }
   return { click, cash, whoosh, hurt, fanfare, jet: jetSet, set, on: () => on };
 })();
 
@@ -454,6 +388,8 @@ async function sendMessage(text) {
     input.disabled = true;
     sendBtn.disabled = true;
     Snd.click();
+    Quest.add('msg');
+    if (text.length >= 50) Quest.add('long');
 
     const lowText = text.toLowerCase().trim();
     const apologies = ['прости', 'извини', 'сорри', 'не буду', 'прошу прощения'];
@@ -551,9 +487,10 @@ async function sendMessage(text) {
             if (data.action === 'aliens') invade();
         } else if (data.action === 'dance') {
             Hologram.dance(data.dance_name || 'floss', 5000);
+            Quest.add('dance');
         } else {
             let pose = 'idle';
-            if (data.emotion === 'happy') pose = 'wave';
+            if (data.emotion === 'happy') { pose = 'wave'; Quest.add('happy'); }
             if (data.emotion === 'surprised') pose = 'cheer';
             Hologram.react(data.emotion, pose, 4000);
         }
@@ -603,23 +540,187 @@ $('do-clear').addEventListener('click', async () => {
         });
     } catch (e) {}
 });
+
+/* ============================================================
+   БОНУСЫ: ежедневная награда и задания
+   ============================================================ */
+const DROP_CHANCE = .15;
+const DROP_MAX_PRICE = 65;
+const BONUS_CAN_BUY_SKINS = false;
+
+let BAL = store.get('bal', 0);
+let DAILY = store.get('daily', { last: '', streak: 0 });
+let Q = store.get('quests', null);
+let tabNow = 'shop', lastResult = '';
+const sfx = n => { try { Snd[n](); } catch(e) {} };
+
+const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const dn = s => { const p = s.split('-').map(Number); return Math.round(Date.UTC(p[0], p[1] - 1, p[2]) / 864e5); };
+const hash = s => { let h = 7; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return h >>> 0; };
+const rng = seed => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+const QUESTS = [
+  { id: 'dance5', type: 'dance', n: 5,  r: 3, t: 'Заставь голо-друга станцевать 5 раз' },
+  { id: 'dance3', type: 'dance', n: 3,  r: 2, t: 'Заставь голо-друга станцевать 3 раза' },
+  { id: 'msg10',  type: 'msg',   n: 10, r: 2, t: 'Отправь 10 сообщений' },
+  { id: 'msg5',   type: 'msg',   n: 5,  r: 1, t: 'Отправь 5 сообщений' },
+  { id: 'long',   type: 'long',  n: 2,  r: 2, t: 'Напиши 2 длинных сообщения (от 50 символов)' },
+  { id: 'annoy',  type: 'annoy', n: 3,  r: 2, t: 'Нажми на героя 3 раза: пусть обидится' },
+  { id: 'happy',  type: 'happy', n: 3,  r: 2, t: 'Порадуй голо-друга: получи 3 радостных ответа' },
+  { id: 'shop',   type: 'shop',  n: 1,  r: 1, t: 'Загляни в магазин' },
+  { id: 'try',    type: 'try',   n: 3,  r: 1, t: 'Примерь 3 наряда в магазине' },
+  { id: 'buy',    type: 'buy',   n: 1,  r: 6, t: 'Купи любую вещь в магазине' },
+  { id: 'fight',  type: 'fight', n: 1,  r: 5, t: 'Победи пришельцев (нужен космонавт)', need: () => !!OWNED.astro }
+];
+const QDEF = {}; QUESTS.forEach(q => { QDEF[q.id] = q; });
+
+function ensureQuests(){
+  const d = todayStr();
+  if (Q && Q.date === d && Q.list.every(id => QDEF[id])) return;
+  const r = rng(hash(d));
+  const pool = QUESTS.filter(q => !q.need || q.need());
+  for (let i = pool.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const list = [], seen = {};
+  for (const q of pool){ if (!seen[q.type]){ seen[q.type] = 1; list.push(q.id); if (list.length === 3) break; } }
+  Q = { date: d, list, prog: {}, claimed: {} };
+  store.set('quests', Q);
+}
+const questReady = () => { ensureQuests(); return Q.list.some(id => (Q.prog[id] || 0) >= QDEF[id].n && !Q.claimed[id]); };
+
+const Quest = {
+  add(type, n = 1){
+    ensureQuests();
+    let changed = false;
+    Q.list.forEach(id => {
+      const d = QDEF[id], before = Q.prog[id] || 0;
+      if (d.type !== type || Q.claimed[id] || before >= d.n) return;
+      Q.prog[id] = Math.min(d.n, before + n); changed = true;
+      if (Q.prog[id] >= d.n) toast('Задание выполнено! Забери награду во вкладке «Бонусы»');
+    });
+    if (changed){ store.set('quests', Q); updateDots(); if (shopOpen && tabNow === 'bonus') renderBonus(); }
+  }
+};
+
+const toastEl = $('toast');
+let toastT;
+function toast(s){ toastEl.textContent = s; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2800); }
+
+const tabsEl = $('shop-tabs');
+tabsEl.addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
+function updateDots(){
+  const flag = canDaily() || questReady();
+  $('shop-btn').classList.toggle('has', flag);
+  tabsEl.querySelector('[data-t="bonus"]').classList.toggle('has', flag);
+}
+
+const canDaily = () => DAILY.last !== todayStr();
+function curStreak(){ if (!DAILY.last) return 0; return dn(todayStr()) - dn(DAILY.last) <= 1 ? DAILY.streak : 0; }
+
+function rollStars(){ const w = [30, 28, 22, 13, 7]; let r = Math.random() * 100, i = 0; while (i < 4 && r >= w[i]){ r -= w[i]; i++; } return i + 1; }
+function rollDrop(){
+  if (Math.random() >= DROP_CHANCE) return null;
+  const pool = WEAR.filter(w => w.slot !== 'color' && w.price <= DROP_MAX_PRICE && !OWNED[w.id]);
+  return pool.length ? pool[R(pool.length)] : null;
+}
+function claimDaily(){
+  if (!canDaily()) return;
+  const today = todayStr();
+  const cont = DAILY.last && dn(today) - dn(DAILY.last) === 1;
+  DAILY = { last: today, streak: cont ? DAILY.streak + 1 : 1 };
+  store.set('daily', DAILY);
+  const stars = rollStars(), drop = rollDrop();
+  BAL += stars; store.set('bal', BAL);
+  lastResult = `Получено: +${stars} ★` + (drop ? `. Выпал аксессуар «${drop.name}»! Он уже в гардеробе.` : '');
+  if (drop){ OWNED[drop.id] = true; store.set('owned', OWNED); sfx('fanfare'); renderWear(); } else sfx('cash');
+  renderBal(); renderBonus(); updateDots();
+}
+
+function claimQuest(id){
+  ensureQuests();
+  const d = QDEF[id];
+  if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return;
+  Q.claimed[id] = true; store.set('quests', Q);
+  BAL += d.r; store.set('bal', BAL);
+  sfx('cash'); renderBal(); renderBonus(); updateDots();
+}
+
+function untilMidnight(){
+  const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+  const s = Math.max(0, Math.floor((m - n) / 1000));
+  return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин';
+}
+
+function renderBonus(){
+  ensureQuests();
+  const can = canDaily(), cs = curStreak();
+  const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7;
+  let week = '';
+  for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`;
+
+  const quests = Q.list.map(id => {
+    const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id];
+    const btn = got ? '<button class="txtbtn" disabled>Получено</button>'
+                    : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`;
+    return `<div class="q"><div class="qi"><div class="qt">${d.t}</div>
+        <div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div>
+        <div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`;
+  }).join('');
+
+  bonusEl.innerHTML = `
+    <div class="bcard">
+      <div class="bt">Ежедневная награда</div>
+      <div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★, иногда вместе со звёздами выпадает аксессуар.</div>
+      <div class="week">${week}</div>
+      <button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : 'Приходи завтра'}</button>
+      <div class="res">${lastResult}</div>
+    </div>
+    <div class="bcard">
+      <div class="bt">Задания на сегодня</div>
+      <div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>
+      ${quests}
+    </div>
+    <div class="hint">Звёзды из бонусов можно потратить на наряды. ${BONUS_CAN_BUY_SKINS ? '' : 'Персонажей (например, космонавта) можно купить только за звёзды Telegram.'}</div>`;
+}
+$('bonus-list').addEventListener('click', e => {
+  if (e.target.closest('#claim-d')) return claimDaily();
+  const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q);
+});
+
+/* --- Магазин --- */
 const SHOP_ITEMS = [ { id: 'astro', char: 'astro', name: 'Космонавт', desc: 'Прилетает на тарелке и говорит загадками о звёздах и невесомости. Если написать «смотри пришельцы», начнётся перестрелка.', price: 299 } ];
 const shop = $('shop');
 const findItem = id => byId[id] || SHOP_ITEMS.find(i => i.id === id);
+const balEl = $('bal-el');
+const bonusEl = $('bonus-list');
+
+function renderBal(){ balEl.textContent = '★ ' + BAL; }
+function showTab(t){
+  tabNow = t;
+  tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('shop-list').style.display = t === 'shop' ? '' : 'none';
+  bonusEl.style.display = t === 'bonus' ? 'flex' : 'none';
+  if (t === 'bonus') renderBonus();
+}
+
 function renderChars(){ $('chars').innerHTML = SHOP_ITEMS.map(it => { const owned = !!OWNED[it.id], on = owned && char === it.char; const btn = !owned ? `<button class="txtbtn" data-act="buy" data-id="${it.id}">Купить за ★ ${it.price}</button>` : on ? `<button class="txtbtn on" data-act="off" data-id="${it.id}">Снять</button>` : `<button class="txtbtn" data-act="on" data-id="${it.id}">Надеть</button>`; return `<div class="card"><svg viewBox="-85 -140 170 175" style="--su:#EEF3FA;--lc:#FFD166" role="img" aria-label="${it.name}"><use href="#ast"/></svg><div class="info"><div class="name">${it.name}</div><div class="desc">${it.desc}</div><div class="price">★ ${it.price}</div>${btn}</div></div>`; }).join(''); }
 $('chars').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b) return; const it = SHOP_ITEMS.find(i => i.id === b.dataset.id); if (!it) return; if (b.dataset.act === 'buy') buy(it.id); if (b.dataset.act === 'on'){ closeShop(); setChar(it.char); } if (b.dataset.act === 'off'){ closeShop(); setChar('holo'); } });
 let tab = 'head', selW = null, pvEq = {};
 function renderWear(){ if (!selW || byId[selW].slot !== tab) selW = EQUIP[tab] || WEAR.find(i => i.slot === tab).id; const it = byId[selW]; const slotInfo = SLOTS.find(s => s.k === it.slot); pvEq = Object.assign({}, EQUIP, { [it.slot]: it.id }); dress('p', pvEq); $('w-tabs').innerHTML = SLOTS.map(s => `<button class="txtbtn ${s.k === tab ? 'on' : ''}" data-tab="${s.k}">${s.n}</button>`).join(''); $('w-grid').innerHTML = WEAR.filter(i => i.slot === tab).map(i => { const worn = EQUIP[i.slot] === i.id, own = !!OWNED[i.id]; const tag = worn ? 'Надето' : own ? 'Куплено' : '★ ' + i.price; return `<div class="gi ${i.id === selW ? 'sel' : ''}" data-w="${i.id}"><span class="dot" style="background:${i.sw}"></span><div>${i.name}</div><div class="${own ? 'own' : 'pr'}">${tag}</div></div>`; }).join(''); const own = !!OWNED[it.id], worn = EQUIP[it.slot] === it.id; $('w-name').textContent = it.name; $('w-desc').textContent = slotInfo.d; $('w-price').textContent = own ? (worn ? 'Надето' : 'Куплено') : '★ ' + it.price; const b = $('w-btn'); b.dataset.id = it.id; b.dataset.act = !own ? 'buy' : worn ? 'off' : 'on'; b.textContent = !own ? `Купить за ★ ${it.price}` : worn ? 'Снять' : 'Надеть'; b.className = 'txtbtn' + (worn ? ' on' : ''); $('w-note').textContent = char === 'astro' ? 'Наряды надеваются на голограмму. Чтобы увидеть её в чате, сними космонавта.' : ''; }
 function pvColor(t){ const it = pvEq.color && byId[pvEq.color]; let c = '#4FD1E8', s = '#9AF0FF'; if (it && it.rainbow){ c = `rgb(${hsl((t / 20) % 360, .75, .62)})`; s = `rgb(${hsl((t / 20 + 30) % 360, .9, .8)})`; } else if (it){ c = it.c; s = it.s; } $('pvs').style.setProperty('--c', c); $('pvs').style.setProperty('--s', s); }
 $('w-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (!b) return; tab = b.dataset.tab; selW = null; renderWear(); });
-$('w-grid').addEventListener('click', e => { const c = e.target.closest('.gi'); if (!c) return; selW = c.dataset.w; renderWear(); });
+$('w-grid').addEventListener('click', e => { const c = e.target.closest('.gi'); if (!c) return; selW = c.dataset.w; Quest.add('try'); renderWear(); });
 $('w-btn').addEventListener('click', () => { const id = $('w-btn').dataset.id, act = $('w-btn').dataset.act, it = byId[id]; if (!it) return; if (act === 'buy'){ buy(id); return; } EQUIP[it.slot] = act === 'on' ? id : null; store.set('equip', EQUIP); applyOutfit(); renderWear(); });
-function grant(id){ OWNED[id] = true; store.set('owned', OWNED); const w = byId[id]; if (w){ EQUIP[w.slot] = id; store.set('equip', EQUIP); applyOutfit(); renderWear(); Snd.cash(); return; } const it = SHOP_ITEMS.find(i => i.id === id); if (it){ closeShop(); setChar(it.char); Snd.cash(); } }
-async function buy(id){ const it = findItem(id); if (!it) return; if (DEMO_BUY){ grant(id); return; } try { const r = await fetch(`${BACKEND_URL}/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: id, user_id: userId() }) }); const data = await r.json(); if (!data.link) throw new Error('нет ссылки на оплату'); tg.openInvoice(data.link, status => { if (status === 'paid') grant(id); }); } catch (e) { addToHistory(`Не получилось открыть оплату: ${e.message}`, 'bot'); closeShop(); } }
-function openShop(){ renderChars(); renderWear(); shopOpen = true; shop.classList.add('open'); if (tg && tg.BackButton){ tg.BackButton.show(); tg.BackButton.onClick(closeShop); } }
+function grant(id){ OWNED[id] = true; store.set('owned', OWNED); const w = byId[id]; if (w){ EQUIP[w.slot] = id; store.set('equip', EQUIP); applyOutfit(); renderWear(); Snd.cash(); Quest.add('buy'); return; } const it = SHOP_ITEMS.find(i => i.id === id); if (it){ closeShop(); setChar(it.char); Snd.cash(); Quest.add('buy'); } }
+async function buy(id){ const it = findItem(id); if (!it) return; const isSkin = !!SHOP_ITEMS.find(i => i.id === id);
+    if ((!isSkin || BONUS_CAN_BUY_SKINS) && BAL >= it.price){ BAL -= it.price; store.set('bal', BAL); renderBal(); grant(id); return; }
+    if (DEMO_BUY){ grant(id); return; }
+    try { const r = await fetch(`${BACKEND_URL}/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: id, user_id: userId() }) }); const data = await r.json(); if (!data.link) throw new Error('нет ссылки на оплату'); tg.openInvoice(data.link, status => { if (status === 'paid') grant(id); }); } catch (e) { addToHistory(`Не получилось открыть оплату: ${e.message}`, 'bot'); closeShop(); }
+}
+function openShop(){ Quest.add('shop'); renderChars(); renderWear(); renderBal(); showTab('shop'); shopOpen = true; shop.classList.add('open'); if (tg && tg.BackButton){ tg.BackButton.show(); tg.BackButton.onClick(closeShop); } }
 function closeShop(){ shopOpen = false; shop.classList.remove('open'); if (tg && tg.BackButton){ tg.BackButton.hide(); tg.BackButton.offClick(closeShop); } }
 $('shop-btn').addEventListener('click', openShop);
 $('shop-close').addEventListener('click', closeShop);
+
 const q = new URLSearchParams(location.search);
 applyOutfit();
 if (q.get('emotion')) Hologram.emotion(q.get('emotion'));
@@ -648,6 +749,10 @@ function drawSnd(){
 }
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); });
 drawSnd();
+
+/* Старт */
+ensureQuests(); renderBal(); updateDots();
+setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 </script>
 </body>
 </html>
