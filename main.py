@@ -23,11 +23,17 @@ BASE_PROMPT = """
 Эмоции: happy, sad, surprised, angry, thinking, sleepy.
 Танцы: disco, dab, floss, robot, party, twist.
 
+ВАЖНО: Если пользователь тебя оскорбляет (например, "ты тупой", "дурак", "идиот"), ты должен обидеться. Верни JSON:
+{"text": "Эй, это было обидно. Ты так больше не будешь?", "emotion": "sad", "offended": true}
+
+Если пользователь извиняется ("прости", "извини", "не буду"), ты прощаешь. Верни JSON:
+{"text": "Ладно, проехали. Что хотел спросить?", "emotion": "happy", "offended": false}
+
 Если тебя просят станцевать, верни JSON:
 {"text": "твой ответ", "action": "dance"}
 
 В остальных случаях верни JSON:
-{"text": "твой ответ", "emotion": "название_эмоции"}
+{"text": "твой ответ", "emotion": "название_эмоции", "offended": false}
 """
 
 ASTRO_PROMPT = """
@@ -35,8 +41,15 @@ ASTRO_PROMPT = """
 Ты говоришь загадочно, иногда упоминаешь звезды, планеты, космос и невесомость.
 Ты спокойный и мудрый. Отвечай коротко (1-3 предложения).
 У тебя есть эмоции: happy, sad, surprised, angry, thinking, sleepy.
+
+ВАЖНО: Если пользователь тебя оскорбляет, обижайся. Верни JSON:
+{"text": "Эй, это было обидно. Ты так больше не будешь?", "emotion": "sad", "offended": true}
+
+Если извиняется, прощай. Верни JSON:
+{"text": "Ладно, проехали. Что хотел спросить?", "emotion": "happy", "offended": false}
+
 В остальных случаях верни JSON:
-{"text": "твой ответ", "emotion": "название_эмоции"}
+{"text": "твой ответ", "emotion": "название_эмоции", "offended": false}
 """
 
 @app.post("/ask")
@@ -77,7 +90,11 @@ async def ask(request: Request):
             response_format={"type": "json_object"}
         )
         result = json.loads(response.choices[0].message.content)
-        return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy")}
+        return {
+            "text": result.get("text", "Что-то я задумался..."), 
+            "emotion": result.get("emotion", "happy"),
+            "offended": result.get("offended", False)
+        }
         
     except Exception as e:
         return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
