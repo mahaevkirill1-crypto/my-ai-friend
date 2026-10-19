@@ -70,7 +70,6 @@
     .gi .pr { color: #FFD166; margin-top: 2px; }
     .gi .own { color: #7FE5F5; margin-top: 2px; }
     
-    /* Бонусы */
     #bonus-list { flex: 1; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
     .bcard { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
     .bt { font-weight: 500; color: #fff; font-size: 15px; }
@@ -466,7 +465,7 @@ async function sendMessage(text) {
     if (char === 'astro') say('Слушаю звёзды…', 20000);
     else Hologram.react('thinking', 'think');
 
-    const historyText = chatHistoryForServer.slice(-10).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
+    const historyText = chatHistoryForServer.slice(-40).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
 
     try {
         const response = await fetch(`${BACKEND_URL}/ask`, {
@@ -542,23 +541,20 @@ $('do-clear').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   БОНУСЫ: ежедневная награда и задания
+   БОНУСЫ
    ============================================================ */
 const DROP_CHANCE = .15;
 const DROP_MAX_PRICE = 65;
 const BONUS_CAN_BUY_SKINS = false;
-
 let BAL = store.get('bal', 0);
 let DAILY = store.get('daily', { last: '', streak: 0 });
 let Q = store.get('quests', null);
 let tabNow = 'shop', lastResult = '';
 const sfx = n => { try { Snd[n](); } catch(e) {} };
-
 const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const dn = s => { const p = s.split('-').map(Number); return Math.round(Date.UTC(p[0], p[1] - 1, p[2]) / 864e5); };
 const hash = s => { let h = 7; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return h >>> 0; };
 const rng = seed => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-
 const QUESTS = [
   { id: 'dance5', type: 'dance', n: 5,  r: 3, t: 'Заставь голо-друга станцевать 5 раз' },
   { id: 'dance3', type: 'dance', n: 3,  r: 2, t: 'Заставь голо-друга станцевать 3 раза' },
@@ -573,118 +569,23 @@ const QUESTS = [
   { id: 'fight',  type: 'fight', n: 1,  r: 5, t: 'Победи пришельцев (нужен космонавт)', need: () => !!OWNED.astro }
 ];
 const QDEF = {}; QUESTS.forEach(q => { QDEF[q.id] = q; });
-
-function ensureQuests(){
-  const d = todayStr();
-  if (Q && Q.date === d && Q.list.every(id => QDEF[id])) return;
-  const r = rng(hash(d));
-  const pool = QUESTS.filter(q => !q.need || q.need());
-  for (let i = pool.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const list = [], seen = {};
-  for (const q of pool){ if (!seen[q.type]){ seen[q.type] = 1; list.push(q.id); if (list.length === 3) break; } }
-  Q = { date: d, list, prog: {}, claimed: {} };
-  store.set('quests', Q);
-}
+function ensureQuests(){ const d = todayStr(); if (Q && Q.date === d && Q.list.every(id => QDEF[id])) return; const r = rng(hash(d)); const pool = QUESTS.filter(q => !q.need || q.need()); for (let i = pool.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; } const list = [], seen = {}; for (const q of pool){ if (!seen[q.type]){ seen[q.type] = 1; list.push(q.id); if (list.length === 3) break; } } Q = { date: d, list, prog: {}, claimed: {} }; store.set('quests', Q); }
 const questReady = () => { ensureQuests(); return Q.list.some(id => (Q.prog[id] || 0) >= QDEF[id].n && !Q.claimed[id]); };
-
-const Quest = {
-  add(type, n = 1){
-    ensureQuests();
-    let changed = false;
-    Q.list.forEach(id => {
-      const d = QDEF[id], before = Q.prog[id] || 0;
-      if (d.type !== type || Q.claimed[id] || before >= d.n) return;
-      Q.prog[id] = Math.min(d.n, before + n); changed = true;
-      if (Q.prog[id] >= d.n) toast('Задание выполнено! Забери награду во вкладке «Бонусы»');
-    });
-    if (changed){ store.set('quests', Q); updateDots(); if (shopOpen && tabNow === 'bonus') renderBonus(); }
-  }
-};
-
-const toastEl = $('toast');
-let toastT;
+const Quest = { add(type, n = 1){ ensureQuests(); let changed = false; Q.list.forEach(id => { const d = QDEF[id], before = Q.prog[id] || 0; if (d.type !== type || Q.claimed[id] || before >= d.n) return; Q.prog[id] = Math.min(d.n, before + n); changed = true; if (Q.prog[id] >= d.n) toast('Задание выполнено! Забери награду во вкладке «Бонусы»'); }); if (changed){ store.set('quests', Q); updateDots(); if (shopOpen && tabNow === 'bonus') renderBonus(); } } };
+const toastEl = $('toast'); let toastT;
 function toast(s){ toastEl.textContent = s; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2800); }
-
 const tabsEl = $('shop-tabs');
 tabsEl.addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
-function updateDots(){
-  const flag = canDaily() || questReady();
-  $('shop-btn').classList.toggle('has', flag);
-  tabsEl.querySelector('[data-t="bonus"]').classList.toggle('has', flag);
-}
-
+function updateDots(){ const flag = canDaily() || questReady(); $('shop-btn').classList.toggle('has', flag); tabsEl.querySelector('[data-t="bonus"]').classList.toggle('has', flag); }
 const canDaily = () => DAILY.last !== todayStr();
 function curStreak(){ if (!DAILY.last) return 0; return dn(todayStr()) - dn(DAILY.last) <= 1 ? DAILY.streak : 0; }
-
 function rollStars(){ const w = [30, 28, 22, 13, 7]; let r = Math.random() * 100, i = 0; while (i < 4 && r >= w[i]){ r -= w[i]; i++; } return i + 1; }
-function rollDrop(){
-  if (Math.random() >= DROP_CHANCE) return null;
-  const pool = WEAR.filter(w => w.slot !== 'color' && w.price <= DROP_MAX_PRICE && !OWNED[w.id]);
-  return pool.length ? pool[R(pool.length)] : null;
-}
-function claimDaily(){
-  if (!canDaily()) return;
-  const today = todayStr();
-  const cont = DAILY.last && dn(today) - dn(DAILY.last) === 1;
-  DAILY = { last: today, streak: cont ? DAILY.streak + 1 : 1 };
-  store.set('daily', DAILY);
-  const stars = rollStars(), drop = rollDrop();
-  BAL += stars; store.set('bal', BAL);
-  lastResult = `Получено: +${stars} ★` + (drop ? `. Выпал аксессуар «${drop.name}»! Он уже в гардеробе.` : '');
-  if (drop){ OWNED[drop.id] = true; store.set('owned', OWNED); sfx('fanfare'); renderWear(); } else sfx('cash');
-  renderBal(); renderBonus(); updateDots();
-}
-
-function claimQuest(id){
-  ensureQuests();
-  const d = QDEF[id];
-  if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return;
-  Q.claimed[id] = true; store.set('quests', Q);
-  BAL += d.r; store.set('bal', BAL);
-  sfx('cash'); renderBal(); renderBonus(); updateDots();
-}
-
-function untilMidnight(){
-  const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
-  const s = Math.max(0, Math.floor((m - n) / 1000));
-  return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин';
-}
-
-function renderBonus(){
-  ensureQuests();
-  const can = canDaily(), cs = curStreak();
-  const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7;
-  let week = '';
-  for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`;
-
-  const quests = Q.list.map(id => {
-    const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id];
-    const btn = got ? '<button class="txtbtn" disabled>Получено</button>'
-                    : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`;
-    return `<div class="q"><div class="qi"><div class="qt">${d.t}</div>
-        <div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div>
-        <div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`;
-  }).join('');
-
-  bonusEl.innerHTML = `
-    <div class="bcard">
-      <div class="bt">Ежедневная награда</div>
-      <div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★, иногда вместе со звёздами выпадает аксессуар.</div>
-      <div class="week">${week}</div>
-      <button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : 'Приходи завтра'}</button>
-      <div class="res">${lastResult}</div>
-    </div>
-    <div class="bcard">
-      <div class="bt">Задания на сегодня</div>
-      <div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>
-      ${quests}
-    </div>
-    <div class="hint">Звёзды из бонусов можно потратить на наряды. ${BONUS_CAN_BUY_SKINS ? '' : 'Персонажей (например, космонавта) можно купить только за звёзды Telegram.'}</div>`;
-}
-$('bonus-list').addEventListener('click', e => {
-  if (e.target.closest('#claim-d')) return claimDaily();
-  const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q);
-});
+function rollDrop(){ if (Math.random() >= DROP_CHANCE) return null; const pool = WEAR.filter(w => w.slot !== 'color' && w.price <= DROP_MAX_PRICE && !OWNED[w.id]); return pool.length ? pool[R(pool.length)] : null; }
+function claimDaily(){ if (!canDaily()) return; const today = todayStr(); const cont = DAILY.last && dn(today) - dn(DAILY.last) === 1; DAILY = { last: today, streak: cont ? DAILY.streak + 1 : 1 }; store.set('daily', DAILY); const stars = rollStars(), drop = rollDrop(); BAL += stars; store.set('bal', BAL); lastResult = `Получено: +${stars} ★` + (drop ? `. Выпал аксессуар «${drop.name}»! Он уже в гардеробе.` : ''); if (drop){ OWNED[drop.id] = true; store.set('owned', OWNED); sfx('fanfare'); renderWear(); } else sfx('cash'); renderBal(); renderBonus(); updateDots(); }
+function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); sfx('cash'); renderBal(); renderBonus(); updateDots(); }
+function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
+function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7; let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); bonusEl.innerHTML = `<div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : 'Приходи завтра'}</button><div class="res">${lastResult}</div></div><div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div><div class="hint">Звёзды из бонусов можно потратить на наряды.</div>`; }
+$('bonus-list').addEventListener('click', e => { if (e.target.closest('#claim-d')) return claimDaily(); const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q); });
 
 /* --- Магазин --- */
 const SHOP_ITEMS = [ { id: 'astro', char: 'astro', name: 'Космонавт', desc: 'Прилетает на тарелке и говорит загадками о звёздах и невесомости. Если написать «смотри пришельцы», начнётся перестрелка.', price: 299 } ];
@@ -692,16 +593,8 @@ const shop = $('shop');
 const findItem = id => byId[id] || SHOP_ITEMS.find(i => i.id === id);
 const balEl = $('bal-el');
 const bonusEl = $('bonus-list');
-
 function renderBal(){ balEl.textContent = '★ ' + BAL; }
-function showTab(t){
-  tabNow = t;
-  tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  $('shop-list').style.display = t === 'shop' ? '' : 'none';
-  bonusEl.style.display = t === 'bonus' ? 'flex' : 'none';
-  if (t === 'bonus') renderBonus();
-}
-
+function showTab(t){ tabNow = t; tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); $('shop-list').style.display = t === 'shop' ? '' : 'none'; bonusEl.style.display = t === 'bonus' ? 'flex' : 'none'; if (t === 'bonus') renderBonus(); }
 function renderChars(){ $('chars').innerHTML = SHOP_ITEMS.map(it => { const owned = !!OWNED[it.id], on = owned && char === it.char; const btn = !owned ? `<button class="txtbtn" data-act="buy" data-id="${it.id}">Купить за ★ ${it.price}</button>` : on ? `<button class="txtbtn on" data-act="off" data-id="${it.id}">Снять</button>` : `<button class="txtbtn" data-act="on" data-id="${it.id}">Надеть</button>`; return `<div class="card"><svg viewBox="-85 -140 170 175" style="--su:#EEF3FA;--lc:#FFD166" role="img" aria-label="${it.name}"><use href="#ast"/></svg><div class="info"><div class="name">${it.name}</div><div class="desc">${it.desc}</div><div class="price">★ ${it.price}</div>${btn}</div></div>`; }).join(''); }
 $('chars').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b) return; const it = SHOP_ITEMS.find(i => i.id === b.dataset.id); if (!it) return; if (b.dataset.act === 'buy') buy(it.id); if (b.dataset.act === 'on'){ closeShop(); setChar(it.char); } if (b.dataset.act === 'off'){ closeShop(); setChar('holo'); } });
 let tab = 'head', selW = null, pvEq = {};
@@ -711,44 +604,20 @@ $('w-tabs').addEventListener('click', e => { const b = e.target.closest('button[
 $('w-grid').addEventListener('click', e => { const c = e.target.closest('.gi'); if (!c) return; selW = c.dataset.w; Quest.add('try'); renderWear(); });
 $('w-btn').addEventListener('click', () => { const id = $('w-btn').dataset.id, act = $('w-btn').dataset.act, it = byId[id]; if (!it) return; if (act === 'buy'){ buy(id); return; } EQUIP[it.slot] = act === 'on' ? id : null; store.set('equip', EQUIP); applyOutfit(); renderWear(); });
 function grant(id){ OWNED[id] = true; store.set('owned', OWNED); const w = byId[id]; if (w){ EQUIP[w.slot] = id; store.set('equip', EQUIP); applyOutfit(); renderWear(); Snd.cash(); Quest.add('buy'); return; } const it = SHOP_ITEMS.find(i => i.id === id); if (it){ closeShop(); setChar(it.char); Snd.cash(); Quest.add('buy'); } }
-async function buy(id){ const it = findItem(id); if (!it) return; const isSkin = !!SHOP_ITEMS.find(i => i.id === id);
-    if ((!isSkin || BONUS_CAN_BUY_SKINS) && BAL >= it.price){ BAL -= it.price; store.set('bal', BAL); renderBal(); grant(id); return; }
-    if (DEMO_BUY){ grant(id); return; }
-    try { const r = await fetch(`${BACKEND_URL}/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: id, user_id: userId() }) }); const data = await r.json(); if (!data.link) throw new Error('нет ссылки на оплату'); tg.openInvoice(data.link, status => { if (status === 'paid') grant(id); }); } catch (e) { addToHistory(`Не получилось открыть оплату: ${e.message}`, 'bot'); closeShop(); }
-}
+async function buy(id){ const it = findItem(id); if (!it) return; const isSkin = !!SHOP_ITEMS.find(i => i.id === id); if ((!isSkin || BONUS_CAN_BUY_SKINS) && BAL >= it.price){ BAL -= it.price; store.set('bal', BAL); renderBal(); grant(id); return; } if (DEMO_BUY){ grant(id); return; } try { const r = await fetch(`${BACKEND_URL}/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: id, user_id: userId() }) }); const data = await r.json(); if (!data.link) throw new Error('нет ссылки на оплату'); tg.openInvoice(data.link, status => { if (status === 'paid') grant(id); }); } catch (e) { addToHistory(`Не получилось открыть оплату: ${e.message}`, 'bot'); closeShop(); } }
 function openShop(){ Quest.add('shop'); renderChars(); renderWear(); renderBal(); showTab('shop'); shopOpen = true; shop.classList.add('open'); if (tg && tg.BackButton){ tg.BackButton.show(); tg.BackButton.onClick(closeShop); } }
 function closeShop(){ shopOpen = false; shop.classList.remove('open'); if (tg && tg.BackButton){ tg.BackButton.hide(); tg.BackButton.offClick(closeShop); } }
-$('shop-btn').addEventListener('click', openShop);
-$('shop-close').addEventListener('click', closeShop);
-
+$('shop-btn').addEventListener('click', openShop); $('shop-close').addEventListener('click', closeShop);
 const q = new URLSearchParams(location.search);
-applyOutfit();
-if (q.get('emotion')) Hologram.emotion(q.get('emotion'));
-setChar(char);
-setTimeout(() => {
-    Hologram.react('happy', 'wave', 3500);
-    const hour = new Date().getHours();
-    let greeting = GREET[char];
-    if (chatHistoryForServer.length === 0) {
-        if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?";
-        else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?";
-        else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?";
-        else greeting = "Ты чего не спишь? Давай поболтаем.";
-    }
-    addToHistory(greeting, 'bot');
-}, 500);
+applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
+setTimeout(() => { Hologram.react('happy', 'wave', 3500); const hour = new Date().getHours(); let greeting = GREET[char]; if (chatHistoryForServer.length === 0) { if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?"; else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?"; else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?"; else greeting = "Ты чего не спишь? Давай поболтаем."; } addToHistory(greeting, 'bot'); }, 500);
 
-/* ===== Переключатель звуков ===== */
+/* Переключатель звуков */
 const sndBtn = $('snd-btn');
 const ICON_ON  = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>';
-function drawSnd(){
-  sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF;
-  sndBtn.classList.toggle('muted', !Snd.on());
-  sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки');
-}
-sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); });
-drawSnd();
+function drawSnd(){ sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
+sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
 
 /* Старт */
 ensureQuests(); renderBal(); updateDots();
