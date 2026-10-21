@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-v="hack">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1.0,user-scalable=no">
@@ -8,6 +8,22 @@
 <style>
     :root { --bg-color: #0E1726; --bot-msg-bg: #1c2533; --user-msg-bg: #2b5278; --text-color: #ffffff; --accent-color: #4FD1E8; }
     * { box-sizing: border-box; }
+    
+    /* Анимация тряски для глюка */
+    @keyframes shake {
+        0% { transform: translate(1px, 1px) rotate(0deg); }
+        10% { transform: translate(-1px, -2px) rotate(-1deg); }
+        20% { transform: translate(-3px, 0px) rotate(1deg); }
+        30% { transform: translate(3px, 2px) rotate(0deg); }
+        40% { transform: translate(1px, -1px) rotate(1deg); }
+        50% { transform: translate(-1px, 2px) rotate(-1deg); }
+        60% { transform: translate(-3px, 1px) rotate(0deg); }
+        70% { transform: translate(3px, 1px) rotate(-1deg); }
+        80% { transform: translate(-1px, -1px) rotate(1deg); }
+        90% { transform: translate(1px, 2px) rotate(0deg); }
+        100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center; height: 100vh; padding-top: 6px; }
     #topbar { width: 100%; max-width: 450px; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; position: relative; z-index: 40; flex-shrink: 0; }
@@ -95,9 +111,31 @@
     .dialog .btns { display: flex; gap: 8px; }
     .dialog .btns button { flex: 1; }
     #do-clear { background: #FF6B6B; border: none; color: #0E1726; font: inherit; font-size: 13px; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+    
+    /* Слой глюка */
+    #hack-overlay {
+        position: fixed; inset: 0; background: #000; z-index: 999;
+        display: none; flex-direction: column; justify-content: center; align-items: center;
+        color: #ff3333; font-family: monospace; font-size: 20px; text-align: center;
+    }
+    #hack-overlay.show { display: flex; }
+    .glitch-text { animation: glitch 0.2s infinite; }
+    @keyframes glitch {
+        0% { transform: translate(0) }
+        20% { transform: translate(-2px, 2px) }
+        40% { transform: translate(-2px, -2px) }
+        60% { transform: translate(2px, 2px) }
+        80% { transform: translate(2px, -2px) }
+        100% { transform: translate(0) }
+    }
 </style>
 </head>
 <body>
+<div id="hack-overlay" class="glitch-text">
+    <div>SYSTEM HACKED</div>
+    <div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>
+</div>
+
 <div id="topbar">
   <button class="ibtn" id="snd-btn" aria-label="Звуки"></button>
   <button class="ibtn" id="shop-btn" aria-label="Магазин"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></button>
@@ -403,6 +441,59 @@ async function sendMessage(text) {
             chatHistory.appendChild(heartMsg);
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }, 1000);
+
+        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        return;
+    }
+
+    // --- СЕКРЕТНАЯ КОМАНДА: SYSTEM HACK ---
+    if (text.toLowerCase().includes('system hack')) {
+        addToHistory("ВНИМАНИЕ: СИСТЕМА ВЗЛОМАНА.", 'bot');
+        
+        // 1. Тряска экрана и красный экран
+        document.body.style.animation = 'shake 0.2s infinite';
+        $('hack-overlay').classList.add('show');
+        
+        // 2. Хаотичный полет
+        let glitchCount = 0;
+        const glitchInterval = setInterval(() => {
+            Snd.hurt();
+            annoy(); 
+            glitchCount++;
+            if (glitchCount > 4) clearInterval(glitchInterval);
+        }, 500);
+
+        // 3. Замирание в центре и черный экран
+        setTimeout(() => {
+            clearInterval(glitchInterval);
+            document.body.style.animation = '';
+            // Ставим робота в центр и замораживаем
+            x = W / 2; y = H / 2; st = 'hover'; tx = x; ty = y; k = 0;
+            addToHistory("...", 'bot'); // Тишина
+            
+            // 4. Экран ошибки 404
+            setTimeout(() => {
+                $('hack-overlay').innerHTML = '<div>КРИТИЧЕСКАЯ ОШИБКА</div><div style="font-size: 60px; margin: 20px 0; color: #fff;">ERROR 404</div><div>ПОПЫТКА ВОССТАНОВЛЕНИЯ...</div>';
+            }, 1000);
+
+            // 5. Восстановление
+            setTimeout(() => {
+                $('hack-overlay').classList.remove('show');
+                $('hack-overlay').innerHTML = '<div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>'; // Сброс
+                
+                addToHistory("Щас попробуем починить...", 'bot');
+                Hologram.react('thinking', 'think', 3000);
+                Snd.click();
+
+                // 6. Финал
+                setTimeout(() => {
+                    Hologram.react('happy', 'wave', 3000);
+                    Snd.fanfare();
+                    addToHistory("Фух... Кажется, я починился. Больше так не делай!", 'bot');
+                }, 3000);
+
+            }, 3000);
+        }, 2500);
 
         input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
         return;
