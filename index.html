@@ -495,15 +495,18 @@ async function sendMessage(text) {
                 // ВОЗВРАЩАЕМ ПОЛЕ ВВОДА
                 $('hud-panel').style.display = 'flex';
                 
-                // --- ВОТ ТУТ ЛЕЧИМ БАГ ---
-                // Принудительно ставим его в центр экрана и включаем нормальную физику
-                spot = 0; // Сбрасываем точку притяжения
+                // --- ЛЕЧИМ БАГ С ЦВЕТОМ ---
+                spot = 0; 
                 x = SPOTS[0][0]; 
                 y = SPOTS[0][1]; 
                 tx = x; ty = y;
-                k = 0.012; // Возвращаем нормальное притяжение
+                k = 0.012; 
                 vx = 0; vy = 0;
                 st = 'hover';
+                // Принудительно сбрасываем злость и возвращаем нормальное лицо
+                ang = 0; 
+                angT = 0; 
+                Hologram.emotion('thinking'); 
                 // --------------------------
 
                 addToHistory("Щас попробуем починить...", 'bot');
@@ -515,6 +518,13 @@ async function sendMessage(text) {
                     Hologram.react('happy', 'wave', 3000);
                     Snd.fanfare();
                     addToHistory("Фух... Кажется, я починился. Больше так не делай!", 'bot');
+                    
+                    // --- ЛЕЧИМ БАГ С ПАМЯТЬЮ ---
+                    // Сохраняем этот диалог в историю, чтобы бот знал, что произошло
+                    chatHistoryForServer.push({ sender: 'user', text: text });
+                    chatHistoryForServer.push({ sender: 'bot', text: "[Системный сбой. Пользователь взломал меня. Я восстановился.] Фух... Кажется, я починился. Больше так не делай!" });
+                    localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+                    // ---------------------------
                 }, 3000);
 
             }, 3000);
