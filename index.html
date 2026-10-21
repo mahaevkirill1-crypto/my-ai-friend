@@ -381,7 +381,7 @@ function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'numbe
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
-function layout(){ W = innerWidth; H = innerHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); SCA = SC * 1.15; const r = $('stage').getBoundingClientRect(); const sy = r.top + r.height * .5; SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad' && st !== 'fight'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
+function layout(){ W = innerWidth; H = innerHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); SCA = SC * 1.15; const r = $('stage').getBoundingClientRect(); const sy = r.top + r.height * .5; SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad' && st !== 'fight' && st !== 'teach'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
 addEventListener('resize', layout); layout();
 function enter(){ Snd.whoosh(); const m = 120; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[R(4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
 function annoy(){ if (st === 'fight'){ if (char === 'astro') say('Не отвлекай, я занят!', 1500); return; } if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; if (char === 'astro') say('Эй! Не трогай приборы!', 1200); if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
@@ -417,7 +417,7 @@ const Hologram = {
     teach() {
         const oldSC = SC;
         const msgs = document.querySelectorAll('.msg-row.bot .message');
-        const lastMsg = msgs[msgs.length - 1]; // Берем последнее сообщение бота
+        const lastMsg = msgs[msgs.length - 1]; 
         
         if (lastMsg) {
             const rect = lastMsg.getBoundingClientRect();
@@ -425,23 +425,30 @@ const Hologram = {
             // 1. Уменьшаем робота
             SC = oldSC * 0.45; 
             
-            // 2. Летим к сообщению
+            // 2. Меняем состояние на 'teach', чтобы физика не сбивала его с пути
+            st = 'teach'; 
+            
+            // 3. Задаем координаты полета (центр сообщения)
             tx = rect.left + (rect.width / 2);
             ty = rect.top + (rect.height / 2);
-            k = 0.04; 
             
-            // 3. Подсвечиваем сообщение
+            // 4. Ускоряем полет
+            k = 0.06; 
+
+            // 5. Подсвечиваем сообщение
+            lastMsg.style.transition = 'all 0.3s ease';
             lastMsg.style.boxShadow = '0 0 20px #4FD1E8';
             lastMsg.style.border = '1px solid #4FD1E8';
             lastMsg.style.backgroundColor = '#0B2230';
 
-            // 4. Возвращаем всё как было через 3 секунды
+            // 6. Через 3.5 секунды возвращаем всё как было
             setTimeout(() => {
                 SC = oldSC; 
+                st = 'hover'; // Возвращаем нормальное состояние
                 spot = 0; 
                 tx = SPOTS[0][0];
                 ty = SPOTS[0][1];
-                k = 0.012; 
+                k = 0.012; // Возвращаем нормальную гравитацию
                 
                 lastMsg.style.boxShadow = 'none';
                 lastMsg.style.border = 'none';
