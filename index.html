@@ -450,42 +450,67 @@ async function sendMessage(text) {
     if (text.toLowerCase().includes('system hack')) {
         addToHistory("ВНИМАНИЕ: СИСТЕМА ВЗЛОМАНА.", 'bot');
         
-        // 1. Тряска экрана и красный экран
+        // 1. СКРЫВАЕМ ПОЛЕ ВВОДА
+        $('hud-panel').style.display = 'none';
+        
+        // 2. Тряска экрана и красный экран
         document.body.style.animation = 'shake 0.2s infinite';
         $('hack-overlay').classList.add('show');
         
-        // 2. Хаотичный полет
+        // 3. Хаотичный полет (глюки)
         let glitchCount = 0;
         const glitchInterval = setInterval(() => {
             Snd.hurt();
             annoy(); 
             glitchCount++;
             if (glitchCount > 4) clearInterval(glitchInterval);
-        }, 500);
+        }, 400);
 
-        // 3. Замирание в центре и черный экран
+        // 4. Замирание в центре и черный экран
         setTimeout(() => {
             clearInterval(glitchInterval);
             document.body.style.animation = '';
-            // Ставим робота в центр и замораживаем
-            x = W / 2; y = H / 2; st = 'hover'; tx = x; ty = y; k = 0;
-            addToHistory("...", 'bot'); // Тишина
             
-            // 4. Экран ошибки 404
+            // Жестко фиксируем робота по центру
+            x = W / 2; y = H / 2; 
+            st = 'hover'; 
+            tx = x; ty = y; 
+            k = 0; vx = 0; vy = 0; 
+            
+            Hologram.emotion('surprised');
+            Hologram.pose('idle');
+            addToHistory("...", 'bot'); 
+            
+            // 5. Экран ошибки 404
             setTimeout(() => {
                 $('hack-overlay').innerHTML = '<div>КРИТИЧЕСКАЯ ОШИБКА</div><div style="font-size: 60px; margin: 20px 0; color: #fff;">ERROR 404</div><div>ПОПЫТКА ВОССТАНОВЛЕНИЯ...</div>';
             }, 1000);
 
-            // 5. Восстановление
+            // 6. Восстановление
             setTimeout(() => {
+                // Убираем черный экран
                 $('hack-overlay').classList.remove('show');
-                $('hack-overlay').innerHTML = '<div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>'; // Сброс
+                $('hack-overlay').innerHTML = '<div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>'; 
                 
+                // ВОЗВРАЩАЕМ ПОЛЕ ВВОДА
+                $('hud-panel').style.display = 'flex';
+                
+                // --- ВОТ ТУТ ЛЕЧИМ БАГ ---
+                // Принудительно ставим его в центр экрана и включаем нормальную физику
+                spot = 0; // Сбрасываем точку притяжения
+                x = SPOTS[0][0]; 
+                y = SPOTS[0][1]; 
+                tx = x; ty = y;
+                k = 0.012; // Возвращаем нормальное притяжение
+                vx = 0; vy = 0;
+                st = 'hover';
+                // --------------------------
+
                 addToHistory("Щас попробуем починить...", 'bot');
                 Hologram.react('thinking', 'think', 3000);
                 Snd.click();
 
-                // 6. Финал
+                // 7. Финал
                 setTimeout(() => {
                     Hologram.react('happy', 'wave', 3000);
                     Snd.fanfare();
@@ -493,9 +518,10 @@ async function sendMessage(text) {
                 }, 3000);
 
             }, 3000);
-        }, 2500);
+        }, 2000);
 
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.disabled = false; sendBtn.disabled = false; 
+        isSending = false;
         return;
     }
 
