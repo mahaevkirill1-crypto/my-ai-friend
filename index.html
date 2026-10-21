@@ -47,7 +47,7 @@
     @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
     .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
     .msg-row.user .avatar { background: var(--user-msg-bg); }
-    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; transition: all 0.3s ease; }
+    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
@@ -381,7 +381,7 @@ function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'numbe
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
-function layout(){ W = innerWidth; H = innerHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); SCA = SC * 1.15; const r = $('stage').getBoundingClientRect(); const sy = r.top + r.height * .5; SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad' && st !== 'fight' && st !== 'teach'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
+function layout(){ W = innerWidth; H = innerHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); SCA = SC * 1.15; const r = $('stage').getBoundingClientRect(); const sy = r.top + r.height * .5; SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad' && st !== 'fight'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
 addEventListener('resize', layout); layout();
 function enter(){ Snd.whoosh(); const m = 120; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[R(4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
 function annoy(){ if (st === 'fight'){ if (char === 'astro') say('Не отвлекай, я занят!', 1500); return; } if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; if (char === 'astro') say('Эй! Не трогай приборы!', 1200); if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
@@ -411,53 +411,7 @@ const Hologram = {
     dance(name, ms){ if (!DANCES[name]) return; clearTimeout(resetTimer); clearTimeout(danceTimer); this.emotion('happy'); dance = name; t0 = performance.now(); want = 1; if (ms) danceTimer = setTimeout(() => this.stopDance(), ms); }, 
     stopDance(){ clearTimeout(danceTimer); want = 0; }, 
     react(emotion, pose, ms){ clearTimeout(resetTimer); this.emotion(emotion); this.pose(pose); if (ms) resetTimer = setTimeout(() => { this.emotion('happy'); this.pose('idle'); }, ms); }, 
-    enter, annoy, invade, setChar,
-    
-    // --- НОВАЯ ФУНКЦИЯ: ОБЪЯСНЕНИЕ ---
-    teach() {
-        const oldSC = SC;
-        const msgs = document.querySelectorAll('.msg-row.bot .message');
-        const lastMsg = msgs[msgs.length - 1]; 
-        
-        if (lastMsg) {
-            const rect = lastMsg.getBoundingClientRect();
-            
-            // 1. Уменьшаем робота
-            SC = oldSC * 0.5; 
-            
-            // 2. Меняем состояние на 'teach', чтобы физика не сбивала его с пути
-            st = 'teach'; 
-            
-            // 3. Вычисляем координаты полета. 
-            // Берем позицию сообщения и вычитаем половину высоты/ширины для центрирования.
-            // И добавляем отступ, чтобы он нависал над текстом.
-            tx = rect.left + rect.width / 2; 
-            ty = rect.top + 10; // Опускаем его на 10 пикселей вниз от верхнего края сообщения
-            
-            // Ускоряем полет, чтобы он быстро долетел
-            k = 0.08; 
-
-            // 4. Подсвечиваем сообщение
-            lastMsg.style.transition = 'all 0.3s ease';
-            lastMsg.style.boxShadow = '0 0 25px #4FD1E8'; // Сделал свечение чуть ярче
-            lastMsg.style.border = '2px solid #4FD1E8';
-            lastMsg.style.backgroundColor = '#0B2230';
-
-            // 5. Через 4 секунды возвращаем всё как было
-            setTimeout(() => {
-                SC = oldSC; 
-                st = 'hover'; // Возвращаем нормальное состояние
-                spot = 0; 
-                tx = SPOTS[0][0]; // Летим обратно в центр (SPOTS[0])
-                ty = SPOTS[0][1];
-                k = 0.012; // Возвращаем нормальную гравитацию
-                
-                lastMsg.style.boxShadow = 'none';
-                lastMsg.style.border = 'none';
-                lastMsg.style.backgroundColor = 'var(--bot-msg-bg)';
-            }, 4000);
-        }
-    }
+    enter, annoy, invade, setChar
 };
 window.Hologram = Hologram;
 function setChar(c){ const changed = c !== char; char = c; store.set('char', c); $('fly').style.display = c === 'holo' ? '' : 'none'; $('astw').style.display = c === 'astro' ? '' : 'none'; Hologram.stopDance(); clearFight(); hideBubble(); greetPending = true; enter(); if (changed && c === 'astro') setTimeout(() => Snd.fanfare(), 350); }
@@ -571,9 +525,6 @@ async function sendMessage(text) {
         return;
     }
 
-    // --- КОМАНДА: ОБЪЯСНИ (ПОЛЕТ К ТЕКСТУ) ---
-    // Убираем вызов Hologram.teach() отсюда. Мы вызовем его после получения ответа.
-
     const lowText = text.toLowerCase().trim();
     const apologies = ['прости', 'извини', 'сорри', 'не буду', 'прошу прощения'];
     const isApology = apologies.some(w => lowText.includes(w));
@@ -650,18 +601,12 @@ async function sendMessage(text) {
     else Hologram.react('thinking', 'think');
 
     const historyText = chatHistoryForServer.slice(-40).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
-    
-    // Добавляем подсказку для GPT, если это запрос на объяснение
-    let textToSend = text;
-    if (text.toLowerCase().includes('не понял') || text.toLowerCase().includes('объясни')) {
-        textToSend = text + " (Пожалуйста, объясни свой предыдущий ответ максимально просто, как для ребенка, короткими предложениями)";
-    }
 
     try {
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                text: textToSend,
+                text: text,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 history: historyText,
                 user_id: userId()
@@ -685,12 +630,6 @@ async function sendMessage(text) {
         }
 
         addToHistory(data.text, 'bot');
-        
-        // --- ВОТ ЗДЕСЬ ЗАПУСКАЕМ ПОЛЕТ ---
-        if (text.toLowerCase().includes('не понял') || text.toLowerCase().includes('объясни')) {
-            setTimeout(() => Hologram.teach(), 50); // Задержка, чтобы DOM обновился
-        }
-
         chatHistoryForServer.push({ sender: 'user', text: text });
         chatHistoryForServer.push({ sender: 'bot', text: data.text });
         localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
