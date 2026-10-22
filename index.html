@@ -288,14 +288,12 @@ const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k 
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
 
-let isFirstLoad = true; // Флаг для первого запуска
+let isFirstLoad = true;
 
 if (tg) { 
     tg.ready(); 
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
-    
-    // Не пересчитываем при открытии клавиатуры (используем стабильную высоту)
     tg.onEvent('viewportChanged', () => { onViewport(); });
 }
 
@@ -548,7 +546,9 @@ async function loadProgress() {
     try {
         const res = await fetch(`${BACKEND_URL}/load_progress/${uid}`);
         const data = await res.json();
-        if (data) {
+        
+        // Если на сервере ЕСТЬ данные (баланс больше 0 или есть скины) — загружаем их
+        if (data && (data.bal > 0 || Object.keys(data.owned || {}).length > 0)) {
             BAL = data.bal || 0;
             OWNED = data.owned || {};
             EQUIP = data.equip || {};
@@ -558,6 +558,10 @@ async function loadProgress() {
             renderBal(); 
             renderWear(); 
             applyOutfit();
+        } else {
+            // Если сервер ПУСТОЙ — берем твои скины из телефона и ОТПРАВЛЯЕМ их на сервер
+            console.log("Сервер пуст, сохраняем локальные данные...");
+            syncToServer();
         }
     } catch(e) { console.error("Load error", e); }
 }
