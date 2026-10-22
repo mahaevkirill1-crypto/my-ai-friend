@@ -288,17 +288,10 @@ if (tg) {
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
     
-    // СЛЕДИМ ЗА КЛАВИАТУРОЙ И РАЗМЕРОМ ОКНА
+    // Плавное обновление при изменении окна (без телепортации)
     tg.onEvent('viewportChanged', () => {
         setTimeout(() => {
             layout();
-            // Страховка: если бот оказался за экраном (под клавиатурой), возвращаем его
-            if (st === 'hover' && (y > H || y < 0)) {
-                x = SPOTS[spot][0];
-                y = SPOTS[spot][1];
-                tx = x; ty = y;
-                vx = vy = 0;
-            }
         }, 100);
     });
 }
@@ -418,7 +411,6 @@ function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color
 
 function layout(){ 
     W = innerWidth; 
-    // Используем точную высоту от Telegram, чтобы робот не улетал под клавиатуру
     H = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight; 
     
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); 
