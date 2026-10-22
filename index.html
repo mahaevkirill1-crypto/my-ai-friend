@@ -1,3 +1,10 @@
+Держи полный, исправленный код index.html.
+
+Я внедрил улучшенную логику: теперь интерфейс (поле ввода) не появляется, пока Telegram не пришлёт точные размеры экрана с учётом клавиатуры. Это убирает эффект «догоняния» и тряски.
+
+Замени весь свой index.html на этот:
+
+```html
 <!doctype html>
 <html lang="ru" data-v="hack">
 <head>
@@ -26,7 +33,6 @@
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: var(--app-h, 100vh); padding-top: 6px; overscroll-behavior: none; }
     
-    /* ФИКС ТРЯСКИ: скрываем панель до полной загрузки */
     #hud-panel { 
         padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); 
         position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
@@ -35,6 +41,7 @@
     }
     body:not(.loaded) #hud-panel {
         opacity: 0;
+        pointer-events: none;
     }
 
     #topbar { width: 100%; max-width: 450px; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; position: relative; z-index: 40; flex-shrink: 0; }
@@ -1133,12 +1140,25 @@ sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); draw
 ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 
-// ФИКС ТРЯСКИ: Принудительно применяем правильный размер и показываем панель после загрузки
-setTimeout(() => {
+// ФИКС ЗАДЕРЖКИ ПОЛЯ ВВОДА: Ждем, пока Telegram пришлет точную высоту
+function revealInterface() {
     syncBody();
     layout();
     document.body.classList.add('loaded');
-}, 50);
+}
+
+if (tg && tg.viewportHeight) {
+    let attempts = 0;
+    const checkViewport = setInterval(() => {
+        attempts++;
+        if (attempts > 10 || (tg.viewportHeight && tg.viewportStableHeight)) {
+            clearInterval(checkViewport);
+            revealInterface();
+        }
+    }, 50);
+} else {
+    setTimeout(revealInterface, 100);
+}
 </script>
 </body>
 </html>
