@@ -436,7 +436,7 @@ setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
 
-let baseW = 0, baseH = 0, kb = false, SCt = .5, layoutDone = false;
+let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false;
 function scrollChat(){ const c = $('chat-history'); c.scrollTop = c.scrollHeight; }
 function syncBody(){
     const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
@@ -447,11 +447,11 @@ function layout(){
     const w = innerWidth;
     const cur = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
     const stab = (tg && tg.viewportStableHeight) ? tg.viewportStableHeight : innerHeight;
+    // Базовая высота = максимальная высота без клавиатуры для этой ширины (Telegram после анимации тоже уменьшает stableHeight)
     if (w !== baseW){ baseW = w; baseH = stab; }
-    else if (tg) baseH = stab;
     else if (stab > baseH) baseH = stab;
     const wasKb = kb;
-    kb = cur < baseH - 80;
+    kb = inFocus || cur < baseH - 80;
     W = w; H = baseH;
     const root = document.documentElement.style;
     root.setProperty('--sv-h', H + 'px');
@@ -516,7 +516,7 @@ function hitAlien(a){ a.hp--; a.hit = 1; boom(a.x, a.y, false); if (a.hp <= 0){ 
 function fightStep(t, dt){ const ms = dt * 16.7, u = W / 380; if (st === 'fight'){ tx = W * .5 + W * .18 * Math.sin(t / 1100); ty = H * .5 + 10 * Math.sin(t / 700); k = .03; shotT += ms; alT += ms; if (shotT > 420 && AL.length){ shotT = 0; const sh = [x + 22 * SCA, y - 21 * SCA]; let tg2 = AL[0], bd = 1e9; AL.forEach(a => { const d = Math.hypot(a.x - x, a.y - y); if (d < bd){ bd = d; tg2 = a; } }); const dx = tg2.x - sh[0], dy = tg2.y - sh[1], ln = Math.hypot(dx, dy) || 1; aimA = Math.atan2(-dx, dy) * 180 / Math.PI; kick = 1; bullet(sh[0] + 46 * SCA * dx / ln, sh[1] + 46 * SCA * dy / ln, { tg: tg2, sp: 11 * u, r: 3.5, col: '#7FE5F5' }); } if (alT > 800 && AL.length){ alT = 0; const a = AL[R(AL.length)]; bullet(a.x, a.y + 8, { bx: x + R(80) - 40, by: y + R(60) - 30, sp: 5 * u, r: 4, col: '#FF6B6B' }); } if (!AL.length && left <= 0 && !BL.length){ st = 'hover'; k = .012; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; say('Тихо… звёзды снова спокойны.', 3500); } } AL.forEach((a, i) => { const kk = .02, d2 = 1.8 * Math.sqrt(kk) * .8; a.vx += ((a.tx - a.x) * kk - a.vx * d2) * dt; a.vy += ((a.ty - a.y) * kk - a.vy * d2) * dt; a.x += a.vx * dt; a.y += a.vy * dt; a.hit = Math.max(0, a.hit - .08 * dt); a.g.setAttribute('transform', `translate(${a.x} ${a.y + 5 * Math.sin(t / 300 + i)}) scale(${(1.1 + .3 * a.hit) * u})`); }); for (let i = BL.length - 1; i >= 0; i--){ const b = BL[i]; let gx, gy, dead = false; if (b.tg){ if (AL.indexOf(b.tg) < 0) dead = true; else { gx = b.tg.x; gy = b.tg.y; } } else { gx = b.bx; gy = b.by; } if (!dead){ const ex = gx - b.x, ey = gy - b.y, d = Math.hypot(ex, ey), s = b.sp * dt; if (d < s + 6){ dead = true; if (b.tg) hitAlien(b.tg); else if (Math.hypot(b.bx - x, b.by - y) < 52 * SCA){ hurt = 1; Snd.hurt(); if (Math.random() < .4) say('Царапина… звёзды хранят меня.', 1200); } } else { b.x += ex / d * s; b.y += ey / d * s; b.c.setAttribute('cx', b.x); b.c.setAttribute('cy', b.y); } } if (dead){ b.c.remove(); BL.splice(i, 1); } } for (let j = FX.length - 1; j >= 0; j--){ const f = FX[j]; f.t += ms; const p = f.t / (f.big ? 450 : 200); if (p >= 1){ f.c.remove(); FX.splice(j, 1); } else { f.c.setAttribute('r', (f.big ? 34 : 12) * p * u); f.c.setAttribute('opacity', 1 - p); } } }
 function flame(outer, inner, cx, L){ A(outer, 'points', `${cx-8},276 ${cx+8},276 ${cx},${276+L}`); A(inner, 'points', `${cx-4},276 ${cx+4},276 ${cx},${276+L*.6}`); }
 let shopOpen = false;
-function frame(t){ const dt = Math.min(2.5, (t - last) / 16.7); last = t; SC += (SCt - SC) * .12 * dt; SCA = SC * 1.15; const astro = char === 'astro'; if (st === 'mad' && t - madT > 650){ let far = []; SPOTS.forEach((s, i) => { if (i !== spot && Math.hypot(s[0]-x, s[1]-y) > Math.min(W, H) * .3) far.push(i); }); if (!far.length) SPOTS.forEach((s, i) => { if (i !== spot) far.push(i); }); spot = far[R(far.length)]; tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; k = .03; st = 'flee'; if (astro) say('Улетаю подальше от суеты…', 1800); } if (astro) fightStep(t, dt); const dm = 1.8 * Math.sqrt(k); vx += ((tx - x) * k - vx * dm) * dt; vy += ((ty - y) * k - vy * dm) * dt; x += vx * dt; y += vy * dt; const sp = Math.hypot(vx, vy); if ((st === 'enter' || st === 'flee') && Math.hypot(tx - x, ty - y) < 5 && sp < .4){ const was = st; st = 'hover'; k = .012; if (was === 'flee') coolTimer = setTimeout(() => { angT = 0; }, 2500); else angT = 0; if (greetPending){ greetPending = false; } else if (astro && was === 'enter') say('Звёзды… я слышу их отсюда.', 3500); } ang += (angT - ang) * .08 * dt; hurt = Math.max(0, hurt - .03 * dt); kick = Math.max(0, kick - .1 * dt); if (astro) drawAstro(t); else drawHolo(t, dt, sp); if (shopOpen) pvColor(t); Snd.jet(sp, astro); requestAnimationFrame(frame); }
+function frame(t){ const dt = Math.min(2.5, (t - last) / 16.7); last = t; SC += (SCt - SC) * .12 * dt; SCA = SC * 1.15; if (!isFinite(x) || !isFinite(y) || !isFinite(vx) || !isFinite(vy)){ x = tx; y = ty; vx = 0; vy = 0; } const astro = char === 'astro'; if (st === 'mad' && t - madT > 650){ let far = []; SPOTS.forEach((s, i) => { if (i !== spot && Math.hypot(s[0]-x, s[1]-y) > Math.min(W, H) * .3) far.push(i); }); if (!far.length) SPOTS.forEach((s, i) => { if (i !== spot) far.push(i); }); spot = far[R(far.length)]; tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; k = .03; st = 'flee'; if (astro) say('Улетаю подальше от суеты…', 1800); } if (astro) fightStep(t, dt); const dm = 1.8 * Math.sqrt(k); vx += ((tx - x) * k - vx * dm) * dt; vy += ((ty - y) * k - vy * dm) * dt; x += vx * dt; y += vy * dt; const sp = Math.hypot(vx, vy); if ((st === 'enter' || st === 'flee') && Math.hypot(tx - x, ty - y) < 5 && sp < .4){ const was = st; st = 'hover'; k = .012; if (was === 'flee') coolTimer = setTimeout(() => { angT = 0; }, 2500); else angT = 0; if (greetPending){ greetPending = false; } else if (astro && was === 'enter') say('Звёзды… я слышу их отсюда.', 3500); } ang += (angT - ang) * .08 * dt; hurt = Math.max(0, hurt - .03 * dt); kick = Math.max(0, kick - .1 * dt); if (astro) drawAstro(t); else drawHolo(t, dt, sp); if (shopOpen) pvColor(t); Snd.jet(sp, astro); requestAnimationFrame(frame); }
 function drawAstro(t){ const rx = x + (st === 'mad' ? 3 * Math.sin(t / 40) : 0) + (hurt > 0 ? 2 * Math.sin(t / 30) : 0); const ry = y + 45 * SCA + 7 * Math.sin(t / 600); const tilt = cl(vx * 2, -20, 20) + 3.5 * Math.sin(t / 1000) + (st === 'mad' ? 4 * Math.sin(t / 45) : 0); tr('astw', `translate(${rx} ${ry}) rotate(${tilt}) scale(${SCA})`); const a2 = cl(ang + hurt * .7, 0, 1), m = (a, b) => Math.round(a + (b - a) * a2); svg.style.setProperty('--su', `rgb(${m(238,255)},${m(243,138)},${m(250,138)})`); svg.style.setProperty('--lc', `rgb(255,${m(209,107)},${m(102,107)})`); ['l1','l2','l3'].forEach((id, i) => A(id, 'opacity', .5 + .5 * Math.sin(t / 200 + i * 2))); tr('armL', `translate(-22 -66) rotate(${14 + 6 * Math.sin(t / 800) + 30 * ang})`); const ra = st === 'fight' ? aimA + kick * 8 : -14 - 6 * Math.sin(t / 700 + 1) - 30 * ang; tr('armR', `translate(22 -66) rotate(${ra})`); const bb = $('bub'); if (bb.style.display === 'block'){ bb.style.left = cl(rx, 105, W - 105) + 'px'; bb.style.top = (ry - 138 * SCA) + 'px'; } }
 function drawHolo(t, dt, sp){ for (const key in tgt) cur[key] += (tgt[key] - cur[key]) * 0.14; dw += (want - dw) * 0.12; if (!want && dance && dw < .02) dance = null; const rx = x + (st === 'mad' ? 3 * Math.sin(t / 40) : 0); const ry = y + 6 * Math.sin(t / 420); const tilt = cl(vx * 2.2, -22, 22) + (st === 'mad' ? 4 * Math.sin(t / 45) : 0); tr('fly', `translate(${rx} ${ry}) rotate(${tilt}) scale(${SC}) translate(-190 -220)`); if (curEmo === 'happy' && skin && skin.rainbow){ tgC = hsl((t / 20) % 360, .75, .62); tgS = hsl((t / 20 + 30) % 360, .9, .8); } for (let i = 0; i < 3; i++){ colC[i] += (tgC[i] - colC[i]) * .1; colS[i] += (tgS[i] - colS[i]) * .1; } const m = (a, b) => Math.round(a + (b - a) * ang); svg.style.setProperty('--c', `rgb(${m(colC[0],ANGC[0])},${m(colC[1],ANGC[1])},${m(colC[2],ANGC[2])})`); svg.style.setProperty('--s', `rgb(${m(colS[0],ANGS[0])},${m(colS[1],ANGS[1])},${m(colS[2],ANGS[2])})`); const L = 22 + sp * 3 / SC * .5 + 5 * Math.sin(t / 50) + (st === 'mad' ? 20 : 0); flame('f1', 'i1', 143, L); flame('f2', 'i2', 237, L); const w = Math.sin(t / 110), s3 = Math.sin(t / 350); const bL = cur.aL + cur.oL * w + 28 * ang, bR = cur.aR + cur.oR * w - 28 * ang; const d = dance ? DANCES[dance].f((t - t0) / 1000) : [bL, bR, 0, 0, 0, 0, 0, 0]; tr('aL', `rotate(${bL + (d[0]-bL)*dw} 136 204)`); tr('aR', `rotate(${bR + (d[1]-bR)*dw} 244 204)`); tr('fig', `translate(${d[2]*dw} ${d[3]*dw}) rotate(${d[4]*dw} 190 362)`); tr('hd', `rotate(${d[5]*dw} 190 186)`); tr('lgL', `rotate(${d[6]*dw + 5*s3 - tilt*.3} 171 270)`); tr('lgR', `rotate(${d[7]*dw - 5*s3 - tilt*.3} 209 270)`); const E = key => cur[key] + (ANG[key] - cur[key]) * ang; const ry2 = E('eRy') * (blink ? 0.12 : 1); for (const [e, h, ex] of [['eL','hL',174], ['eR','hR',206]]){ A(e, 'rx', E('eRx')); A(e, 'ry', Math.max(ry2, 1)); A(e, 'cy', 136 + E('eDy')); A(e, 'cx', ex + E('eDx')); A(h, 'cx', ex + E('eDx') + 2); A(h, 'cy', 133 + E('eDy')); A(h, 'opacity', ry2 > 2 ? 1 : 0); } for (const [b, o, i, x1, x2] of [['brL','bLO','bLI',164,182], ['brR','bRI','bRO',198,216]]){ A(b, 'x1', x1); A(b, 'y1', E(o)); A(b, 'x2', x2); A(b, 'y2', E(i)); A(b, 'opacity', E('bo')); } A('mouth', 'd', `M${E('mx0')} ${E('my0')} Q${E('mcx')} ${E('mcy')} ${E('mx1')} ${E('my1')}`); A('mouth', 'fill-opacity', E('mf')); A('ckL', 'opacity', E('ck')); A('ckR', 'opacity', E('ck')); A('z', 'opacity', E('zo')); }
 requestAnimationFrame(frame);
@@ -561,7 +561,7 @@ async function sendMessage(text) {
 
     addToHistory(text, 'user');
     input.value = ''; $('cnt').textContent = '0 / 500';
-    input.disabled = true;
+    input.readOnly = true;
     sendBtn.disabled = true;
     Snd.click();
     Quest.add('msg');
@@ -584,7 +584,7 @@ async function sendMessage(text) {
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }, 1000);
 
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
         return;
     }
 
@@ -655,7 +655,7 @@ async function sendMessage(text) {
             }, 3000);
         }, 2000);
 
-        input.disabled = false; sendBtn.disabled = false; 
+        input.readOnly = false; sendBtn.disabled = false; 
         isSending = false;
         return;
     }
@@ -686,7 +686,7 @@ async function sendMessage(text) {
         chatHistoryForServer.push({ sender: 'user', text: text });
         chatHistoryForServer.push({ sender: 'bot', text: reply });
         localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
         return;
     }
 
@@ -705,7 +705,7 @@ async function sendMessage(text) {
             chatHistoryForServer.push({ sender: 'user', text: text });
             chatHistoryForServer.push({ sender: 'bot', text: reply });
             localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
             return;
         } else {
             const ignorePhrases = [
@@ -721,14 +721,14 @@ async function sendMessage(text) {
             chatHistoryForServer.push({ sender: 'user', text: text });
             chatHistoryForServer.push({ sender: 'bot', text: reply });
             localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
             return;
         }
     }
 
     if (char === 'astro' && /пришельц|инопланет|нло/i.test(text)){
         invade();
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
         return;
     }
 
@@ -776,7 +776,7 @@ async function sendMessage(text) {
         if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
         addToHistory(`Ошибка: ${error.message}`, 'bot');
     } finally {
-        input.disabled = false;
+        input.readOnly = false;
         sendBtn.disabled = false;
         input.focus();
         isSending = false; 
@@ -784,7 +784,9 @@ async function sendMessage(text) {
 }
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
-input.addEventListener('focus', () => { [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
+[sendBtn, $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
+input.addEventListener('blur', () => { inFocus = false; layout(); });
+input.addEventListener('focus', () => { inFocus = true; layout(); [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
 $('chips').addEventListener('click', e => { if (e.target.closest('[data-shop]')) { openShop(); return; } const b = e.target.closest('button[data-say]'); if (b) sendMessage(b.dataset.say); });
 function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? 'СВЯЗЬ: ОНЛАЙН' : 'СВЯЗЬ: НЕТ СЕТИ'; el.style.color = on ? '' : '#FF9E9E'; }
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
