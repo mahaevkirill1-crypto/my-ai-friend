@@ -71,7 +71,8 @@
         transform: translateX(-50%);
     }
     
-    .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 8px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
+    /* ИСПРАВЛЕНО: border-radius убран, он конфликтовал с clip-path и обрезал рамку */
+    .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 0; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
     #user-input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px 12px; font-size: 15px; outline: none; }
     #send-btn { width: 40px; height: 40px; background: var(--accent-color); border: none; border-radius: 6px; color: #000; font-size: 18px; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-right: 2px; flex-shrink: 0; }
     .overlay { position: fixed; inset: 0; display: none; }
@@ -478,7 +479,7 @@ function drawHolo(t, dt, sp){ for (const key in tgt) cur[key] += (tgt[key] - cur
 requestAnimationFrame(frame);
 (function loop(){ setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000); })();
 setInterval(() => { if (char === 'astro' && st === 'hover' && $('bub').style.display === 'none' && !isSending) say(LINES[R(LINES.length)], 3800); }, 6500);
-let resetTimer, danceTimer;
+/* ИСПРАВЛЕНО: здесь было повторное объявление "let resetTimer, danceTimer;" — оно ломало весь скрипт */
 const Hologram = { 
     emotion(name){ const e = EMOTIONS[name]; if (!e) return; curEmo = name; setTargets(e); applyTint(); }, 
     pose(name){ const p = POSES[name]; if (!p) return; this.stopDance(); setTargets(p); }, 
