@@ -47,16 +47,11 @@
     @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
     .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
     .msg-row.user .avatar { background: var(--user-msg-bg); }
-    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; transition: all 0.3s ease; }
+    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
     .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
-
-    /* Подсветка сообщения, над которым парит бот */
-    .message.glow { overflow: hidden; border: 1px solid #4FD1E8; background-color: #0B2230 !important; box-shadow: 0 0 22px rgba(79,209,232,.5); position: relative; }
-    .message.glow::after { content: ''; position: absolute; top: 0; bottom: 0; width: 45%; left: -50%; background: linear-gradient(90deg, transparent, rgba(79,209,232,.28), transparent); animation: sweep 1.5s linear infinite; pointer-events: none; }
-    @keyframes sweep { to { left: 110%; } }
 
     #hud-panel { padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); }
     .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 8px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
@@ -200,8 +195,6 @@
     <line x1="14" y1="-112" x2="19" y2="-126" stroke="#AEB9C8" stroke-width="2"/><circle cx="19" cy="-128" r="3" fill="#FFD166"/>
    </g>
   </g>
-  <!-- точки-мысли над головой, пока бот думает -->
-  <g id="td"><circle id="d0" fill="#D4C5FF" opacity="0"/><circle id="d1" fill="#D4C5FF" opacity="0"/><circle id="d2" fill="#D4C5FF" opacity="0"/></g>
   <g id="bullets"></g>
   <g id="fx2"></g>
 </svg>
@@ -283,18 +276,18 @@ const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt
 const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; };
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
+
 if (tg) { 
     tg.ready(); 
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
     
-    // Плавное обновление при изменении окна (без телепортации)
+    // При изменении размера окна просто обновляем координаты. Бот плавно подтянется сам.
     tg.onEvent('viewportChanged', () => {
-        setTimeout(() => {
-            layout();
-        }, 100);
+        layout();
     });
 }
+
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 const DEMO_BUY = false;
 const store = {
@@ -398,12 +391,6 @@ let AL = [], BL = [], FX = [];
 let hurt = 0, kick = 0, shotT = 0, alT = 0, left = 0, aimA = -14, bubT = 0;
 let resetTimer, danceTimer;
 
-/* --- состояние режима «объяснение» (подлёт к тексту) --- */
-let scMul = 1, scMulT = 1;               
-let teachEl = null, teachTimer = 0, teachWait = false, teachFly = false;
-const SLOW_K = .0016;                    
-const HOVER_SCALE = .5;                  
-
 function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'number') continue; tgt[key] = obj[key]; if (!(key in cur)) cur[key] = obj[key]; } }
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
@@ -420,13 +407,13 @@ function layout(){
     const sy = r.top + r.height * .5; 
     SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; 
     
-    if (st !== 'mad' && st !== 'fight' && st !== 'teach'){ 
+    if (st !== 'mad' && st !== 'fight'){ 
         tx = SPOTS[spot][0]; 
         ty = SPOTS[spot][1]; 
     } 
 }
 
-addEventListener('resize', () => setTimeout(layout, 50)); 
+addEventListener('resize', layout); 
 layout();
 
 function enter(){ 
@@ -446,7 +433,6 @@ function enter(){
 function annoy(){
     if (st === 'fight'){ if (char === 'astro') say('Не отвлекай, я занят!', 1500); return; }
     if (st === 'mad') return;
-    if (st === 'teach'){ clearTimeout(teachTimer); teachWait = false; teachFly = false; teachGlow(null); scMulT = 1; }
     clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance();
     st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y;
     if (char === 'astro') say('Эй! Не трогай приборы!', 1200);
@@ -481,17 +467,6 @@ function frame(t){
 
     if (astro) fightStep(t, dt);
 
-    /* над текстом: следим за сообщением, чтобы не загораживать его (даже если чат прокрутился) */
-    if (st === 'teach' && teachFly && teachEl && teachEl.isConnected){
-        const r = teachEl.getBoundingClientRect(), s = SC * HOVER_SCALE;
-        
-        // Ограничиваем по горизонтали, чтобы не улетал за края
-        tx = Math.max(50, Math.min(W - 50, r.left + (r.width / 2))); 
-        
-        // Ограничиваем по вертикали: минимум 150 пикселей от верхнего края
-        ty = Math.max(150, r.top - 10 - 142 * s);   
-    }
-
     /* пружина: плавный разгон и торможение */
     const dm = 1.8 * Math.sqrt(k);
     vx += ((tx - x) * k - vx * dm) * dt;
@@ -500,7 +475,7 @@ function frame(t){
     const sp = Math.hypot(vx, vy);
 
     /* прилетел */
-    if ((st === 'enter' || st === 'flee' || st === 'return') && Math.hypot(tx - x, ty - y) < 5 && sp < .4){
+    if ((st === 'enter' || st === 'flee') && Math.hypot(tx - x, ty - y) < 5 && sp < .4){
         const was = st;
         st = 'hover'; k = .012;
         if (was === 'flee') coolTimer = setTimeout(() => { angT = 0; }, 2500);
@@ -524,12 +499,11 @@ function drawHolo(t, dt, sp){
     for (const key in tgt) cur[key] += (tgt[key] - cur[key]) * 0.14;
     dw += (want - dw) * 0.12;
     if (!want && dance && dw < .02) dance = null;
-    scMul += (scMulT - scMul) * .04 * dt;     /* плавное изменение размера */
 
     const rx = x + (st === 'mad' ? 3 * Math.sin(t / 40) : 0);
     const ry = y + 6 * Math.sin(t / 420);
     const tilt = cl(vx * 2.2, -22, 22) + (st === 'mad' ? 4 * Math.sin(t / 45) : 0);
-    tr('fly', `translate(${rx} ${ry}) rotate(${tilt}) scale(${SC * scMul}) translate(-190 -220)`);
+    tr('fly', `translate(${rx} ${ry}) rotate(${tilt}) scale(${SC}) translate(-190 -220)`);
 
     if (curEmo === 'happy' && skin && skin.rainbow){ tgC = hsl((t / 20) % 360, .75, .62); tgS = hsl((t / 20 + 30) % 360, .9, .8); }
     for (let i = 0; i < 3; i++){ colC[i] += (tgC[i] - colC[i]) * .1; colS[i] += (tgS[i] - colS[i]) * .1; }
@@ -558,18 +532,11 @@ function drawHolo(t, dt, sp){
     A('mouth', 'fill-opacity', E('mf'));
     A('ckL', 'opacity', E('ck')); A('ckR', 'opacity', E('ck')); A('z', 'opacity', E('zo'));
 
-    /* точки-мысли над головой, пока думает */
-    const ds = SC * scMul, thinking = st === 'teach' && teachWait && teachFly;
-    [[52,-118,4],[66,-134,6],[84,-154,8]].forEach((dd, i) => {
-        const e = $('d' + i), kk = .5 + .5 * Math.sin(t / 200 - i * .9);
-        e.setAttribute('cx', rx + dd[0] * ds); e.setAttribute('cy', ry + dd[1] * ds);
-        e.setAttribute('r', dd[2] * ds * (.7 + .3 * kk) + 1); e.setAttribute('opacity', thinking ? .35 + .65 * kk : 0);
-    });
     /* реплика висит над головой и летит вместе с ним */
     const bb = $('bub');
     if (bb.style.display === 'block'){
         bb.style.left = cl(rx, 105, W - 105) + 'px';
-        bb.style.top = (ry - 150 * ds - 8) + 'px';
+        bb.style.top = (ry - 150 * SC - 8) + 'px';
     }
 }
 requestAnimationFrame(frame);
@@ -582,82 +549,9 @@ const Hologram = {
     dance(name, ms){ if (!DANCES[name]) return; clearTimeout(resetTimer); clearTimeout(danceTimer); this.emotion('happy'); dance = name; t0 = performance.now(); want = 1; if (ms) danceTimer = setTimeout(() => this.stopDance(), ms); }, 
     stopDance(){ clearTimeout(danceTimer); want = 0; }, 
     react(emotion, pose, ms){ clearTimeout(resetTimer); this.emotion(emotion); this.pose(pose); if (ms) resetTimer = setTimeout(() => { this.emotion('happy'); this.pose('idle'); }, ms); }, 
-    enter, annoy, invade, setChar,
-    teach: () => teachBegin(),
-    teachAnswer: () => teachAnswer(),
-    teachCancel: () => teachCancel()
+    enter, annoy, invade, setChar
 };
 window.Hologram = Hologram;
-
-/* ============================================================
-   ОБЪЯСНЕНИЕ: плавно подлетает к тексту, думает, говорит, возвращается
-   ============================================================ */
-const THINK_LINES = ['Так… как бы попроще…', 'Подбираю слова…', 'Сейчас-сейчас…'];
-const isExplain = t => /не понял|не поняла|непонятно|объясни/i.test(t) && t.length <= 40;
-function lastBotMsg(){ const m = document.querySelectorAll('.msg-row.bot .message'); return m[m.length - 1] || null; }
-function teachGlow(el){
-    document.querySelectorAll('.message.glow').forEach(e => e.classList.remove('glow'));
-    if (el) el.classList.add('glow');
-}
-function teachLoop(i){
-    if (st !== 'teach' || !teachWait) return;
-    say(THINK_LINES[i % THINK_LINES.length], 2500);
-    teachTimer = setTimeout(() => teachLoop(i + 1), 2700);
-}
-function teachBegin(){
-    if (char !== 'holo') return false;
-    teachEl = lastBotMsg(); if (!teachEl) return false;
-    clearTimeout(teachTimer); clearTimeout(resetTimer);
-    Hologram.stopDance();
-    st = 'teach'; teachWait = true; teachFly = false;
-    tx = x; ty = y; k = SLOW_K;                      
-    Hologram.react('thinking', 'think');
-    say('Хм… сейчас объясню проще', 2400);
-    
-    // Уменьшил задержку до 800 мс, чтобы он начинал полет раньше
-    teachTimer = setTimeout(() => {
-        if (st !== 'teach') return;
-        scMulT = HOVER_SCALE; teachFly = true; teachGlow(teachEl);
-        teachLoop(0);
-    }, 800); 
-    return true;
-}
-function teachAnswer(){
-    if (st !== 'teach') return;
-    clearTimeout(teachTimer); teachWait = false;
-    
-    // Ждем 300 мс, чтобы новое сообщение точно появилось на экране и прокрутилось
-    setTimeout(() => {
-        if (st !== 'teach') return;
-        
-        teachFly = true; 
-        teachEl = lastBotMsg(); // Берем новое сообщение
-        teachGlow(teachEl);
-        Hologram.react('happy', 'idle');
-        say('Готово! Смотри ниже', 2200);
-        
-        // УСКОРЯЕМ ПОЛЕТ (чтобы он быстро спустился к новому тексту)
-        k = 0.02; 
-        
-        teachTimer = setTimeout(teachReturn, 2800);
-    }, 300); 
-}
-function teachReturn(){
-    if (st !== 'teach') return;
-    teachGlow(null); teachFly = false;
-    scMulT = 1; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; 
-    k = SLOW_K; // <--- Возвращаем медленную скорость для плавного отлета
-    st = 'return';
-    say('А теперь на место', 1600);
-    Hologram.react('happy', 'wave', 3000);
-}
-function teachCancel(){
-    if (st !== 'teach') return;
-    clearTimeout(teachTimer); teachWait = false;
-    teachGlow(null); teachFly = false;
-    scMulT = 1; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = SLOW_K; st = 'return';
-    Hologram.react('sad', 'idle', 2500);
-}
 
 function setChar(c){ const changed = c !== char; char = c; store.set('char', c); $('fly').style.display = c === 'holo' ? '' : 'none'; $('astw').style.display = c === 'astro' ? '' : 'none'; Hologram.stopDance(); clearFight(); hideBubble(); greetPending = true; enter(); if (changed && c === 'astro') setTimeout(() => Snd.fanfare(), 350); }
 const input = $('user-input'); const sendBtn = $('send-btn'); const chatHistory = $('chat-history'); let isSending = false;
@@ -843,25 +737,16 @@ async function sendMessage(text) {
         return;
     }
 
-    /* «не понял»: бот сразу говорит реплику и плавно подлетает к тексту, пока идёт ответ с сервера */
-    const explain = isExplain(text);
-    let teaching = false;
     if (char === 'astro') say('Слушаю звёзды…', 20000);
-    else if (explain) teaching = teachBegin();
-    if (char !== 'astro' && !teaching) Hologram.react('thinking', 'think');
+    else Hologram.react('thinking', 'think');
 
     const historyText = chatHistoryForServer.slice(-40).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
-    
-    let textToSend = text;
-    if (explain) {
-        textToSend = text + " (Пожалуйста, объясни свой предыдущий ответ максимально просто, как для ребенка, короткими предложениями)";
-    }
 
     try {
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                text: textToSend,
+                text: text,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 history: historyText,
                 user_id: userId()
@@ -874,8 +759,6 @@ async function sendMessage(text) {
         if (char === 'astro') {
             hideBubble();
             if (data.action === 'aliens') invade();
-        } else if (teaching) {
-            /* эмоцию и позу ведёт сама сцена объяснения */
         } else if (data.action === 'dance') {
             Hologram.dance(data.dance_name || 'floss', 5000);
             Quest.add('dance');
@@ -887,15 +770,12 @@ async function sendMessage(text) {
         }
 
         addToHistory(data.text, 'bot');
-        if (teaching) teachAnswer();
-
         chatHistoryForServer.push({ sender: 'user', text: text });
         chatHistoryForServer.push({ sender: 'bot', text: data.text });
         localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
 
     } catch (error) {
-        if (teaching) teachCancel();
-        if (char === 'astro') hideBubble(); else if (!teaching) Hologram.react('sad', 'idle');
+        if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
         addToHistory(`Ошибка: ${error.message}`, 'bot');
     } finally {
         input.disabled = false;
