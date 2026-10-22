@@ -451,11 +451,12 @@ function layout(){
     if (w !== baseW){ baseW = w; baseH = stab; }
     else if (stab > baseH) baseH = stab;
     const wasKb = kb;
-    kb = inFocus || cur < baseH - 80;
+    const vpKb = cur < baseH - 80;
+    kb = inFocus || vpKb;
     W = w; H = baseH;
     const root = document.documentElement.style;
     root.setProperty('--sv-h', H + 'px');
-    root.setProperty('--stage-h', kb ? '100px' : Math.round(H * .34) + 'px');
+    root.setProperty('--stage-h', vpKb ? '100px' : Math.round(H * .34) + 'px');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     const base = cl(Math.min(W, H) / 760, .38, .6);
     SCt = kb ? base * .55 : base;
@@ -549,6 +550,11 @@ function addToHistory(text, sender, time) {
     row.appendChild(avatar); row.appendChild(col);
     chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight;
 }
+let focusT = 0;
+function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
+let stick = true;
+chatHistory.addEventListener('scroll', () => { stick = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 40; }, { passive: true });
+if (window.ResizeObserver) new ResizeObserver(() => { if (stick) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe(chatHistory);
 let typingRow = null;
 function showTyping(){ hideTyping(); const row = document.createElement('div'); row.className = 'msg-row bot'; row.innerHTML = '<div class="avatar">' + (char === 'astro' ? '🧑‍🚀' : BOT_ICON) + '</div><div class="col"><div class="message typing"><span></span><span></span><span></span></div></div>'; chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row; }
 function hideTyping(){ if (typingRow){ typingRow.remove(); typingRow = null; } }
@@ -584,7 +590,7 @@ async function sendMessage(text) {
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }, 1000);
 
-        input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
 
@@ -686,7 +692,7 @@ async function sendMessage(text) {
         chatHistoryForServer.push({ sender: 'user', text: text });
         chatHistoryForServer.push({ sender: 'bot', text: reply });
         localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-        input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
 
@@ -705,7 +711,7 @@ async function sendMessage(text) {
             chatHistoryForServer.push({ sender: 'user', text: text });
             chatHistoryForServer.push({ sender: 'bot', text: reply });
             localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         } else {
             const ignorePhrases = [
@@ -721,14 +727,14 @@ async function sendMessage(text) {
             chatHistoryForServer.push({ sender: 'user', text: text });
             chatHistoryForServer.push({ sender: 'bot', text: reply });
             localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         }
     }
 
     if (char === 'astro' && /пришельц|инопланет|нло/i.test(text)){
         invade();
-        input.readOnly = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
 
@@ -778,15 +784,15 @@ async function sendMessage(text) {
     } finally {
         input.readOnly = false;
         sendBtn.disabled = false;
-        input.focus();
+        refocus();
         isSending = false; 
     }
 }
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
 [sendBtn, $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
-input.addEventListener('blur', () => { inFocus = false; layout(); });
-input.addEventListener('focus', () => { inFocus = true; layout(); [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
+input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); layout(); });
+input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 700); layout(); [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
 $('chips').addEventListener('click', e => { if (e.target.closest('[data-shop]')) { openShop(); return; } const b = e.target.closest('button[data-say]'); if (b) sendMessage(b.dataset.say); });
 function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? 'СВЯЗЬ: ОНЛАЙН' : 'СВЯЗЬ: НЕТ СЕТИ'; el.style.color = on ? '' : '#FF9E9E'; }
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
