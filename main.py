@@ -6,6 +6,7 @@ import json
 import random
 import httpx
 import libsql
+from pydantic import BaseModel
 
 client = AsyncOpenAI(
     api_key=os.getenv("PROXYAPI_KEY"),
@@ -110,6 +111,62 @@ async def save_progress(request: Request):
     conn.commit()
     conn.close()
     return {"status": "ok"}
+
+# === МИНИ-ИГРА: КАМЕНЬ НОЖНИЦЫ БУМАГА ===
+class BetData(BaseModel):
+    user_id: int
+    bet: int
+    choice: str  # 'rock', 'paper', 'scissors'
+
+@app.post("/play_rps")
+async def play_rps(data: BetData):
+    if data.bet < 0:
+        return {"error": "Ставка не может быть отрицательной"}
+        
+    conn = get_db_connection()
+    cursor = conn.execute("SELECT bal FROM users WHERE user_id = ?", (data.user_id,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
+        return {"error": "Пользователь не найден. Напиши боту любое сообщение, чтобы создать профиль."}
+        
+    current_bal = row[0]
+    if current_bal < data.bet:
+        conn.close()
+        return {"error": "Недостаточно звезд"}
+
+    # Робот делает свой выбор
+    bot_choice = random.choice(['rock', 'paper', 'scissors'])
+    
+    # Логика определения победителя
+    win = False
+    tie = False
+    if data.choice == bot_choice:
+        tie = True
+    elif (data.choice == 'rock' and bot_choice == 'scissors') or \
+         (data.choice == 'paper' and bot_choice == 'rock') or \
+         (data.choice == 'scissors' and bot_choice == 'paper'):
+        win = True
+    
+    # Обновляем баланс
+    new_bal = current_bal
+    if win:
+        new_bal += data.bet * 2  # Выигрыш x2
+    elif not tie:
+        new_bal -= data.bet      # Проигрыш
+        
+    conn.execute("UPDATE users SET bal = ? WHERE user_id = ?", (new_bal, data.user_id))
+    conn.commit()
+    conn.close()
+    
+    return {
+        "status": "ok",
+        "bot_choice": bot_choice,
+        "win": win,
+        "tie": tie,
+        "new_bal": new_bal
+    }
 
 @app.post("/ask")
 async def ask(request: Request):
