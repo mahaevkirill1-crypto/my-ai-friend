@@ -288,12 +288,14 @@ const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k 
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
 
-let isFirstLoad = true;
+let isFirstLoad = true; // Флаг для первого запуска
 
 if (tg) { 
     tg.ready(); 
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
+    
+    // Не пересчитываем при открытии клавиатуры (используем стабильную высоту)
     tg.onEvent('viewportChanged', () => { onViewport(); });
 }
 
@@ -415,7 +417,6 @@ function layout(){
     const w = innerWidth;
     const cur = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
     const stab = (tg && tg.viewportStableHeight) ? tg.viewportStableHeight : innerHeight;
-    // Базовая высота = максимальная высота без клавиатуры для этой ширины (Telegram после анимации тоже уменьшает stableHeight)
     if (w !== baseW){ baseW = w; baseH = stab; }
     else if (stab > baseH) baseH = stab;
     const wasKb = kb;
@@ -563,6 +564,9 @@ async function loadProgress() {
             console.log("Сервер пуст, сохраняем локальные данные...");
             syncToServer();
         }
+        // Принудительно прокручиваем чат вниз после загрузки прогресса
+        setTimeout(scrollChat, 100);
+        setTimeout(scrollChat, 500);
     } catch(e) { console.error("Load error", e); }
 }
 
@@ -579,31 +583,6 @@ async function sendMessage(text) {
     Snd.click();
     Quest.add('msg');
     if (text.length >= 50) Quest.add('long');
-
-    // --- ВРЕМЕННАЯ КОМАНДА ДЛЯ ВОССТАНОВЛЕНИЯ СКИНОВ (ТОЛЬКО ДЛЯ АДМИНА) ---
-    if (text.toLowerCase().trim() === 'админ') {
-        // Выдаем все скины
-        WEAR.forEach(w => OWNED[w.id] = true);
-        OWNED['astro'] = true; 
-        BAL = 9999; // Даем 9999 звезд
-
-        // Сохраняем в телефон
-        store.set('owned', OWNED);
-        store.set('bal', BAL);
-
-        // Отправляем на сервер (в Turso)
-        syncToServer();
-
-        // Обновляем картинку
-        renderBal();
-        renderWear();
-        
-        addToHistory("Доступ разрешен. Все скины восстановлены, начислено 9999 ★", 'bot');
-        Snd.fanfare();
-        
-        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
-        return;
-    }
 
     // --- СЕКРЕТНАЯ КОМАНДА: Я ТЕБЯ ЛЮБЛЮ ---
     if (text.toLowerCase().includes('я тебя люблю') || text.toLowerCase().includes('люблю тебя')) {
