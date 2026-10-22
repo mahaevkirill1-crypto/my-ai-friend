@@ -25,6 +25,18 @@
 
     html, body { margin: 0; height: 100%; background: var(--bg-color); color: #C8F8FF; font: 15px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: var(--app-h, 100vh); padding-top: 6px; overscroll-behavior: none; }
+    
+    /* ФИКС ТРЯСКИ: скрываем панель до полной загрузки */
+    #hud-panel { 
+        padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); 
+        position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+        flex-direction: column; padding-top: 10px;
+        transition: none !important; 
+    }
+    body:not(.loaded) #hud-panel {
+        opacity: 0;
+    }
+
     #topbar { width: 100%; max-width: 450px; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; position: relative; z-index: 40; flex-shrink: 0; }
     .ibtn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #0B2230; border: 1px solid rgba(79,209,232,.4); border-radius: 8px; color: #9AF0FF; cursor: pointer; padding: 0; position: relative; }
     .ibtn:active { background: #123A4A; }
@@ -57,11 +69,6 @@
     .typing span:nth-child(2) { animation-delay: .15s; } .typing span:nth-child(3) { animation-delay: .3s; }
     @keyframes tp { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
-    #hud-panel { 
-        padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); 
-        position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-        flex-direction: column; padding-top: 10px;
-    }
     #chips { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
     #chips::-webkit-scrollbar { display: none; }
     .chip { flex: none; font: inherit; font-size: 12px; color: #9AF0FF; background: #0B2230; border: 1px solid rgba(79,209,232,.35); border-radius: 4px; padding: 5px 11px; cursor: pointer; }
@@ -121,7 +128,6 @@
     .q button { width: 80px; flex-shrink: 0; }
     .res { font-size: 13px; color: #FFD166; text-align: center; }
     
-    /* Реферальная система */
     .ref-box { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; background: rgba(79,209,232,.1); padding: 12px; border-radius: 8px; border: 1px dashed #4FD1E8; }
     .ref-link { word-break: break-all; font-size: 12px; color: #9AF0FF; background: #0E1726; padding: 8px; border-radius: 6px; text-align: center; font-family: monospace; }
     .ref-stats { display: flex; justify-content: space-between; font-size: 13px; color: #C8F8FF; }
@@ -578,7 +584,6 @@ async function initReferralSystem() {
     const initData = tg.initData;
     const startParam = tg.initDataUnsafe?.start_param || '';
 
-    // 1. Регистрация (если пришел по ссылке)
     if (startParam.startsWith('ref_')) {
         try {
             await fetch(`${BACKEND_URL}/referral/register`, {
@@ -587,8 +592,6 @@ async function initReferralSystem() {
             });
         } catch(e) { console.error("Ref reg error", e); }
     }
-
-    // 2. Загружаем статус
     await updateRefStatus();
 }
 
@@ -601,7 +604,7 @@ async function updateRefStatus() {
         });
         const data = await res.json();
         if (data.status === 'ok') {
-            window._refData = data; // Сохраняем для рендера
+            window._refData = data;
             renderRefTab(data);
         }
     } catch(e) { console.error("Ref status error", e); }
@@ -621,7 +624,7 @@ async function claimRefReward() {
             renderBal();
             Snd.cash();
             toast(`Получено: +${data.reward} ★`);
-            await updateRefStatus(); // Обновляем интерфейс
+            await updateRefStatus();
         } else {
             toast('Нет доступных наград.');
         }
@@ -816,7 +819,7 @@ async function sendMessage(text) {
         }
         if (BAL < bet) {
             addToHistory("У тебя нет столько звезд. Ставь меньше.", 'bot');
-            rpsState = 'none'; // ИСПРАВЛЕНИЕ: Сбрасываем состояние, если не хватает денег
+            rpsState = 'none'; 
             input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
         }
         currentBet = bet;
@@ -871,7 +874,6 @@ async function sendMessage(text) {
             addToHistory("Ошибка соединения с сервером.", 'bot');
         }
         
-        // ИСПРАВЛЕНИЕ: Сбрасываем состояние игры и обнуляем ставку после ЛЮБОГО исхода
         rpsState = 'none';
         currentBet = 0; 
         input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
@@ -879,7 +881,7 @@ async function sendMessage(text) {
 
     if (lowText === 'игра' || lowText === 'поиграем' || lowText === 'сыграем') {
         rpsState = 'waiting_bet';
-        currentBet = 0; // На всякий случай сбрасываем перед новой игрой
+        currentBet = 0; 
         addToHistory("Давай сыграем в Камень-Ножницы-Бумага! Какая ставка? (напиши число, например 5, или 0 чтобы без ставок)", 'bot');
         Hologram.react('happy', 'wave', 3000);
         input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
@@ -1020,7 +1022,6 @@ function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed
 function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
 function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7; let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); 
     
-    // Блок рефералов
     const refData = window._refData || null;
     let refHtml = '';
     if (refData) {
@@ -1069,7 +1070,6 @@ window.copyRefLink = function() {
             toast('Ссылка скопирована!');
             if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }).catch(() => {
-            // Fallback
             const textArea = document.createElement("textarea");
             textArea.value = link;
             document.body.appendChild(textArea);
@@ -1089,7 +1089,6 @@ window.copyRefLink = function() {
     }
 };
 
-// Загрузка статуса рефки при открытии магазина
 const origShowTab = showTab;
 window.showTab = function(t) {
     origShowTab(t);
@@ -1133,6 +1132,13 @@ sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); draw
 /* Старт */
 ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
+
+// ФИКС ТРЯСКИ: Принудительно применяем правильный размер и показываем панель после загрузки
+setTimeout(() => {
+    syncBody();
+    layout();
+    document.body.classList.add('loaded');
+}, 50);
 </script>
 </body>
 </html>
