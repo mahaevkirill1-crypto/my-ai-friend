@@ -42,6 +42,9 @@ INIT_DATA_MAX_AGE = 86400     # initData старше суток не прини
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
+# --- АДМИНКА ---
+ADMIN_ID = 5194423911
+
 def get_db_connection():
     return libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
 
@@ -58,10 +61,11 @@ def init_db():
     conn.execute("""
         CREATE TABLE IF NOT EXISTS user_meta (
             user_id INTEGER PRIMARY KEY,
-            first_seen INTEGER NOT NULL
+            first_seen INTEGER NOT NULL,
+            last_seen INTEGER NOT NULL
         )
     """)
-    conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen) SELECT user_id, 0 FROM users")
+    conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen, last_seen) SELECT user_id, 0, 0 FROM users")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS user_stats (
             user_id INTEGER PRIMARY KEY,
@@ -151,9 +155,10 @@ def scalar(conn, sql, params=()):
     return row[0] if row else 0
 
 def touch_meta(conn, user_id, now=None):
+    now = int(now if now is not None else time.time())
     conn.execute(
-        "INSERT OR IGNORE INTO user_meta (user_id, first_seen) VALUES (?, ?)",
-        (user_id, int(now if now is not None else time.time()))
+        "INSERT INTO user_meta (user_id, first_seen, last_seen) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_seen = ?",
+        (user_id, now, now, now)
     )
 
 def make_link(user_id):
@@ -245,6 +250,36 @@ async def save_progress(request: Request):
     conn.commit()
     conn.close()
     return {"status": "ok"}
+
+# === АДМИН-ПАНЕЛЬ ===
+class AdminData(BaseModel):
+    admin_id: int
+
+@app.post("/admin/stats")
+async def admin_stats(data: AdminData):
+    if data.admin_id != ADMIN_ID:
+        return {"error": "Доступ запрещен"}
+        
+    conn = get_db_connection()
+    total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    # Онлайн за последние 5 минут (300 секунд)
+    online = conn.execute("SELECT COUNT(*) FROM user_meta WHERE last_seen > ?", (int(time.time()) - 300,)).fetchone()[0]
+    conn.close()
+    
+    return {"total": total_users, "online": online}
+
+@app.post("/admin/give_bal")
+async def admin_give_bal(data: AdminData):
+    if data.admin_id != ADMIN_ID:
+        return {"error": "Доступ запрещен"}
+        
+    amount = 1000000
+    conn = get_db_connection()
+    conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (amount, data.admin_id))
+    conn.commit()
+    conn.close()
+    
+    return {"status": "ok", "added": amount}
 
 # === РЕФЕРАЛЬНАЯ СИСТЕМА ===
 @app.post("/referral/register")
