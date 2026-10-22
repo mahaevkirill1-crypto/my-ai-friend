@@ -27,16 +27,16 @@ DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
 BOT_USERNAME = os.getenv("BOT_USERNAME", "")
 MINIAPP_SHORT_NAME = os.getenv("MINIAPP_SHORT_NAME", "")
 
-REF_REWARD_REFERRER = 10      # ★ тому, кто пригласил
-REF_REWARD_INVITEE = 5        # ★ тому, кого пригласили
-REF_MIN_MSGS = 3              # сколько сообщений должен отправить приглашённый, чтобы награда засчиталась
-REF_MIN_AGE = 300             # и сколько секунд должно пройти с момента регистрации приглашения
-REF_NEW_WINDOW = 3600         # приглашённым считается только тот, кто впервые открыл приложение не позже чем час назад
-REF_MAX_TOTAL = 30            # максимум приглашений на одного человека за всё время
-REF_MAX_PER_DAY = 5           # максимум новых приглашений на одного человека в сутки
-MSG_MIN_LEN = 3               # слишком короткие сообщения не считаются
-MSG_MIN_GAP = 8               # между засчитанными сообщениями минимум столько секунд
-INIT_DATA_MAX_AGE = 86400     # initData старше суток не принимаем
+REF_REWARD_REFERRER = 10
+REF_REWARD_INVITEE = 5
+REF_MIN_MSGS = 3
+REF_MIN_AGE = 300
+REF_NEW_WINDOW = 3600
+REF_MAX_TOTAL = 30
+REF_MAX_PER_DAY = 5
+MSG_MIN_LEN = 3
+MSG_MIN_GAP = 8
+INIT_DATA_MAX_AGE = 86400
 
 # --- НАСТРОЙКА БАЗЫ ДАННЫХ TURSO ---
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
@@ -50,6 +50,8 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
+    
+    # 1. Таблица users
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -58,6 +60,8 @@ def init_db():
             equip TEXT DEFAULT '{}'
         )
     """)
+    
+    # 2. Таблица user_meta
     conn.execute("""
         CREATE TABLE IF NOT EXISTS user_meta (
             user_id INTEGER PRIMARY KEY,
@@ -65,7 +69,18 @@ def init_db():
             last_seen INTEGER NOT NULL
         )
     """)
+    
+    # 3. УМНАЯ ПРОВЕРКА КОЛОНКИ last_seen (чтобы сервер не падал)
+    try:
+        conn.execute("SELECT last_seen FROM user_meta LIMIT 1")
+    except Exception:
+        conn.execute("ALTER TABLE user_meta ADD COLUMN last_seen INTEGER DEFAULT 0")
+        conn.commit()
+    
+    # 4. Заполняем старые данные
     conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen, last_seen) SELECT user_id, 0, 0 FROM users")
+    
+    # 5. Остальные таблицы
     conn.execute("""
         CREATE TABLE IF NOT EXISTS user_stats (
             user_id INTEGER PRIMARY KEY,
@@ -85,6 +100,7 @@ def init_db():
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals (referrer_id)")
+    
     conn.commit()
     conn.close()
 
@@ -122,7 +138,6 @@ ASTRO_PROMPT = """
 {"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
-# === ПРОВЕРКА ПОДЛИННОСТИ ДАННЫХ TELEGRAM (initData) ===
 def validate_init_data(init_data: str):
     if not init_data or not BOT_TOKEN:
         return None
@@ -149,7 +164,6 @@ def validate_init_data(init_data: str):
         return None
     return {"user": user, "start_param": pairs.get("start_param", "")}
 
-# === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РЕФЕРАЛОК ===
 def scalar(conn, sql, params=()):
     row = conn.execute(sql, params).fetchone()
     return row[0] if row else 0
@@ -204,7 +218,6 @@ def count_message(user_id, text_len):
     except Exception:
         pass
 
-# === ЭНДПОИНТЫ ДЛЯ СОХРАНЕНИЯ ПРОГРЕССА ===
 @app.get("/load_progress/{user_id}")
 async def load_progress(user_id: int):
     conn = get_db_connection()
@@ -251,7 +264,6 @@ async def save_progress(request: Request):
     conn.close()
     return {"status": "ok"}
 
-# === АДМИН-ПАНЕЛЬ ===
 class AdminData(BaseModel):
     admin_id: int
 
@@ -262,7 +274,6 @@ async def admin_stats(data: AdminData):
         
     conn = get_db_connection()
     total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    # Онлайн за последние 5 минут (300 секунд)
     online = conn.execute("SELECT COUNT(*) FROM user_meta WHERE last_seen > ?", (int(time.time()) - 300,)).fetchone()[0]
     conn.close()
     
@@ -281,7 +292,6 @@ async def admin_give_bal(data: AdminData):
     
     return {"status": "ok", "added": amount}
 
-# === РЕФЕРАЛЬНАЯ СИСТЕМА ===
 @app.post("/referral/register")
 async def referral_register(request: Request):
     data = await request.json()
@@ -420,7 +430,6 @@ async def referral_claim(request: Request):
     finally:
         conn.close()
 
-# === МИНИ-ИГРА: КАМЕНЬ НОЖНИЦЫ БУМАГА ===
 class BetData(BaseModel):
     user_id: int
     bet: int
