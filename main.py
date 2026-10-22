@@ -4,8 +4,12 @@ from openai import AsyncOpenAI
 import os
 import json
 import random
+import time
+import hmac
+import hashlib
 import httpx
 import libsql
+from urllib.parse import parse_qsl
 from pydantic import BaseModel
 
 client = AsyncOpenAI(
@@ -18,6 +22,21 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
+
+# --- НАСТРОЙКИ РЕФЕРАЛОК ---
+BOT_USERNAME = os.getenv("BOT_USERNAME", "")
+MINIAPP_SHORT_NAME = os.getenv("MINIAPP_SHORT_NAME", "")
+
+REF_REWARD_REFERRER = 10      # ★ тому, кто пригласил
+REF_REWARD_INVITEE = 5        # ★ тому, кого пригласили
+REF_MIN_MSGS = 3              # сколько сообщений должен отправить приглашённый, чтобы награда засчиталась
+REF_MIN_AGE = 300             # и сколько секунд должно пройти с момента регистрации приглашения
+REF_NEW_WINDOW = 3600         # приглашённым считается только тот, кто впервые открыл приложение не позже чем час назад
+REF_MAX_TOTAL = 30            # максимум приглашений на одного человека за всё время
+REF_MAX_PER_DAY = 5           # максимум новых приглашений на одного человека в сутки
+MSG_MIN_LEN = 3               # слишком короткие сообщения не считаются
+MSG_MIN_GAP = 8               # между засчитанными сообщениями минимум столько секунд
+INIT_DATA_MAX_AGE = 86400     # initData старше суток не принимаем
 
 # --- НАСТРОЙКА БАЗЫ ДАННЫХ TURSO ---
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
@@ -36,6 +55,32 @@ def init_db():
             equip TEXT DEFAULT '{}'
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_meta (
+            user_id INTEGER PRIMARY KEY,
+            first_seen INTEGER NOT NULL
+        )
+    """)
+    conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen) SELECT user_id, 0 FROM users")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_stats (
+            user_id INTEGER PRIMARY KEY,
+            msgs INTEGER DEFAULT 0,
+            last_ts INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            invitee_id INTEGER PRIMARY KEY,
+            referrer_id INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            activated INTEGER DEFAULT 0,
+            activated_at INTEGER DEFAULT 0,
+            referrer_claimed INTEGER DEFAULT 0,
+            invitee_claimed INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals (referrer_id)")
     conn.commit()
     conn.close()
 
@@ -73,6 +118,87 @@ ASTRO_PROMPT = """
 {"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
+# === ПРОВЕРКА ПОДЛИННОСТИ ДАННЫХ TELEGRAM (initData) ===
+def validate_init_data(init_data: str):
+    if not init_data or not BOT_TOKEN:
+        return None
+    try:
+        pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+    except ValueError:
+        return None
+    recv_hash = pairs.pop("hash", None)
+    if not recv_hash:
+        return None
+    check_string = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+    secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+    calc = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(calc, recv_hash):
+        return None
+    try:
+        auth_date = int(pairs.get("auth_date", "0"))
+        if time.time() - auth_date > INIT_DATA_MAX_AGE:
+            return None
+        user = json.loads(pairs.get("user", "{}"))
+        if not isinstance(user.get("id"), int):
+            return None
+    except (ValueError, TypeError):
+        return None
+    return {"user": user, "start_param": pairs.get("start_param", "")}
+
+# === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РЕФЕРАЛОК ===
+def scalar(conn, sql, params=()):
+    row = conn.execute(sql, params).fetchone()
+    return row[0] if row else 0
+
+def touch_meta(conn, user_id, now=None):
+    conn.execute(
+        "INSERT OR IGNORE INTO user_meta (user_id, first_seen) VALUES (?, ?)",
+        (user_id, int(now if now is not None else time.time()))
+    )
+
+def make_link(user_id):
+    if not BOT_USERNAME:
+        return ""
+    base = f"https://t.me/{BOT_USERNAME}"
+    if MINIAPP_SHORT_NAME:
+        base += f"/{MINIAPP_SHORT_NAME}"
+    return f"{base}?startapp=ref_{user_id}"
+
+def refresh_activation(conn, column, user_id, now):
+    assert column in ("referrer_id", "invitee_id")
+    rows = conn.execute(
+        f"SELECT invitee_id, created_at FROM referrals WHERE {column} = ? AND activated = 0",
+        (user_id,)
+    ).fetchall()
+    for invitee_id, created_at in rows:
+        msgs = scalar(conn, "SELECT msgs FROM user_stats WHERE user_id = ?", (invitee_id,))
+        if msgs >= REF_MIN_MSGS and now - created_at >= REF_MIN_AGE:
+            conn.execute(
+                "UPDATE referrals SET activated = 1, activated_at = ? WHERE invitee_id = ?",
+                (now, invitee_id)
+            )
+    conn.commit()
+
+def count_message(user_id, text_len):
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return
+    if text_len < MSG_MIN_LEN:
+        return
+    now = int(time.time())
+    try:
+        conn = get_db_connection()
+        row = conn.execute("SELECT msgs, last_ts FROM user_stats WHERE user_id = ?", (uid,)).fetchone()
+        if not row:
+            conn.execute("INSERT INTO user_stats (user_id, msgs, last_ts) VALUES (?, 1, ?)", (uid, now))
+        elif now - row[1] >= MSG_MIN_GAP:
+            conn.execute("UPDATE user_stats SET msgs = msgs + 1, last_ts = ? WHERE user_id = ?", (now, uid))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
 # === ЭНДПОИНТЫ ДЛЯ СОХРАНЕНИЯ ПРОГРЕССА ===
 @app.get("/load_progress/{user_id}")
 async def load_progress(user_id: int):
@@ -81,12 +207,14 @@ async def load_progress(user_id: int):
     row = cursor.fetchone()
     
     if not row:
-        # АВТОСОЗДАНИЕ: Если пользователя нет, создаем его с нулевым балансом
         conn.execute("INSERT INTO users (user_id, bal, owned, equip) VALUES (?, 0, '{}', '{}')", (user_id,))
+        touch_meta(conn, user_id)
         conn.commit()
         conn.close()
         return {"bal": 0, "owned": {}, "equip": {}}
     
+    touch_meta(conn, user_id)
+    conn.commit()
     conn.close()
     return {
         "bal": row[0],
@@ -113,19 +241,158 @@ async def save_progress(request: Request):
             owned = excluded.owned, 
             equip = excluded.equip
     """, (user_id, bal, json.dumps(owned), json.dumps(equip)))
+    touch_meta(conn, user_id)
     conn.commit()
     conn.close()
     return {"status": "ok"}
+
+# === РЕФЕРАЛЬНАЯ СИСТЕМА ===
+@app.post("/referral/register")
+async def referral_register(request: Request):
+    data = await request.json()
+    info = validate_init_data(data.get("init_data", ""))
+    if not info:
+        return {"status": "error", "reason": "auth"}
+
+    user = info["user"]
+    uid = user["id"]
+    param = info["start_param"] or ""
+
+    if not param.startswith("ref_") or not param[4:].isdigit():
+        return {"status": "ignored", "reason": "no_ref"}
+    referrer_id = int(param[4:])
+
+    if user.get("is_bot") or referrer_id == uid:
+        return {"status": "ignored", "reason": "self"}
+
+    now = int(time.time())
+    conn = get_db_connection()
+    try:
+        if conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ?", (uid,)).fetchone():
+            return {"status": "ignored", "reason": "already"}
+
+        meta = conn.execute("SELECT first_seen FROM user_meta WHERE user_id = ?", (uid,)).fetchone()
+        if meta is None:
+            touch_meta(conn, uid, now)
+        elif now - meta[0] > REF_NEW_WINDOW:
+            return {"status": "ignored", "reason": "not_new"}
+
+        if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (referrer_id,)).fetchone():
+            return {"status": "ignored", "reason": "bad_referrer"}
+
+        if scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (referrer_id,)) >= REF_MAX_TOTAL:
+            return {"status": "ignored", "reason": "limit"}
+        if scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND created_at > ?",
+                  (referrer_id, now - 86400)) >= REF_MAX_PER_DAY:
+            return {"status": "ignored", "reason": "limit_day"}
+
+        conn.execute(
+            "INSERT INTO referrals (invitee_id, referrer_id, created_at) VALUES (?, ?, ?)",
+            (uid, referrer_id, now)
+        )
+        conn.commit()
+        return {"status": "registered", "need_msgs": REF_MIN_MSGS, "reward": REF_REWARD_INVITEE}
+    finally:
+        conn.close()
+
+@app.post("/referral/status")
+async def referral_status(request: Request):
+    data = await request.json()
+    info = validate_init_data(data.get("init_data", ""))
+    if not info:
+        return {"status": "error", "reason": "auth"}
+    uid = info["user"]["id"]
+    now = int(time.time())
+
+    conn = get_db_connection()
+    try:
+        refresh_activation(conn, "referrer_id", uid, now)
+        refresh_activation(conn, "invitee_id", uid, now)
+
+        invited = scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (uid,))
+        active = scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND activated = 1", (uid,))
+        pending_ref = scalar(
+            conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (uid,)
+        ) * REF_REWARD_REFERRER
+
+        me = None
+        row = conn.execute(
+            "SELECT activated, invitee_claimed, created_at FROM referrals WHERE invitee_id = ?", (uid,)
+        ).fetchone()
+        pending_me = 0
+        if row:
+            activated, claimed, created_at = row
+            msgs = scalar(conn, "SELECT msgs FROM user_stats WHERE user_id = ?", (uid,))
+            if claimed:
+                me = {"state": "claimed"}
+            elif activated:
+                me = {"state": "ready"}
+                pending_me = REF_REWARD_INVITEE
+            else:
+                me = {"state": "waiting", "msgs": msgs, "need": REF_MIN_MSGS,
+                      "wait_sec": max(0, REF_MIN_AGE - (now - created_at))}
+
+        return {
+            "status": "ok",
+            "link": make_link(uid),
+            "invited": invited,
+            "active": active,
+            "limit": REF_MAX_TOTAL,
+            "pending": pending_ref + pending_me,
+            "me": me,
+            "reward_referrer": REF_REWARD_REFERRER,
+            "reward_invitee": REF_REWARD_INVITEE,
+            "need_msgs": REF_MIN_MSGS,
+        }
+    finally:
+        conn.close()
+
+@app.post("/referral/claim")
+async def referral_claim(request: Request):
+    data = await request.json()
+    info = validate_init_data(data.get("init_data", ""))
+    if not info:
+        return {"status": "error", "reason": "auth"}
+    uid = info["user"]["id"]
+    now = int(time.time())
+
+    conn = get_db_connection()
+    try:
+        refresh_activation(conn, "referrer_id", uid, now)
+        refresh_activation(conn, "invitee_id", uid, now)
+
+        reward = 0
+
+        rows = conn.execute(
+            "SELECT invitee_id FROM referrals WHERE referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (uid,)
+        ).fetchall()
+        for (invitee_id,) in rows:
+            conn.execute("UPDATE referrals SET referrer_claimed = 1 WHERE invitee_id = ?", (invitee_id,))
+            reward += REF_REWARD_REFERRER
+
+        mine = conn.execute(
+            "SELECT activated, invitee_claimed FROM referrals WHERE invitee_id = ?", (uid,)
+        ).fetchone()
+        if mine and mine[0] == 1 and mine[1] == 0:
+            conn.execute("UPDATE referrals SET invitee_claimed = 1 WHERE invitee_id = ?", (uid,))
+            reward += REF_REWARD_INVITEE
+
+        if reward > 0:
+            conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
+            conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (reward, uid))
+        conn.commit()
+        return {"status": "ok", "reward": reward}
+    finally:
+        conn.close()
 
 # === МИНИ-ИГРА: КАМЕНЬ НОЖНИЦЫ БУМАГА ===
 class BetData(BaseModel):
     user_id: int
     bet: int
-    choice: str  # 'rock', 'paper', 'scissors'
+    choice: str
 
 @app.post("/play_rps")
 async def play_rps(data: BetData):
-    # ЗАЩИТА: Запрещаем ставить 0 или отрицательные числа
     if data.bet <= 0:
         return {"error": "Ставка должна быть больше нуля"}
         
@@ -142,10 +409,8 @@ async def play_rps(data: BetData):
         conn.close()
         return {"error": "Недостаточно звезд"}
 
-    # Робот делает свой выбор
     bot_choice = random.choice(['rock', 'paper', 'scissors'])
     
-    # Логика определения победителя
     win = False
     tie = False
     if data.choice == bot_choice:
@@ -155,13 +420,11 @@ async def play_rps(data: BetData):
          (data.choice == 'scissors' and bot_choice == 'paper'):
         win = True
     
-    # Обновляем баланс
     new_bal = current_bal
     if win:
-        # ЧЕСТНЫЙ X2: Возврат ставки + такой же выигрыш (600 -> 1200)
         new_bal += data.bet  
     elif not tie:
-        new_bal -= data.bet      # Проигрыш
+        new_bal -= data.bet
         
     conn.execute("UPDATE users SET bal = ? WHERE user_id = ?", (new_bal, data.user_id))
     conn.commit()
@@ -185,6 +448,8 @@ async def ask(request: Request):
         
         if not user_text:
             return {"text": "Я не вижу текста.", "emotion": "thinking"}
+
+        count_message(data.get("user_id"), len(user_text.strip()))
 
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
