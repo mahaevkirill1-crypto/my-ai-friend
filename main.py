@@ -152,7 +152,9 @@ async def play_rps(data: BetData):
     # Обновляем баланс
     new_bal = current_bal
     if win:
-        new_bal += data.bet * 2  # Выигрыш x2
+        # ИСПРАВЛЕНИЕ: Теперь начисляется чистый x2 (возврат ставки + такой же выигрыш)
+        # Было: new_bal += data.bet * 2 (давало x3)
+        new_bal += data.bet  
     elif not tie:
         new_bal -= data.bet      # Проигрыш
         
