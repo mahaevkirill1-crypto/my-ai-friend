@@ -79,15 +79,20 @@ async def load_progress(user_id: int):
     conn = get_db_connection()
     cursor = conn.execute("SELECT bal, owned, equip FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
-    conn.close()
     
-    if row:
-        return {
-            "bal": row[0],
-            "owned": json.loads(row[1]),
-            "equip": json.loads(row[2])
-        }
-    return {"bal": 0, "owned": {}, "equip": {}}
+    if not row:
+        # АВТОСОЗДАНИЕ: Если пользователя нет, создаем его с нулевым балансом
+        conn.execute("INSERT INTO users (user_id, bal, owned, equip) VALUES (?, 0, '{}', '{}')", (user_id,))
+        conn.commit()
+        conn.close()
+        return {"bal": 0, "owned": {}, "equip": {}}
+    
+    conn.close()
+    return {
+        "bal": row[0],
+        "owned": json.loads(row[1]),
+        "equip": json.loads(row[2])
+    }
 
 @app.post("/save_progress")
 async def save_progress(request: Request):
@@ -120,8 +125,9 @@ class BetData(BaseModel):
 
 @app.post("/play_rps")
 async def play_rps(data: BetData):
-    if data.bet < 0:
-        return {"error": "Ставка не может быть отрицательной"}
+    # ЗАЩИТА: Запрещаем ставить 0 или отрицательные числа
+    if data.bet <= 0:
+        return {"error": "Ставка должна быть больше нуля"}
         
     conn = get_db_connection()
     cursor = conn.execute("SELECT bal FROM users WHERE user_id = ?", (data.user_id,))
@@ -129,7 +135,7 @@ async def play_rps(data: BetData):
     
     if not row:
         conn.close()
-        return {"error": "Пользователь не найден. Напиши боту любое сообщение, чтобы создать профиль."}
+        return {"error": "Пользователь не найден. Перезайди в бота."}
         
     current_bal = row[0]
     if current_bal < data.bet:
@@ -152,8 +158,7 @@ async def play_rps(data: BetData):
     # Обновляем баланс
     new_bal = current_bal
     if win:
-        # ИСПРАВЛЕНИЕ: Теперь начисляется чистый x2 (возврат ставки + такой же выигрыш)
-        # Было: new_bal += data.bet * 2 (давало x3)
+        # ЧЕСТНЫЙ X2: Возврат ставки + такой же выигрыш (600 -> 1200)
         new_bal += data.bet  
     elif not tie:
         new_bal -= data.bet      # Проигрыш
