@@ -120,6 +120,12 @@
     .qr { font-size: 11px; color: #4B8FA0; }
     .q button { width: 80px; flex-shrink: 0; }
     .res { font-size: 13px; color: #FFD166; text-align: center; }
+    
+    /* Реферальная система */
+    .ref-box { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; background: rgba(79,209,232,.1); padding: 12px; border-radius: 8px; border: 1px dashed #4FD1E8; }
+    .ref-link { word-break: break-all; font-size: 12px; color: #9AF0FF; background: #0E1726; padding: 8px; border-radius: 6px; text-align: center; font-family: monospace; }
+    .ref-stats { display: flex; justify-content: space-between; font-size: 13px; color: #C8F8FF; }
+    
     #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #0B2230; border: 1px solid #2E8FA3; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
     #confirm { background: rgba(7,12,20,.82); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
@@ -548,7 +554,6 @@ async function loadProgress() {
         const res = await fetch(`${BACKEND_URL}/load_progress/${uid}`);
         const data = await res.json();
         
-        // Если на сервере ЕСТЬ данные (баланс больше 0 или есть скины) — загружаем их
         if (data && (data.bal > 0 || Object.keys(data.owned || {}).length > 0)) {
             BAL = data.bal || 0;
             OWNED = data.owned || {};
@@ -560,14 +565,67 @@ async function loadProgress() {
             renderWear(); 
             applyOutfit();
         } else {
-            // Если сервер ПУСТОЙ — берем твои скины из телефона и ОТПРАВЛЯЕМ их на сервер
-            console.log("Сервер пуст, сохраняем локальные данные...");
             syncToServer();
         }
-        // Принудительно прокручиваем чат вниз после загрузки прогресса
         setTimeout(scrollChat, 100);
         setTimeout(scrollChat, 500);
     } catch(e) { console.error("Load error", e); }
+}
+
+// --- РЕФЕРАЛЬНАЯ СИСТЕМА (Логика) ---
+async function initReferralSystem() {
+    if (!tg || !tg.initData) return;
+    const initData = tg.initData;
+    const startParam = tg.initDataUnsafe?.start_param || '';
+
+    // 1. Регистрация (если пришел по ссылке)
+    if (startParam.startsWith('ref_')) {
+        try {
+            await fetch(`${BACKEND_URL}/referral/register`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ init_data: initData })
+            });
+        } catch(e) { console.error("Ref reg error", e); }
+    }
+
+    // 2. Загружаем статус
+    await updateRefStatus();
+}
+
+async function updateRefStatus() {
+    if (!tg || !tg.initData) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/referral/status`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ init_data: tg.initData })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            window._refData = data; // Сохраняем для рендера
+            renderRefTab(data);
+        }
+    } catch(e) { console.error("Ref status error", e); }
+}
+
+async function claimRefReward() {
+    if (!tg || !tg.initData) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/referral/claim`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ init_data: tg.initData })
+        });
+        const data = await res.json();
+        if (data.status === 'ok' && data.reward > 0) {
+            BAL += data.reward;
+            store.set('bal', BAL);
+            renderBal();
+            Snd.cash();
+            toast(`Получено: +${data.reward} ★`);
+            await updateRefStatus(); // Обновляем интерфейс
+        } else {
+            toast('Нет доступных наград.');
+        }
+    } catch(e) { console.error("Ref claim error", e); }
 }
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
@@ -960,8 +1018,83 @@ function rollDrop(){ if (Math.random() >= DROP_CHANCE) return null; const pool =
 function claimDaily(){ if (!canDaily()) return; const today = todayStr(); const cont = DAILY.last && dn(today) - dn(DAILY.last) === 1; DAILY = { last: today, streak: cont ? DAILY.streak + 1 : 1 }; store.set('daily', DAILY); const stars = rollStars(), drop = rollDrop(); BAL += stars; store.set('bal', BAL); lastResult = `Получено: +${stars} ★` + (drop ? `. Выпал аксессуар «${drop.name}»! Он уже в гардеробе.` : ''); if (drop){ OWNED[drop.id] = true; store.set('owned', OWNED); sfx('fanfare'); renderWear(); } else sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
 function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
 function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
-function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7; let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); bonusEl.innerHTML = `<div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : 'Приходи завтра'}</button><div class="res">${lastResult}</div></div><div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div><div class="hint">Звёзды из бонусов можно потратить на наряды.</div>`; }
+function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7; let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); 
+    
+    // Блок рефералов
+    const refData = window._refData || null;
+    let refHtml = '';
+    if (refData) {
+        let meText = '';
+        if (refData.me) {
+            if (refData.me.state === 'waiting') meText = `<div class="hint" style="text-align:center; color:#FFD166; margin-top:5px;">Отправь еще ${refData.me.msgs}/${refData.me.need} сообщений, чтобы активировать награду (или подожди ${Math.ceil(refData.me.wait_sec/60)} мин).</div>`;
+            else if (refData.me.state === 'ready') meText = `<div class="hint" style="text-align:center; color:#4FD1E8; margin-top:5px;">Награда за вход по ссылке готова!</div>`;
+        }
+        
+        const claimBtn = refData.pending > 0 
+            ? `<button class="txtbtn on" style="width:100%; margin-top:10px;" onclick="claimRefReward()">Забрать ${refData.pending} ★</button>` 
+            : '';
+            
+        refHtml = `<div class="bcard" style="border-color: #FFD166;">
+            <div class="bt" style="color: #FFD166;">🤝 Пригласи друга</div>
+            <div class="bs">За каждого друга ты получаешь ${refData.reward_referrer} ★, а друг — ${refData.reward_invitee} ★.</div>
+            <div class="ref-box">
+                <div class="ref-link" id="ref-link-text">${refData.link || 'Загрузка...'}</div>
+                <button class="txtbtn" onclick="copyRefLink()">Скопировать ссылку</button>
+            </div>
+            <div class="ref-stats">
+                <span>Пришло: ${refData.invited}</span>
+                <span>Активных: ${refData.active} / ${refData.limit}</span>
+            </div>
+            ${meText}
+            ${claimBtn}
+        </div>`;
+    }
+
+    bonusEl.innerHTML = `
+        <div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : 'Приходи завтра'}</button><div class="res">${lastResult}</div></div>
+        <div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div>
+        ${refHtml}
+        <div class="hint">Звёзды из бонусов можно потратить на наряды.</div>
+    `; 
+}
 $('bonus-list').addEventListener('click', e => { if (e.target.closest('#claim-d')) return claimDaily(); const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q); });
+
+window.copyRefLink = function() {
+    const linkEl = $('ref-link-text');
+    if (!linkEl) return;
+    const link = linkEl.textContent;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => {
+            toast('Ссылка скопирована!');
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        }).catch(() => {
+            // Fallback
+            const textArea = document.createElement("textarea");
+            textArea.value = link;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textArea);
+            toast('Ссылка скопирована!');
+        });
+    } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = link;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        toast('Ссылка скопирована!');
+    }
+};
+
+// Загрузка статуса рефки при открытии магазина
+const origShowTab = showTab;
+window.showTab = function(t) {
+    origShowTab(t);
+    if (t === 'bonus') updateRefStatus();
+}
 
 /* --- Магазин --- */
 const SHOP_ITEMS = [ { id: 'astro', char: 'astro', name: 'Космонавт', desc: 'Прилетает на тарелке и говорит загадками о звёздах и невесомости. Если написать «смотри пришельцы», начнётся перестрелка.', price: 299 } ];
@@ -988,6 +1121,7 @@ const q = new URLSearchParams(location.search);
 applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
 setTimeout(() => { Hologram.react('happy', 'wave', 3500); const hour = new Date().getHours(); let greeting = GREET[char]; if (chatHistoryForServer.length === 0) { if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?"; else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?"; else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?"; else greeting = "Ты чего не спишь? Давай поболтаем."; } addToHistory(greeting, 'bot'); }, 500);
 loadProgress();
+initReferralSystem();
 
 /* Переключатель звуков */
 const sndBtn = $('snd-btn');
