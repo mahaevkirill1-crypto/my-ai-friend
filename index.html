@@ -9,7 +9,6 @@
     :root { --bg-color: #0E1726; --bot-msg-bg: #1c2533; --user-msg-bg: #2b5278; --text-color: #ffffff; --accent-color: #4FD1E8; }
     * { box-sizing: border-box; }
     
-    /* Анимация тряски для глюка */
     @keyframes shake {
         0% { transform: translate(1px, 1px) rotate(0deg); }
         10% { transform: translate(-1px, -2px) rotate(-1deg); }
@@ -40,39 +39,42 @@
     .su { fill: var(--su); stroke: #AEB9C8; stroke-width: 1.5; }
     .lt { fill: var(--lc); }
     #bub { position: fixed; display: none; transform: translate(-50%, -100%); z-index: 35; background: #0B2230; border: 1px solid #4FD1E8; color: #C8F8FF; font-size: 13px; line-height: 1.4; padding: 6px 10px; border-radius: 10px; max-width: 210px; text-align: center; pointer-events: none; }
-    #chat-history { flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 10px; z-index: 20; mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); padding-bottom: 80px; }
-    .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 85%; animation: slideIn 0.3s ease-out forwards; opacity: 0; transform: translateY(10px); }
+    #chat-history { flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 10px; z-index: 20; mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); padding-bottom: 150px; }
+    .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 88%; animation: slideIn 0.3s ease-out forwards; opacity: 0; transform: translateY(10px); }
     .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
     .msg-row.bot { align-self: flex-start; }
     @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
-    .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
-    .msg-row.user .avatar { background: var(--user-msg-bg); }
-    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
+    .avatar { width: 28px; height: 28px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; font-size: 14px; background: #4FD1E8; color: #0E1726; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+    .msg-row.user .avatar { background: #2b5278; color: #EAF6FF; }
+    .col { min-width: 0; } .lbl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #4B8FA0; margin: 0 0 3px 2px; } .msg-row.user .lbl { text-align: right; margin: 0 2px 3px 0; } .tm { font-size: 10px; color: #4B8FA0; margin: 3px 2px 0; } .msg-row.user .tm { text-align: right; } .tm:empty { display: none; }
+    .message { padding: 9px 13px; font-size: 14px; line-height: 1.45; color: #E8FBFF; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-    .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
-    .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
-    
+    .msg-row.user .message { background: #163B57; border: 1px solid rgba(79,209,232,.55); border-right: 3px solid #9AF0FF; border-radius: 14px 4px 4px 14px; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+    .msg-row.bot .message { background: #10202F; border: 1px solid rgba(79,209,232,.35); border-left: 3px solid #4FD1E8; border-radius: 4px 14px 14px 4px; clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
+    .message.typing { display: flex; gap: 4px; padding: 14px; }
+    .typing span { width: 6px; height: 6px; background: #4FD1E8; animation: tp 1s infinite; }
+    .typing span:nth-child(2) { animation-delay: .15s; } .typing span:nth-child(3) { animation-delay: .3s; }
+    @keyframes tp { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
     #hud-panel { 
-        padding: 12px 16px; 
-        width: 100%; 
-        max-width: 450px; 
-        background: var(--bg-color); 
-        display: flex; 
-        z-index: 20; 
-        padding-bottom: max(16px, env(safe-area-inset-bottom)); 
-        flex-shrink: 0; 
-        border-top: 1px solid rgba(255,255,255,0.05); 
-        
-        position: fixed;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
+        padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); 
+        position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+        flex-direction: column; padding-top: 10px;
     }
-    
-    .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 8px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
-    #user-input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px 12px; font-size: 15px; outline: none; }
-    #send-btn { width: 40px; height: 40px; background: var(--accent-color); border: none; border-radius: 6px; color: #000; font-size: 18px; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-right: 2px; flex-shrink: 0; }
+    #chips { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
+    #chips::-webkit-scrollbar { display: none; }
+    .chip { flex: none; font: inherit; font-size: 12px; color: #9AF0FF; background: #0B2230; border: 1px solid rgba(79,209,232,.35); border-radius: 4px; padding: 5px 11px; cursor: pointer; }
+    .chip:active { background: #123A4A; }
+    .input-container { width: 100%; background: #4FD1E8; padding: 1px; transition: background .2s; clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px); }
+    .input-container:focus-within { background: #9AF0FF; }
+    .input-inner { display: flex; align-items: center; gap: 8px; background: #0d1117; padding: 4px 4px 4px 14px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+    .prompt { color: #4FD1E8; font-family: ui-monospace, Menlo, monospace; font-size: 16px; }
+    #user-input { flex: 1; min-width: 0; background: transparent; border: none; color: #fff; padding: 10px 0; font-size: 16px; outline: none; }
+    #user-input::placeholder { color: #4B8FA0; }
+    #send-btn { width: 40px; height: 40px; flex-shrink: 0; background: #4FD1E8; border: none; color: #0E1726; display: flex; justify-content: center; align-items: center; cursor: pointer; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+    #send-btn:disabled { opacity: .5; }
+    #hud-status { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .04em; color: #4B8FA0; margin-top: 6px; padding: 0 2px; }
     .overlay { position: fixed; inset: 0; display: none; }
     .overlay.open { display: flex; }
     #shop { background: var(--bg-color); flex-direction: column; z-index: 50; }
@@ -129,21 +131,10 @@
     .dialog .btns button { flex: 1; }
     #do-clear { background: #FF6B6B; border: none; color: #0E1726; font: inherit; font-size: 13px; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
     
-    #hack-overlay {
-        position: fixed; inset: 0; background: #000; z-index: 999;
-        display: none; flex-direction: column; justify-content: center; align-items: center;
-        color: #ff3333; font-family: monospace; font-size: 20px; text-align: center;
-    }
+    #hack-overlay { position: fixed; inset: 0; background: #000; z-index: 999; display: none; flex-direction: column; justify-content: center; align-items: center; color: #ff3333; font-family: monospace; font-size: 20px; text-align: center; }
     #hack-overlay.show { display: flex; }
     .glitch-text { animation: glitch 0.2s infinite; }
-    @keyframes glitch {
-        0% { transform: translate(0) }
-        20% { transform: translate(-2px, 2px) }
-        40% { transform: translate(-2px, -2px) }
-        60% { transform: translate(2px, 2px) }
-        80% { transform: translate(2px, -2px) }
-        100% { transform: translate(0) }
-    }
+    @keyframes glitch { 0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) } }
 </style>
 </head>
 <body>
@@ -216,10 +207,15 @@
 <div id="bub"></div>
 <div id="chat-history"></div>
 <div id="hud-panel">
+    <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Расскажи шутку">Расскажи шутку</button><button class="chip" data-shop="1">Магазин</button></div>
     <div class="input-container">
-        <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off">
-        <button id="send-btn">➤</button>
+        <div class="input-inner">
+            <span class="prompt">&gt;</span>
+            <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off" maxlength="500" enterkeyhint="send">
+            <button id="send-btn" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>
+        </div>
     </div>
+    <div id="hud-status"><span id="net">СВЯЗЬ: ОНЛАЙН</span><span id="cnt">0 / 500</span></div>
 </div>
 <div id="shop" class="overlay">
   <div id="shop-head">
@@ -418,18 +414,8 @@ function enter(){
     tx = SPOTS[0][0]; ty = SPOTS[0][1]; 
     k = .01; ang = angT = 0; 
     vx = 0; vy = 0;
-    
-    if (isFirstLoad) {
-        x = tx; y = ty;
-        st = 'hover';
-        isFirstLoad = false;
-    } else {
-        const m = 120; 
-        const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; 
-        const c = corners[R(4)]; 
-        x = c[0]; y = c[1]; 
-        st = 'enter'; 
-    }
+    if (isFirstLoad) { x = tx; y = ty; st = 'hover'; isFirstLoad = false; } 
+    else { const m = 120; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[R(4)]; x = c[0]; y = c[1]; st = 'enter'; }
     clearTimeout(coolTimer); 
 }
 
@@ -453,6 +439,7 @@ function drawHolo(t, dt, sp){ for (const key in tgt) cur[key] += (tgt[key] - cur
 requestAnimationFrame(frame);
 (function loop(){ setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000); })();
 setInterval(() => { if (char === 'astro' && st === 'hover' && $('bub').style.display === 'none' && !isSending) say(LINES[R(LINES.length)], 3800); }, 6500);
+let resetTimer, danceTimer;
 const Hologram = { 
     emotion(name){ const e = EMOTIONS[name]; if (!e) return; curEmo = name; setTargets(e); applyTint(); }, 
     pose(name){ const p = POSES[name]; if (!p) return; this.stopDance(); setTargets(p); }, 
@@ -464,7 +451,29 @@ const Hologram = {
 window.Hologram = Hologram;
 function setChar(c){ const changed = c !== char; char = c; store.set('char', c); $('fly').style.display = c === 'holo' ? '' : 'none'; $('astw').style.display = c === 'astro' ? '' : 'none'; Hologram.stopDance(); clearFight(); hideBubble(); greetPending = true; enter(); if (changed && c === 'astro') setTimeout(() => Snd.fanfare(), 350); }
 const input = $('user-input'); const sendBtn = $('send-btn'); const chatHistory = $('chat-history'); let isSending = false;
-function addToHistory(text, sender) { const row = document.createElement('div'); row.className = `msg-row ${sender}`; const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = sender === 'user' ? '👤' : (char === 'astro' ? '🧑‍🚀' : '🤖'); const msg = document.createElement('div'); msg.className = 'message'; msg.textContent = text; row.appendChild(avatar); row.appendChild(msg); chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; }
+const BOT_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4M9 13h.01M15 13h.01"/></svg>';
+const USER_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3-6 7-6s7 2 7 6"/></svg>';
+const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+function addToHistory(text, sender, time) {
+    const row = document.createElement('div'); row.className = `msg-row ${sender}`;
+    const avatar = document.createElement('div'); avatar.className = 'avatar';
+    avatar.innerHTML = sender === 'user' ? USER_ICON : (char === 'astro' ? '🧑‍🚀' : BOT_ICON);
+    const col = document.createElement('div'); col.className = 'col';
+    const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = sender === 'user' ? 'Ты' : (char === 'astro' ? 'Космонавт' : 'Голо-друг');
+    const msg = document.createElement('div'); msg.className = 'message'; msg.textContent = text;
+    const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = time === undefined ? nowTime() : time;
+    col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
+    row.appendChild(avatar); row.appendChild(col);
+    chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+let focusT = 0;
+function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
+let stick = true;
+chatHistory.addEventListener('scroll', () => { stick = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 40; }, { passive: true });
+if (window.ResizeObserver) new ResizeObserver(() => { if (stick) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe(chatHistory);
+let typingRow = null;
+function showTyping(){ hideTyping(); const row = document.createElement('div'); row.className = 'msg-row bot'; row.innerHTML = '<div class="avatar">' + (char === 'astro' ? '🧑‍🚀' : BOT_ICON) + '</div><div class="col"><div class="message typing"><span></span><span></span><span></span></div></div>'; chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row; }
+function hideTyping(){ if (typingRow){ typingRow.remove(); typingRow = null; } }
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 
 // --- СИНХРОНИЗАЦИЯ С СЕРВЕРОМ ---
@@ -476,8 +485,7 @@ async function syncToServer() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: uid, bal: BAL, owned: OWNED, equip: EQUIP })
         });
-        console.log("Прогресс сохранен");
-    } catch(e) { console.error("Ошибка сохранения", e); }
+    } catch(e) { console.error("Save error", e); }
 }
 
 async function loadProgress() {
@@ -496,20 +504,19 @@ async function loadProgress() {
             renderBal(); 
             renderWear(); 
             applyOutfit();
-            console.log("Прогресс загружен с сервера");
         }
-    } catch(e) { console.error("Ошибка загрузки", e); }
+    } catch(e) { console.error("Load error", e); }
 }
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
-if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender)); }
+if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '')); }
 async function sendMessage(text) {
     if (!text || isSending) return;
     isSending = true;
 
     addToHistory(text, 'user');
-    input.value = '';
-    input.disabled = true;
+    input.value = ''; $('cnt').textContent = '0 / 500';
+    input.readOnly = true;
     sendBtn.disabled = true;
     Snd.click();
     Quest.add('msg');
@@ -527,12 +534,12 @@ async function sendMessage(text) {
         setTimeout(() => {
             const heartMsg = document.createElement('div');
             heartMsg.className = 'msg-row bot';
-            heartMsg.innerHTML = '<div class="avatar">🤖</div><div class="message" style="background: transparent; font-size: 30px;">❤️❤️❤️</div>';
+            heartMsg.innerHTML = '<div class="avatar">' + BOT_ICON + '</div><div class="col"><div class="message" style="background:transparent;border:none;clip-path:none;font-size:30px;padding:0 4px;">❤️❤️❤️</div></div>';
             chatHistory.appendChild(heartMsg);
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }, 1000);
 
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
 
@@ -603,7 +610,7 @@ async function sendMessage(text) {
             }, 3000);
         }, 2000);
 
-        input.disabled = false; sendBtn.disabled = false; 
+        input.readOnly = false; sendBtn.disabled = false; 
         isSending = false;
         return;
     }
@@ -634,7 +641,7 @@ async function sendMessage(text) {
         chatHistoryForServer.push({ sender: 'user', text: text });
         chatHistoryForServer.push({ sender: 'bot', text: reply });
         localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
 
@@ -653,7 +660,7 @@ async function sendMessage(text) {
             chatHistoryForServer.push({ sender: 'user', text: text });
             chatHistoryForServer.push({ sender: 'bot', text: reply });
             localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         } else {
             const ignorePhrases = [
@@ -669,14 +676,14 @@ async function sendMessage(text) {
             chatHistoryForServer.push({ sender: 'user', text: text });
             chatHistoryForServer.push({ sender: 'bot', text: reply });
             localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
-            input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+            input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         }
     }
 
     if (char === 'astro' && /пришельц|инопланет|нло/i.test(text)){
         invade();
-        input.disabled = false; sendBtn.disabled = false; input.focus(); isSending = false;
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
 
@@ -686,6 +693,7 @@ async function sendMessage(text) {
     const historyText = chatHistoryForServer.slice(-40).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
 
     try {
+        showTyping();
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -698,6 +706,7 @@ async function sendMessage(text) {
 
         if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
         const data = await response.json();
+        hideTyping();
 
         if (char === 'astro') {
             hideBubble();
@@ -718,16 +727,24 @@ async function sendMessage(text) {
         localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
 
     } catch (error) {
+        hideTyping();
         if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
         addToHistory(`Ошибка: ${error.message}`, 'bot');
     } finally {
-        input.disabled = false;
+        input.readOnly = false;
         sendBtn.disabled = false;
-        input.focus();
+        refocus();
         isSending = false; 
     }
 }
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
+input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
+[sendBtn, $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
+input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); layout(); });
+input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 700); layout(); [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
+$('chips').addEventListener('click', e => { if (e.target.closest('[data-shop]')) { openShop(); return; } const b = e.target.closest('button[data-say]'); if (b) sendMessage(b.dataset.say); });
+function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? 'СВЯЗЬ: ОНЛАЙН' : 'СВЯЗЬ: НЕТ СЕТИ'; el.style.color = on ? '' : '#FF9E9E'; }
+addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
 input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
 const confirmBox = $('confirm');
 $('clear-btn').addEventListener('click', () => { if (!isSending) confirmBox.classList.add('open'); });
@@ -829,7 +846,7 @@ $('shop-btn').addEventListener('click', openShop); $('shop-close').addEventListe
 const q = new URLSearchParams(location.search);
 applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
 setTimeout(() => { Hologram.react('happy', 'wave', 3500); const hour = new Date().getHours(); let greeting = GREET[char]; if (chatHistoryForServer.length === 0) { if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?"; else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?"; else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?"; else greeting = "Ты чего не спишь? Давай поболтаем."; } addToHistory(greeting, 'bot'); }, 500);
-loadProgress(); // <--- ЗАГРУЗКА ПРОГРЕССА ПРИ СТАРТЕ
+loadProgress();
 
 /* Переключатель звуков */
 const sndBtn = $('snd-btn');
