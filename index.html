@@ -288,9 +288,18 @@ if (tg) {
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
     
-    // НОВОЕ: Следим за изменением размера окна в Telegram (чтобы бот не улетал вверх при открытии)
+    // СЛЕДИМ ЗА КЛАВИАТУРОЙ И РАЗМЕРОМ ОКНА
     tg.onEvent('viewportChanged', () => {
-        setTimeout(layout, 100);
+        setTimeout(() => {
+            layout();
+            // Страховка: если бот оказался за экраном (под клавиатурой), возвращаем его
+            if (st === 'hover' && (y > H || y < 0)) {
+                x = SPOTS[spot][0];
+                y = SPOTS[spot][1];
+                tx = x; ty = y;
+                vx = vy = 0;
+            }
+        }, 100);
     });
 }
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
@@ -408,7 +417,10 @@ function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy'
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
 
 function layout(){ 
-    W = innerWidth; H = innerHeight; 
+    W = innerWidth; 
+    // Используем точную высоту от Telegram, чтобы робот не улетал под клавиатуру
+    H = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight; 
+    
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); 
     SC = cl(Math.min(W, H) / 760, .38, .6); 
     SCA = SC * 1.15; 
@@ -416,7 +428,6 @@ function layout(){
     const sy = r.top + r.height * .5; 
     SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; 
     
-    // Обновляем цель, если бот не в режиме злости/боя/объяснения
     if (st !== 'mad' && st !== 'fight' && st !== 'teach'){ 
         tx = SPOTS[spot][0]; 
         ty = SPOTS[spot][1]; 
@@ -427,7 +438,7 @@ addEventListener('resize', () => setTimeout(layout, 50));
 layout();
 
 function enter(){ 
-    layout(); // <--- ДОБАВЛЕНО ДЛЯ ПРАВИЛЬНОГО СТАРТА
+    layout(); 
     Snd.whoosh(); 
     const m = 120; 
     const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; 
@@ -623,23 +634,28 @@ function teachAnswer(){
     if (st !== 'teach') return;
     clearTimeout(teachTimer); teachWait = false;
     
-    // Ждем 150 мс, чтобы новое сообщение появилось на экране и прокрутилось
+    // Ждем 300 мс, чтобы новое сообщение точно появилось на экране и прокрутилось
     setTimeout(() => {
         if (st !== 'teach') return;
         
         teachFly = true; 
-        teachEl = lastBotMsg(); // Теперь это точно НОВОЕ сообщение
+        teachEl = lastBotMsg(); // Берем новое сообщение
         teachGlow(teachEl);
         Hologram.react('happy', 'idle');
         say('Готово! Смотри ниже', 2200);
         
+        // УСКОРЯЕМ ПОЛЕТ (чтобы он быстро спустился к новому тексту)
+        k = 0.02; 
+        
         teachTimer = setTimeout(teachReturn, 2800);
-    }, 150); 
+    }, 300); 
 }
 function teachReturn(){
     if (st !== 'teach') return;
     teachGlow(null); teachFly = false;
-    scMulT = 1; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = SLOW_K; st = 'return';
+    scMulT = 1; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; 
+    k = SLOW_K; // <--- Возвращаем медленную скорость для плавного отлета
+    st = 'return';
     say('А теперь на место', 1600);
     Hologram.react('happy', 'wave', 3000);
 }
