@@ -40,19 +40,37 @@
     .su { fill: var(--su); stroke: #AEB9C8; stroke-width: 1.5; }
     .lt { fill: var(--lc); }
     #bub { position: fixed; display: none; transform: translate(-50%, -100%); z-index: 35; background: #0B2230; border: 1px solid #4FD1E8; color: #C8F8FF; font-size: 13px; line-height: 1.4; padding: 6px 10px; border-radius: 10px; max-width: 210px; text-align: center; pointer-events: none; }
-    #chat-history { flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 10px; z-index: 20; mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); }
+    #chat-history { flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 10px; z-index: 20; mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); padding-bottom: 80px; /* Место для фиксированной панели */ }
     .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 85%; animation: slideIn 0.3s ease-out forwards; opacity: 0; transform: translateY(10px); }
     .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
     .msg-row.bot { align-self: flex-start; }
     @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
     .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; background: var(--bot-msg-bg); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
     .msg-row.user .avatar { background: var(--user-msg-bg); }
-    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
+    .message { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; max-height: 180px; overflow-y: auto; transition: all 0.3s ease; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .msg-row.user .message { background-color: var(--user-msg-bg); border-bottom-right-radius: 4px; }
     .msg-row.bot .message { background-color: var(--bot-msg-bg); border-bottom-left-radius: 4px; }
-    #hud-panel { padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); }
+
+    #hud-panel { 
+        padding: 12px 16px; 
+        width: 100%; 
+        max-width: 450px; 
+        background: var(--bg-color); 
+        display: flex; 
+        z-index: 20; 
+        padding-bottom: max(16px, env(safe-area-inset-bottom)); 
+        flex-shrink: 0; 
+        border-top: 1px solid rgba(255,255,255,0.05); 
+        
+        /* Фиксируем панель внизу, чтобы она поднималась вместе с клавиатурой */
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
     .input-container { display: flex; align-items: center; background: #0d1117; border: 1px solid var(--accent-color); border-radius: 8px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); padding: 4px; width: 100%; }
     #user-input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px 12px; font-size: 15px; outline: none; }
     #send-btn { width: 40px; height: 40px; background: var(--accent-color); border: none; border-radius: 6px; color: #000; font-size: 18px; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-right: 2px; flex-shrink: 0; }
@@ -275,7 +293,22 @@ const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt
 const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; };
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} }
+
+let isFirstLoad = true; // Флаг для первого запуска
+
+if (tg) { 
+    tg.ready(); 
+    tg.expand(); 
+    try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
+    
+    // Не пересчитываем при открытии клавиатуры (используем стабильную высоту)
+    tg.onEvent('viewportChanged', () => {
+        if (!tg.isExpanded || tg.viewportHeight === tg.viewportStableHeight) {
+            layout();
+        }
+    });
+}
+
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 const DEMO_BUY = false;
 const store = {
@@ -382,9 +415,49 @@ function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'numbe
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
-function layout(){ W = innerWidth; H = innerHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); SCA = SC * 1.15; const r = $('stage').getBoundingClientRect(); const sy = r.top + r.height * .5; SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad' && st !== 'fight'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
-addEventListener('resize', layout); layout();
-function enter(){ Snd.whoosh(); const m = 120; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[R(4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
+
+function layout(){ 
+    W = innerWidth; 
+    // Используем стабильную высоту (без учета клавиатуры)
+    H = (tg && tg.viewportStableHeight) ? tg.viewportStableHeight : innerHeight; 
+    
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); 
+    SC = cl(Math.min(W, H) / 760, .38, .6); 
+    SCA = SC * 1.15; 
+    const r = $('stage').getBoundingClientRect(); 
+    const sy = r.top + r.height * .5; 
+    SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; 
+    
+    if (st !== 'mad' && st !== 'fight'){ 
+        tx = SPOTS[spot][0]; 
+        ty = SPOTS[spot][1]; 
+    } 
+}
+
+addEventListener('resize', layout); 
+layout();
+
+function enter(){ 
+    Snd.whoosh(); 
+    spot = 0; 
+    tx = SPOTS[0][0]; ty = SPOTS[0][1]; 
+    k = .01; ang = angT = 0; 
+    vx = 0; vy = 0;
+    
+    if (isFirstLoad) {
+        x = tx; y = ty;
+        st = 'hover';
+        isFirstLoad = false;
+    } else {
+        const m = 120; 
+        const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; 
+        const c = corners[R(4)]; 
+        x = c[0]; y = c[1]; 
+        st = 'enter'; 
+    }
+    clearTimeout(coolTimer); 
+}
+
 function annoy(){ if (st === 'fight'){ if (char === 'astro') say('Не отвлекай, я занят!', 1500); return; } if (st === 'mad') return; clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance(); st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y; if (char === 'astro') say('Эй! Не трогай приборы!', 1200); if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy'); }
 $('fly').addEventListener('pointerdown', annoy); $('astw').addEventListener('pointerdown', annoy);
 const LINES = ['Звёзды шепчут тем, кто умеет слушать…','В невесомости мысли становятся лёгкими.','Ты тоже чувствуешь, как далеко до звёзд?','Тишина космоса громче любого шума…','У каждой звезды есть имя. Моё забыто.','Падать и парить — почти одно и то же.'];
