@@ -283,7 +283,16 @@ const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt
 const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; };
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} }
+if (tg) { 
+    tg.ready(); 
+    tg.expand(); 
+    try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
+    
+    // НОВОЕ: Следим за изменением размера окна в Telegram (чтобы бот не улетал вверх при открытии)
+    tg.onEvent('viewportChanged', () => {
+        setTimeout(layout, 100);
+    });
+}
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 const DEMO_BUY = false;
 const store = {
@@ -388,22 +397,52 @@ let hurt = 0, kick = 0, shotT = 0, alT = 0, left = 0, aimA = -14, bubT = 0;
 let resetTimer, danceTimer;
 
 /* --- состояние режима «объяснение» (подлёт к тексту) --- */
-let scMul = 1, scMulT = 1;               /* множитель размера (меняется плавно) */
+let scMul = 1, scMulT = 1;               
 let teachEl = null, teachTimer = 0, teachWait = false, teachFly = false;
-const SLOW_K = .0016;                    /* чем меньше, тем медленнее полёт (около 2 секунд) */
-const HOVER_SCALE = .5;                  /* во сколько раз уменьшается над текстом */
+const SLOW_K = .0016;                    
+const HOVER_SCALE = .5;                  
 
 function setTargets(obj){ for (const key in obj){ if (typeof obj[key] !== 'number') continue; tgt[key] = obj[key]; if (!(key in cur)) cur[key] = obj[key]; } }
 setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
-function layout(){ W = innerWidth; H = innerHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); SC = cl(Math.min(W, H) / 760, .38, .6); SCA = SC * 1.15; const r = $('stage').getBoundingClientRect(); const sy = r.top + r.height * .5; SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; if (st !== 'mad' && st !== 'fight' && st !== 'teach'){ tx = SPOTS[spot][0]; ty = SPOTS[spot][1]; } }
-addEventListener('resize', layout); layout();
-function enter(){ Snd.whoosh(); const m = 120; const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; const c = corners[R(4)]; x = c[0]; y = c[1]; vx = vy = 0; spot = 0; tx = SPOTS[0][0]; ty = SPOTS[0][1]; k = .01; ang = angT = 0; st = 'enter'; clearTimeout(coolTimer); }
+
+function layout(){ 
+    W = innerWidth; H = innerHeight; 
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); 
+    SC = cl(Math.min(W, H) / 760, .38, .6); 
+    SCA = SC * 1.15; 
+    const r = $('stage').getBoundingClientRect(); 
+    const sy = r.top + r.height * .5; 
+    SPOTS = [[W*.5, sy], [W*.2, sy*.85], [W*.8, sy*.85], [W*.2, H*.55], [W*.8, H*.55]]; 
+    
+    // Обновляем цель, если бот не в режиме злости/боя/объяснения
+    if (st !== 'mad' && st !== 'fight' && st !== 'teach'){ 
+        tx = SPOTS[spot][0]; 
+        ty = SPOTS[spot][1]; 
+    } 
+}
+
+addEventListener('resize', () => setTimeout(layout, 50)); 
+layout();
+
+function enter(){ 
+    layout(); // <--- ДОБАВЛЕНО ДЛЯ ПРАВИЛЬНОГО СТАРТА
+    Snd.whoosh(); 
+    const m = 120; 
+    const corners = [[-m,-m],[W+m,-m],[-m,H+m],[W+m,H+m]]; 
+    const c = corners[R(4)]; 
+    x = c[0]; y = c[1]; vx = vy = 0; 
+    spot = 0; 
+    tx = SPOTS[0][0]; ty = SPOTS[0][1]; 
+    k = .01; ang = angT = 0; 
+    st = 'enter'; 
+    clearTimeout(coolTimer); 
+}
+
 function annoy(){
     if (st === 'fight'){ if (char === 'astro') say('Не отвлекай, я занят!', 1500); return; }
     if (st === 'mad') return;
-    /* если нажали во время объяснения: отменяем его */
     if (st === 'teach'){ clearTimeout(teachTimer); teachWait = false; teachFly = false; teachGlow(null); scMulT = 1; }
     clearTimeout(coolTimer); clearTimeout(resetTimer); Hologram.stopDance();
     st = 'mad'; madT = performance.now(); angT = 1; tx = x; ty = y;
@@ -442,8 +481,12 @@ function frame(t){
     /* над текстом: следим за сообщением, чтобы не загораживать его (даже если чат прокрутился) */
     if (st === 'teach' && teachFly && teachEl && teachEl.isConnected){
         const r = teachEl.getBoundingClientRect(), s = SC * HOVER_SCALE;
-        tx = cl(r.left + 46, 50, W - 50);
-        ty = Math.max(r.top - 6 - 142 * s, 150 * s + 56);   /* ножками чуть выше верхнего края текста */
+        
+        // Ограничиваем по горизонтали, чтобы не улетал за края
+        tx = Math.max(50, Math.min(W - 50, r.left + (r.width / 2))); 
+        
+        // Ограничиваем по вертикали: минимум 150 пикселей от верхнего края
+        ty = Math.max(150, r.top - 10 - 142 * s);   
     }
 
     /* пружина: плавный разгон и торможение */
@@ -545,11 +588,8 @@ window.Hologram = Hologram;
 
 /* ============================================================
    ОБЪЯСНЕНИЕ: плавно подлетает к тексту, думает, говорит, возвращается
-   Порядок: реплика над головой -> плавный перелёт и раздумья над текстом ->
-   ответ -> «Готово!» -> плавно обратно на своё место
    ============================================================ */
 const THINK_LINES = ['Так… как бы попроще…', 'Подбираю слова…', 'Сейчас-сейчас…'];
-/* Срабатывает на короткие фразы вроде «не понял»; длинные вопросы с «объясни» идут как обычно */
 const isExplain = t => /не понял|не поняла|непонятно|объясни/i.test(t) && t.length <= 40;
 function lastBotMsg(){ const m = document.querySelectorAll('.msg-row.bot .message'); return m[m.length - 1] || null; }
 function teachGlow(el){
@@ -561,33 +601,41 @@ function teachLoop(i){
     say(THINK_LINES[i % THINK_LINES.length], 2500);
     teachTimer = setTimeout(() => teachLoop(i + 1), 2700);
 }
-/* 1. Человек написал «не понял»: реплика, потом плавный перелёт к тексту */
 function teachBegin(){
     if (char !== 'holo') return false;
     teachEl = lastBotMsg(); if (!teachEl) return false;
     clearTimeout(teachTimer); clearTimeout(resetTimer);
     Hologram.stopDance();
     st = 'teach'; teachWait = true; teachFly = false;
-    tx = x; ty = y; k = SLOW_K;                      /* пока стоит на месте */
+    tx = x; ty = y; k = SLOW_K;                      
     Hologram.react('thinking', 'think');
     say('Хм… сейчас объясню проще', 2400);
+    
+    // Уменьшил задержку до 800 мс, чтобы он начинал полет раньше
     teachTimer = setTimeout(() => {
         if (st !== 'teach') return;
         scMulT = HOVER_SCALE; teachFly = true; teachGlow(teachEl);
         teachLoop(0);
-    }, 1300);
+    }, 800); 
     return true;
 }
-/* 2. Пришёл ответ: радуется, показывает на новый текст */
 function teachAnswer(){
     if (st !== 'teach') return;
     clearTimeout(teachTimer); teachWait = false;
-    teachFly = true; teachEl = lastBotMsg(); teachGlow(teachEl);
-    Hologram.react('happy', 'idle');
-    say('Готово! Смотри ниже', 2200);
-    teachTimer = setTimeout(teachReturn, 2800);
+    
+    // Ждем 150 мс, чтобы новое сообщение появилось на экране и прокрутилось
+    setTimeout(() => {
+        if (st !== 'teach') return;
+        
+        teachFly = true; 
+        teachEl = lastBotMsg(); // Теперь это точно НОВОЕ сообщение
+        teachGlow(teachEl);
+        Hologram.react('happy', 'idle');
+        say('Готово! Смотри ниже', 2200);
+        
+        teachTimer = setTimeout(teachReturn, 2800);
+    }, 150); 
 }
-/* 3. Плавно обратно на своё место */
 function teachReturn(){
     if (st !== 'teach') return;
     teachGlow(null); teachFly = false;
@@ -595,7 +643,6 @@ function teachReturn(){
     say('А теперь на место', 1600);
     Hologram.react('happy', 'wave', 3000);
 }
-/* Ошибка связи: просто возвращается на место */
 function teachCancel(){
     if (st !== 'teach') return;
     clearTimeout(teachTimer); teachWait = false;
@@ -797,7 +844,6 @@ async function sendMessage(text) {
 
     const historyText = chatHistoryForServer.slice(-40).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
     
-    // Подсказка для сервера, если это просьба объяснить
     let textToSend = text;
     if (explain) {
         textToSend = text + " (Пожалуйста, объясни свой предыдущий ответ максимально просто, как для ребенка, короткими предложениями)";
