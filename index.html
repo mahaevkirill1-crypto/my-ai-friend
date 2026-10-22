@@ -758,7 +758,7 @@ async function sendMessage(text) {
         }
         if (BAL < bet) {
             addToHistory("У тебя нет столько звезд. Ставь меньше.", 'bot');
-            rpsState = 'none';
+            rpsState = 'none'; // ИСПРАВЛЕНИЕ: Сбрасываем состояние, если не хватает денег
             input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
         }
         currentBet = bet;
@@ -813,12 +813,15 @@ async function sendMessage(text) {
             addToHistory("Ошибка соединения с сервером.", 'bot');
         }
         
+        // ИСПРАВЛЕНИЕ: Сбрасываем состояние игры и обнуляем ставку после ЛЮБОГО исхода
         rpsState = 'none';
+        currentBet = 0; 
         input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
     }
 
     if (lowText === 'игра' || lowText === 'поиграем' || lowText === 'сыграем') {
         rpsState = 'waiting_bet';
+        currentBet = 0; // На всякий случай сбрасываем перед новой игрой
         addToHistory("Давай сыграем в Камень-Ножницы-Бумага! Какая ставка? (напиши число, например 5, или 0 чтобы без ставок)", 'bot');
         Hologram.react('happy', 'wave', 3000);
         input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
