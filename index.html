@@ -207,7 +207,7 @@
 <div id="bub"></div>
 <div id="chat-history"></div>
 <div id="hud-panel">
-    <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Расскажи шутку">Расскажи шутку</button><button class="chip" data-shop="1">Магазин</button></div>
+    <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Расскажи шутку">Расскажи шутку</button><button class="chip" data-say="Поиграем">Поиграем</button><button class="chip" data-shop="1">Магазин</button></div>
     <div class="input-container">
         <div class="input-inner">
             <span class="prompt">&gt;</span>
@@ -288,14 +288,12 @@ const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k 
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
 
-let isFirstLoad = true; // Флаг для первого запуска
+let isFirstLoad = true;
 
 if (tg) { 
     tg.ready(); 
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
-    
-    // Не пересчитываем при открытии клавиатуры (используем стабильную высоту)
     tg.onEvent('viewportChanged', () => { onViewport(); });
 }
 
@@ -336,6 +334,8 @@ let OWNED = store.get('owned', {});
 let EQUIP = store.get('equip', {});
 let char = store.get('char', 'holo');
 let isOffended = store.get('isOffended', false);
+let rpsState = 'none';
+let currentBet = 0;
 if (char === 'astro' && !OWNED.astro) char = 'holo';
 const GREET = { holo: 'Привет! Я твой голо-друг. Давай поболтаем?', astro: 'Приветствую, путник. Звёзды привели тебя сюда…' };
 const EMOTIONS = {
@@ -748,6 +748,82 @@ async function sendMessage(text) {
         input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
         return;
     }
+
+    // --- МИНИ-ИГРА: КАМЕНЬ НОЖНИЦЫ БУМАГА ---
+    if (rpsState === 'waiting_bet') {
+        const bet = parseInt(lowText);
+        if (isNaN(bet) || bet < 0) {
+            addToHistory("Напиши число. Например: 5", 'bot');
+            input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+        }
+        if (BAL < bet) {
+            addToHistory("У тебя нет столько звезд. Ставь меньше.", 'bot');
+            rpsState = 'none';
+            input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+        }
+        currentBet = bet;
+        rpsState = 'waiting_choice';
+        addToHistory(`Ставка ${bet} ★. Твой ход: камень, ножницы или бумага?`, 'bot');
+        input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+    }
+
+    if (rpsState === 'waiting_choice') {
+        let choice = '';
+        if (lowText.includes('камень')) choice = 'rock';
+        else if (lowText.includes('ножниц')) choice = 'scissors';
+        else if (lowText.includes('бумаг')) choice = 'paper';
+        
+        if (!choice) {
+            addToHistory("Не понял. Напиши: камень, ножницы или бумага.", 'bot');
+            input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+        }
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/play_rps`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId(), bet: currentBet, choice: choice })
+            });
+            const data = await res.json();
+            
+            if (data.error) {
+                addToHistory(data.error, 'bot');
+            } else {
+                BAL = data.new_bal;
+                store.set('bal', BAL);
+                renderBal();
+                
+                const botChoices = { rock: 'Камень 🪨', paper: 'Бумага 📄', scissors: 'Ножницы ✂️' };
+                let msg = `Я выбрал: ${botChoices[data.bot_choice]}\n`;
+                
+                if (data.tie) {
+                    msg += "Ничья! Ставка возвращается.";
+                    Hologram.react('thinking', 'idle', 3000);
+                } else if (data.win) {
+                    msg += `Ты победил! +${currentBet * 2} ★`;
+                    Hologram.react('surprised', 'cheer', 3000);
+                    Snd.cash();
+                } else {
+                    msg += `Ты проиграл. -${currentBet} ★`;
+                    Hologram.react('sad', 'idle', 3000);
+                }
+                addToHistory(msg, 'bot');
+                syncToServer();
+            }
+        } catch(e) {
+            addToHistory("Ошибка соединения с сервером.", 'bot');
+        }
+        
+        rpsState = 'none';
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
+    }
+
+    if (lowText === 'игра' || lowText === 'поиграем' || lowText === 'сыграем') {
+        rpsState = 'waiting_bet';
+        addToHistory("Давай сыграем в Камень-Ножницы-Бумага! Какая ставка? (напиши число, например 5, или 0 чтобы без ставок)", 'bot');
+        Hologram.react('happy', 'wave', 3000);
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
+    }
+    // ------------------------------------------
 
     if (char === 'astro') say('Слушаю звёзды…', 20000);
     else Hologram.react('thinking', 'think');
