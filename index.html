@@ -1129,10 +1129,13 @@ sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); draw
 ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 
-// ФИКС: Показываем интерфейс сразу при загрузке
+// ФИКС: Убираем все ожидания и просто показываем интерфейс
 document.body.classList.add('loaded');
-syncBody();
-layout();
+setTimeout(() => {
+    syncBody();
+    layout();
+    scrollChat();
+}, 100);
 </script>
 </body>
 </html>
