@@ -70,7 +70,7 @@ def init_db():
         )
     """)
     
-    # 3. УМНАЯ ПРОВЕРКА КОЛОНКИ last_seen (чтобы сервер не падал)
+    # 3. УМНАЯ ПРОВЕРКА КОЛОНКИ last_seen
     try:
         conn.execute("SELECT last_seen FROM user_meta LIMIT 1")
     except Exception:
@@ -266,6 +266,7 @@ async def save_progress(request: Request):
 
 class AdminData(BaseModel):
     admin_id: int
+    amount: int = 1000000 # Сумма по умолчанию
 
 @app.post("/admin/stats")
 async def admin_stats(data: AdminData):
@@ -283,14 +284,16 @@ async def admin_stats(data: AdminData):
 async def admin_give_bal(data: AdminData):
     if data.admin_id != ADMIN_ID:
         return {"error": "Доступ запрещен"}
+    
+    if data.amount <= 0:
+        return {"error": "Сумма должна быть больше нуля"}
         
-    amount = 1000000
     conn = get_db_connection()
-    conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (amount, data.admin_id))
+    conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (data.amount, data.admin_id))
     conn.commit()
     conn.close()
     
-    return {"status": "ok", "added": amount}
+    return {"status": "ok", "added": data.amount}
 
 @app.post("/referral/register")
 async def referral_register(request: Request):
