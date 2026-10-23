@@ -24,45 +24,39 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
 
 # --- НАСТРОЙКИ РЕФЕРАЛОК ---
-# Username бота БЕЗ @ (например HoloFriendBot). Нужен, чтобы собрать ссылку-приглашение.
 BOT_USERNAME = os.getenv("BOT_USERNAME", "")
-# Короткое имя мини-приложения из BotFather (/newapp). Если у бота настроено Main Mini App, оставь пустым.
 MINIAPP_SHORT_NAME = os.getenv("MINIAPP_SHORT_NAME", "")
 
-REF_REWARD_REFERRER = 10      # ★ тому, кто пригласил
-REF_REWARD_INVITEE = 5        # ★ тому, кого пригласили
-REF_MIN_MSGS = 3              # сколько сообщений должен отправить приглашённый, чтобы награда засчиталась
-REF_MIN_AGE = 300             # и сколько секунд должно пройти с момента регистрации приглашения
-REF_NEW_WINDOW = 3600         # приглашённым считается только тот, кто впервые открыл приложение не позже чем час назад
-REF_MAX_TOTAL = 30            # максимум приглашений на одного человека за всё время
-REF_MAX_PER_DAY = 5           # максимум новых приглашений на одного человека в сутки
-MSG_MIN_LEN = 3               # слишком короткие сообщения не считаются
-MSG_MIN_GAP = 8               # между засчитанными сообщениями минимум столько секунд
-INIT_DATA_MAX_AGE = 86400     # initData старше суток не принимаем
+REF_REWARD_REFERRER = 10
+REF_REWARD_INVITEE = 5
+REF_MIN_MSGS = 3
+REF_MIN_AGE = 300
+REF_NEW_WINDOW = 3600
+REF_MAX_TOTAL = 30
+REF_MAX_PER_DAY = 5
+MSG_MIN_LEN = 3
+MSG_MIN_GAP = 8
+INIT_DATA_MAX_AGE = 86400
 
 # --- НАСТРОЙКИ КЕЙСОВ ---
-# Канал, на который нужно подписаться для бесплатного кейса: @username или числовой id (-100...).
-# Бот ОБЯЗАТЕЛЬНО должен быть администратором этого канала, иначе Telegram не даст проверить подписку.
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "") or (
     f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}" if CHANNEL_USERNAME and not CHANNEL_USERNAME.lstrip('-').isdigit() else ""
 )
-CASE_ALL_PRICE = 40           # цена платного кейса, ★
-CASE_FREE_COOLDOWN = 86400    # бесплатный кейс раз в 24 часа
-EXCLUSIVE_FREE = ["h_halo", "f_visor"]   # эксклюзивы, которые выпадают только из бесплатного кейса
-EXCLUSIVE_CHANCE = 0.02       # шанс КАЖДОГО эксклюзива за открытие (2% + 2%)
-FREE_MAX_PRICE = 50           # в бесплатном кейсе обычные предметы не дороже этого
-TIER_WEIGHTS = [("common", 55), ("uncommon", 30), ("rare", 12), ("epic", 3)]  # шансы платного кейса, %
-SELL_DIV = 2                  # продажа предмета = цена // 2
+CASE_ALL_PRICE = 40
+CASE_FREE_COOLDOWN = 86400
+EXCLUSIVE_FREE = ["h_halo", "f_visor"]
+EXCLUSIVE_CHANCE = 0.02
+FREE_MAX_PRICE = 50
+TIER_WEIGHTS = [("common", 55), ("uncommon", 30), ("rare", 12), ("epic", 3)]
+SELL_DIV = 2
 
 # --- ЭКОНОМИКА И ЗАЩИТА ---
-QUEST_EARN_CAP = 20           # сколько ★ в сутки сервер принимает от клиента за задания (честный максимум ~14)
-DAILY_COOLDOWN = 20 * 3600    # ежедневная награда: не чаще раза в 20 часов
-DAILY_STREAK_KEEP = 48 * 3600 # серия не прерывается, если вернуться в пределах 48 часов
+QUEST_EARN_CAP = 20
+DAILY_COOLDOWN = 20 * 3600
+DAILY_STREAK_KEEP = 48 * 3600
 DAILY_DROP_CHANCE = 0.15
 DAILY_DROP_MAX_PRICE = 65
-# Секретный токен вебхука. Без него невозможно отличить настоящее сообщение Telegram об оплате от подделки,
-# поэтому без токена платежи отключены. Подробности в инструкции после обновления.
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 SHOP_PRICES = {
@@ -71,14 +65,11 @@ SHOP_PRICES = {
     "h_cap": 20, "h_phones": 40, "h_flowers": 45, "h_top": 55, "h_laurel": 65, "h_wizard": 75, "h_neon": 85, "h_crown": 100, "h_royal": 120,
     "f_dark": 25, "f_round": 30, "f_heart": 50,
     "s_sneak": 30, "s_dress": 45, "s_gold": 90,
-    # новые аксессуары
     "h_santa": 35, "h_pirate": 60, "f_guy": 70, "f_cyber": 75, "h_bunny": 80,
     "h_helmet": 95, "a_cyber": 110, "b_cape": 120, "h_ushanka": 130
 }
-# Эксклюзивы нельзя купить в магазине: их нет в SHOP_PRICES. Цена здесь нужна только для расчёта продажи.
 EXCLUSIVE_PRICES = {"h_halo": 150, "f_visor": 150}
 ITEM_PRICE = {**{k: v for k, v in SHOP_PRICES.items() if k != "astro"}, **EXCLUSIVE_PRICES}
-# Слот определяется по первой букве id: c цвет, h голова, f лицо, s обувь, b спина (плащ), a рука
 SLOT_BY_PREFIX = {"c": "color", "h": "head", "f": "face", "s": "feet", "b": "back", "a": "arm"}
 ITEM_SLOT = {i: SLOT_BY_PREFIX[i[0]] for i in ITEM_PRICE}
 VALID_SLOTS = set(SLOT_BY_PREFIX.values())
@@ -108,7 +99,6 @@ def roll_free():
     pool = [i for i, p in SHOP_PRICES.items() if i != "astro" and p <= FREE_MAX_PRICE]
     return _rng.choice(pool)
 
-# --- НАСТРОЙКА БАЗЫ ДАННЫХ TURSO ---
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
@@ -125,16 +115,13 @@ def init_db():
             equip TEXT DEFAULT '{}'
         )
     """)
-    # Когда пользователь впервые появился (нужно, чтобы отличать новичков от старых аккаунтов)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS user_meta (
             user_id INTEGER PRIMARY KEY,
             first_seen INTEGER NOT NULL
         )
     """)
-    # Все, кто уже был в базе до появления рефералок, считаются "старыми" (first_seen = 0)
     conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen) SELECT user_id, 0 FROM users")
-    # Серверный подсчёт сообщений (для проверки активности приглашённого)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS user_stats (
             user_id INTEGER PRIMARY KEY,
@@ -142,7 +129,6 @@ def init_db():
             last_ts INTEGER DEFAULT 0
         )
     """)
-    # Один приглашённый может быть записан только один раз (PRIMARY KEY)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS referrals (
             invitee_id INTEGER PRIMARY KEY,
@@ -155,7 +141,6 @@ def init_db():
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals (referrer_id)")
-    # Ежедневная награда считается на сервере
     conn.execute("""
         CREATE TABLE IF NOT EXISTS daily_state (
             user_id INTEGER PRIMARY KEY,
@@ -163,7 +148,6 @@ def init_db():
             streak INTEGER DEFAULT 0
         )
     """)
-    # Сколько ★ за задания уже принято от клиента сегодня
     conn.execute("""
         CREATE TABLE IF NOT EXISTS earn_state (
             user_id INTEGER PRIMARY KEY,
@@ -171,7 +155,6 @@ def init_db():
             earned INTEGER DEFAULT 0
         )
     """)
-    # Обработанные платежи (защита от повторной выдачи)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS payments (
             charge_id TEXT PRIMARY KEY,
@@ -180,7 +163,6 @@ def init_db():
             created_at INTEGER NOT NULL
         )
     """)
-    # Состояние кейсов: когда открыт последний бесплатный и какой предмет ждёт решения "продать / оставить"
     conn.execute("""
         CREATE TABLE IF NOT EXISTS case_state (
             user_id INTEGER PRIMARY KEY,
@@ -226,9 +208,7 @@ ASTRO_PROMPT = """
 {"text": "твой ответ", "emotion": "название_эмоции"}
 """
 
-# === ПРОВЕРКА ПОДЛИННОСТИ ДАННЫХ TELEGRAM (initData) ===
 def validate_init_data(init_data: str):
-    """Проверяет подпись Telegram. Возвращает {'user': {...}, 'start_param': str} или None."""
     if not init_data or not BOT_TOKEN:
         return None
     try:
@@ -254,7 +234,6 @@ def validate_init_data(init_data: str):
         return None
     return {"user": user, "start_param": pairs.get("start_param", "")}
 
-# === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РЕФЕРАЛОК ===
 def scalar(conn, sql, params=()):
     row = conn.execute(sql, params).fetchone()
     return row[0] if row else 0
@@ -274,7 +253,6 @@ def make_link(user_id):
     return f"{base}?startapp=ref_{user_id}"
 
 def refresh_activation(conn, column, user_id, now):
-    """Засчитывает приглашение, когда приглашённый отправил достаточно сообщений и прошло минимальное время."""
     assert column in ("referrer_id", "invitee_id")
     rows = conn.execute(
         f"SELECT invitee_id, created_at FROM referrals WHERE {column} = ? AND activated = 0",
@@ -290,7 +268,6 @@ def refresh_activation(conn, column, user_id, now):
     conn.commit()
 
 def count_message(user_id, text_len):
-    """Считает осмысленные сообщения пользователя (не чаще раза в MSG_MIN_GAP секунд)."""
     try:
         uid = int(user_id)
     except (TypeError, ValueError):
@@ -310,9 +287,6 @@ def count_message(user_id, text_len):
     except Exception:
         pass
 
-# === ХРАНИЛИЩЕ ПРОГРЕССА ===
-# Сервер — единственный источник правды. Предметы выдаются только его командами (покупка, кейс, оплата, ежедневный дроп),
-# баланс меняется только его командами, а от клиента принимается лишь ограниченная сумма за задания и список надетых вещей.
 def get_owned(conn, uid):
     row = conn.execute("SELECT owned FROM users WHERE user_id = ?", (uid,)).fetchone()
     try:
@@ -329,7 +303,6 @@ def grant_item(conn, uid, item):
     return owned
 
 def clean_equip(equip, owned):
-    """Оставляет только предметы, которые у игрока есть и которые подходят к своему слоту."""
     out = {}
     if not isinstance(equip, dict):
         return out
@@ -390,8 +363,6 @@ async def save_progress(request: Request):
         server_bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
         owned = get_owned(conn, uid)
 
-        # Баланс: клиент может только ДОБАВИТЬ заработанное за задания, и не больше суточного лимита.
-        # Уменьшить или выставить произвольное значение нельзя, покупки идут через сервер.
         try:
             client_bal = int(data.get("bal", server_bal))
         except (TypeError, ValueError):
@@ -411,7 +382,6 @@ async def save_progress(request: Request):
                     (uid, day, earned_today + accepted)
                 )
 
-        # Надетые вещи: только те, что действительно есть у игрока
         equip = clean_equip(data.get("equip", {}), owned)
         conn.execute("UPDATE users SET equip = ? WHERE user_id = ?", (json.dumps(equip), uid))
         conn.commit()
@@ -427,7 +397,6 @@ async def shop_buy(request: Request):
         return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]
     item = data.get("item")
-    # Персонажи (astro) и эксклюзивы за ★ не продаются: их нет в этой проверке
     if item not in SHOP_PRICES or item == "astro":
         return {"status": "error", "reason": "bad_item"}
     price = SHOP_PRICES[item]
@@ -484,12 +453,6 @@ async def daily_claim(request: Request):
     finally:
         conn.close()
 
-# === РЕФЕРАЛЬНАЯ СИСТЕМА ===
-# Во всех трёх эндпоинтах личность пользователя берётся ТОЛЬКО из подписанных данных Telegram (initData),
-# а не из полей, которые клиент может подделать.
-# Внутри обработчиков после чтения запроса нет await, поэтому проверка и выдача награды не могут
-# выполниться параллельно в одном процессе. Если запустишь несколько воркеров, оберни выдачу в транзакцию БД.
-
 @app.post("/referral/register")
 async def referral_register(request: Request):
     data = await request.json()
@@ -511,22 +474,18 @@ async def referral_register(request: Request):
     now = int(time.time())
     conn = get_db_connection()
     try:
-        # Уже приглашён раньше: второй раз не засчитываем
         if conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ?", (uid,)).fetchone():
             return {"status": "ignored", "reason": "already"}
 
-        # Приглашённым может быть только новичок
         meta = conn.execute("SELECT first_seen FROM user_meta WHERE user_id = ?", (uid,)).fetchone()
         if meta is None:
             touch_meta(conn, uid, now)
         elif now - meta[0] > REF_NEW_WINDOW:
             return {"status": "ignored", "reason": "not_new"}
 
-        # Пригласивший должен существовать
         if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (referrer_id,)).fetchone():
             return {"status": "ignored", "reason": "bad_referrer"}
 
-        # Лимиты на одного пригласившего
         if scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (referrer_id,)) >= REF_MAX_TOTAL:
             return {"status": "ignored", "reason": "limit"}
         if scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND created_at > ?",
@@ -610,7 +569,6 @@ async def referral_claim(request: Request):
 
         reward = 0
 
-        # Награда за тех, кого пригласил я
         rows = conn.execute(
             "SELECT invitee_id FROM referrals WHERE referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (uid,)
         ).fetchall()
@@ -618,7 +576,6 @@ async def referral_claim(request: Request):
             conn.execute("UPDATE referrals SET referrer_claimed = 1 WHERE invitee_id = ?", (invitee_id,))
             reward += REF_REWARD_REFERRER
 
-        # Мой бонус за то, что меня пригласили
         mine = conn.execute(
             "SELECT activated, invitee_claimed FROM referrals WHERE invitee_id = ?", (uid,)
         ).fetchone()
@@ -634,9 +591,7 @@ async def referral_claim(request: Request):
     finally:
         conn.close()
 
-# === КЕЙСЫ ===
 async def is_channel_member(user_id):
-    """True / False / None (None = проверить не удалось: канал не настроен, бот не админ или Telegram недоступен)."""
     if not CHANNEL_USERNAME or not BOT_TOKEN:
         return None
     chat = CHANNEL_USERNAME if (CHANNEL_USERNAME.startswith("@") or CHANNEL_USERNAME.lstrip("-").isdigit()) else "@" + CHANNEL_USERNAME
@@ -690,7 +645,6 @@ async def case_open(request: Request):
     if kind not in ("free", "all"):
         return {"status": "error", "reason": "bad_case"}
 
-    # Единственный await (проверка подписки) стоит ДО проверки кулдауна и записи, поэтому два запроса одновременно не пройдут.
     if kind == "free":
         member = await is_channel_member(uid)
         if member is None:
@@ -704,7 +658,6 @@ async def case_open(request: Request):
         row = conn.execute("SELECT last_free, pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
         last_free, pending, pending_case = (row[0], row[1], row[2]) if row else (0, "", "")
 
-        # Сначала нужно решить судьбу предыдущего предмета
         if pending:
             return {"status": "error", "reason": "pending", "item": pending, "case": pending_case}
 
@@ -720,7 +673,6 @@ async def case_open(request: Request):
             conn.commit()
             return {"status": "ok", "item": item, "case": "free"}
 
-        # Платный кейс: списываем ★ с серверного баланса (клиент перед этим синхронизирует прогресс)
         bal_row = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()
         bal = bal_row[0] if bal_row else 0
         if bal < CASE_ALL_PRICE:
@@ -756,7 +708,6 @@ async def case_resolve(request: Request):
             return {"status": "error", "reason": "nothing"}
         sell = ITEM_PRICE.get(item, 0) // SELL_DIV
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-        # Дубликат оставить нельзя: он автоматически продаётся
         if action == "keep" and get_owned(conn, uid).get(item):
             action = "sell"
         conn.execute("UPDATE case_state SET pending = '', pending_case = '' WHERE user_id = ?", (uid,))
@@ -770,22 +721,19 @@ async def case_resolve(request: Request):
     finally:
         conn.close()
 
-# === МИНИ-ИГРА: КАМЕНЬ НОЖНИЦЫ БУМАГА ===
 class BetData(BaseModel):
     init_data: str
     bet: int
-    choice: str  # 'rock', 'paper', 'scissors'
+    choice: str
 
 @app.post("/play_rps")
 async def play_rps(data: BetData):
-    # Игрок определяется ТОЛЬКО по подписанным данным Telegram, чужой баланс тронуть нельзя
     info = validate_init_data(data.init_data)
     if not info:
         return {"error": "auth"}
     user_id = info["user"]["id"]
     if data.choice not in ("rock", "paper", "scissors"):
         return {"error": "Неверный выбор"}
-    # ЗАЩИТА: Запрещаем ставить 0 или отрицательные числа
     if data.bet <= 0:
         return {"error": "Ставка должна быть больше нуля"}
         
@@ -802,10 +750,8 @@ async def play_rps(data: BetData):
         conn.close()
         return {"error": "Недостаточно звезд"}
 
-    # Робот делает свой выбор
     bot_choice = random.choice(['rock', 'paper', 'scissors'])
     
-    # Логика определения победителя
     win = False
     tie = False
     if data.choice == bot_choice:
@@ -815,13 +761,11 @@ async def play_rps(data: BetData):
          (data.choice == 'scissors' and bot_choice == 'paper'):
         win = True
     
-    # Обновляем баланс
     new_bal = current_bal
     if win:
-        # ЧЕСТНЫЙ X2: Возврат ставки + такой же выигрыш (600 -> 1200)
         new_bal += data.bet  
     elif not tie:
-        new_bal -= data.bet      # Проигрыш
+        new_bal -= data.bet
         
     conn.execute("UPDATE users SET bal = ? WHERE user_id = ?", (new_bal, user_id))
     conn.commit()
@@ -846,7 +790,6 @@ async def ask(request: Request):
         if not user_text:
             return {"text": "Я не вижу текста.", "emotion": "thinking"}
 
-        # Считаем сообщения для проверки активности приглашённых друзей
         ask_info = validate_init_data(data.get("init_data", ""))
         if ask_info:
             count_message(ask_info["user"]["id"], len(user_text.strip()))
@@ -892,7 +835,6 @@ async def clear(request: Request):
     return {"status": "ok"}
 
 def check_payment(from_id, payload, currency, amount):
-    """Проверяет, что платёж соответствует тому, что мы выставляли. Возвращает (ok, причина)."""
     try:
         p_uid, item = str(payload).split("|", 1)
         p_uid = int(p_uid)
@@ -932,6 +874,7 @@ async def create_invoice(request: Request):
         "description": "Покупка в Holo Friend",
         "payload": f"{uid}|{item_id}",
         "currency": "XTR",
+        "provider_token": "",  # <--- ИСПРАВЛЕНИЕ ЗДЕСЬ: пустая строка для Telegram Stars
         "prices": [{"label": "Товар", "amount": price}]
     }
     r = await tg_call("createInvoiceLink", payload)
@@ -942,7 +885,6 @@ async def create_invoice(request: Request):
 @app.post("/telegram/webhook")
 async def telegram_webhook(request: Request):
     try:
-        # Без секретного токена любой может прислать поддельное "оплачено", поэтому без него платежи не принимаются.
         if not WEBHOOK_SECRET:
             data = await request.json()
             if "pre_checkout_query" in data:
@@ -983,7 +925,6 @@ async def telegram_webhook(request: Request):
                 charge = pay.get("telegram_payment_charge_id", "")
                 conn = get_db_connection()
                 try:
-                    # Один платёж выдаётся один раз
                     if charge and not conn.execute("SELECT 1 FROM payments WHERE charge_id = ?", (charge,)).fetchone():
                         conn.execute("INSERT INTO payments (charge_id, user_id, item, created_at) VALUES (?, ?, ?, ?)",
                                      (charge, from_id, item, int(time.time())))
