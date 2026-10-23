@@ -626,12 +626,14 @@ function applyServerState(res, withEquip){
     if (withEquip && res.equip){ EQUIP = res.equip; store.set('equip', EQUIP); }
 }
 let syncChain = Promise.resolve();
+let balDirty = false;
+const ensureSynced = () => balDirty ? syncToServer() : syncChain;
 function syncToServer(){
     syncChain = syncChain.then(async () => {
         if (!refOk()) return;
         try {
             const res = await tgPost('save_progress', { bal: BAL, equip: EQUIP });
-            if (res && res.status === 'ok'){ applyServerState(res, false); renderWear(); if (shopOpen && tabNow === 'inv') renderInv(); }
+            if (res && res.status === 'ok'){ balDirty = false; applyServerState(res, false); renderWear(); if (shopOpen && tabNow === 'inv') renderInv(); }
         } catch(e) { console.error('Save error', e); }
     });
     return syncChain;
@@ -671,7 +673,7 @@ chatHistory.addEventListener('click', async e => {
     b.parentElement.querySelectorAll('button').forEach(x => { x.disabled = true; });
     let msg;
     try {
-        await syncToServer();
+        await ensureSynced();
         const res = await tgPost('play_rps', { bet, choice });
         if (res && res.status === 'ok'){
             BAL = res.new_bal; store.set('bal', BAL); renderBal();
@@ -1041,7 +1043,7 @@ async function claimDaily(){
     } catch(e) { toast('Нет связи, попробуй позже'); }
     DLY.busy = false; renderBal(); renderBonus(); updateDots();
 }
-function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
+function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); balDirty = true; sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
 function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
 function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = can ? cs % 7 : (cs > 0 ? ((cs - 1) % 7) + 1 : 0); let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); bonusEl.innerHTML = `<div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : (DLY.loaded ? 'Приходи позже' : 'Доступно в Telegram')}</button><div class="res">${lastResult}</div></div><div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div>${refCard()}<div class="hint">Звёзды из бонусов можно потратить на наряды.</div>`; }
 $('bonus-list').addEventListener('click', e => { if (e.target.closest('#ref-share')) return refShare(); if (e.target.closest('#ref-copy')) return refCopy(); if (e.target.closest('#ref-claim')) return refClaim(); if (e.target.closest('#claim-d')) return claimDaily(); const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q); });
@@ -1182,7 +1184,7 @@ async function openCase(kind){
     if (kind === 'all' && BAL < CASES.price){ toast(CASE_ERR.no_funds); return; }
     CASES.busy = true; renderCases();
     try {
-        if (kind === 'all') await syncToServer();
+        if (kind === 'all') await ensureSynced();
         const res = await tgPost('case/open', { case: kind });
         if (res && res.status === 'ok'){
             if (kind === 'all'){ BAL = res.new_bal; store.set('bal', BAL); renderBal(); } else { CASES.readyAt = Date.now() + 86400 * 1000; CASES.subscribed = true; }
@@ -1226,7 +1228,7 @@ function showDrop(itemId, kind, animate){
     $('drop').classList.add('open');
     if (animate === false){ revealDrop(); return; }
     $('drop-box').innerHTML = `<div class="shake">${kind === 'free' ? caseSvg('#4FD1E8', '#9AF0FF') : caseSvg('#A78BFA', '#D4C5FF')}</div><div class="bs">Открываем кейс…</div>`;
-    sfx('click'); setTimeout(() => { if (DROP.item === itemId) revealDrop(); }, 1100);
+    sfx('click'); setTimeout(() => { if (DROP.item === itemId) revealDrop(); }, 600);
 }
 function revealDrop(){
     const it = byId[DROP.item]; if (!it){ closeDrop(); return; }
@@ -1293,7 +1295,7 @@ async function buy(id){
     const isSkin = !!SHOP_ITEMS.find(i => i.id === id);
     if (!isSkin && BAL >= it.price){
         try {
-            await syncToServer();
+            await ensureSynced();
             const res = await tgPost('shop/buy', { item: id });
             if (res && res.status === 'ok'){ applyServerState(res, false); grant(id); }
             else toast(SHOP_ERR[res && res.reason] || 'Не получилось купить');
