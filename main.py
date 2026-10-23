@@ -43,8 +43,8 @@ CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK", "") or (
     f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}" if CHANNEL_USERNAME and not CHANNEL_USERNAME.lstrip('-').isdigit() else ""
 )
-CASE_ALL_PRICE = 50           # <--- ИСПРАВЛЕНО: Теперь 50 звезд
-CASE_FREE_COOLDOWN = 86400
+CASE_ALL_PRICE = 50           # Цена платного кейса
+CASE_FREE_COOLDOWN = 86400    # 24 часа
 EXCLUSIVE_FREE = ["h_halo", "f_visor"]
 EXCLUSIVE_CHANCE = 0.02
 FREE_MAX_PRICE = 50
