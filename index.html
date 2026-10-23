@@ -84,6 +84,7 @@
     #chips::-webkit-scrollbar { display: none; }
     .chip { flex: none; font: inherit; font-size: 12px; color: #9AF0FF; background: #0B2230; border: 1px solid rgba(79,209,232,.35); border-radius: 4px; padding: 5px 11px; cursor: pointer; }
     .chip:active { background: #123A4A; }
+    .chip:disabled { opacity: .45; }
     .input-container { width: 100%; background: #4FD1E8; padding: 1px; transition: background .2s; clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px); }
     .input-container:focus-within { background: #9AF0FF; }
     .input-inner { display: flex; align-items: center; gap: 8px; background: #0d1117; padding: 4px 4px 4px 14px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
@@ -155,7 +156,7 @@
     .qr { font-size: 11px; color: #4B8FA0; }
     .q button { width: 80px; flex-shrink: 0; }
     .res { font-size: 13px; color: #FFD166; text-align: center; }
-    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #0B2230; border: 1px solid #2E8FA3; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
+    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #0B2230; border: 1px solid #2E8FA3; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 1000; opacity: 0; transition: all 0.3s; pointer-events: none; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
     #confirm { background: rgba(7,12,20,.82); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
     .dialog { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; }
@@ -339,11 +340,11 @@
     </div>
     <div class="input-container" style="margin-bottom: 10px;">
         <div class="input-inner">
-            <input type="number" id="adm-amount" placeholder="Сумма звезд" style="background: transparent; border: none; color: #fff; padding: 8px; outline: none; width: 100%;">
+            <input type="number" id="adm-amount" placeholder="Сумма звезд" style="background: transparent; border: none; color: #fff; padding: 8px; outline: none; width: 100%; font-size: 16px;">
         </div>
     </div>
     <button class="txtbtn on" style="width: 100%; margin-bottom: 10px;" onclick="adminGiveMoney()">💰 Выдать указанную сумму</button>
-    <button class="txtbtn" style="width: 100%;" onclick="document.getElementById('admin-panel').classList.remove('open')">Закрыть</button>
+    <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
 <div id="toast"></div>
@@ -651,8 +652,49 @@ async function loadProgress() {
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
 if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '')); }
+
+/* ============================================================
+   КАМЕНЬ-НОЖНИЦЫ-БУМАГА
+   ============================================================ */
+const RPS_NAMES = { rock: '✊ Камень', paper: '✋ Бумага', scissors: '✌️ Ножницы' };
+const botSay = t => addToHistory(t, 'bot');
+function endSend(){ input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; }
+function addRpsButtons(){
+    const row = document.createElement('div'); row.className = 'msg-row bot';
+    row.innerHTML = '<div class="avatar">' + BOT_ICON + '</div><div class="col"><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" data-rps="rock">✊ Камень</button><button class="chip" data-rps="scissors">✌️ Ножницы</button><button class="chip" data-rps="paper">✋ Бумага</button></div></div>';
+    chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+chatHistory.addEventListener('click', async e => {
+    const b = e.target.closest('button[data-rps]'); if (!b) return;
+    if (rpsState !== 'choose'){ toast('Раунд закончен. Напиши новую ставку'); return; }
+    const bet = currentBet, choice = b.dataset.rps; rpsState = 'playing';
+    b.parentElement.querySelectorAll('button').forEach(x => { x.disabled = true; });
+    let msg;
+    try {
+        await syncToServer();
+        const res = await tgPost('play_rps', { bet, choice });
+        if (res && res.status === 'ok'){
+            BAL = res.new_bal; store.set('bal', BAL); renderBal();
+            const pick = `Ты: ${RPS_NAMES[choice]}, я: ${RPS_NAMES[res.bot_choice]}. `;
+            if (res.tie){ msg = pick + 'Ничья, ставка вернулась.'; Hologram.react('surprised', 'idle', 2500); }
+            else if (res.win){ msg = pick + `Ты выиграл ★ ${bet}! Баланс: ★ ${BAL}.`; Hologram.react('sad', 'idle', 3000); Snd.cash(); }
+            else { msg = pick + `Я выиграл! Ты теряешь ★ ${bet}. Баланс: ★ ${BAL}.`; Hologram.react('happy', 'cheer', 3000); Snd.hurt(); }
+            msg += ' Ещё раунд? Напиши ставку или «стоп».';
+        } else msg = (res && res.error === 'auth' ? 'Открой приложение из Telegram' : (res && res.error) || 'Ошибка') + '. Напиши ставку ещё раз или «стоп».';
+    } catch(err) { msg = 'Нет связи. Напиши ставку ещё раз или «стоп».'; }
+    rpsState = 'bet'; botSay(msg);
+});
+
 async function sendMessage(text) {
     if (!text || isSending) return;
+
+    // --- АДМИН-КОМАНДА ---
+    if (text.toLowerCase() === '/admin' && userId() === ADMIN_ID) {
+        input.value = ''; $('cnt').textContent = '0 / 500';
+        openAdmin();
+        return;
+    }
+
     isSending = true;
 
     addToHistory(text, 'user');
@@ -662,6 +704,31 @@ async function sendMessage(text) {
     Snd.click();
     Quest.add('msg');
     if (text.length >= 50) Quest.add('long');
+
+    // --- ИГРА: КАМЕНЬ-НОЖНИЦЫ-БУМАГА ---
+    const low0 = text.toLowerCase().trim();
+    if (rpsState === 'bet' || rpsState === 'choose') {
+        if (/^(стоп|хватит|выход|выйти|отмена)/.test(low0)) {
+            rpsState = 'none';
+            botSay('Ок, закончили. Захочешь снова — пиши «поиграем»!');
+            endSend(); return;
+        }
+        if (/^\d+$/.test(low0)) {
+            const bet = parseInt(low0, 10);
+            if (bet <= 0) { Hologram.react('angry', 'idle', 2500); botSay('Так не играю. Ставка должна быть больше нуля.'); endSend(); return; }
+            if (bet > BAL) { botSay(`У тебя только ★ ${BAL}. Поставь поменьше.`); endSend(); return; }
+            currentBet = bet; rpsState = 'choose';
+            Hologram.react('thinking', 'think', 2000);
+            botSay(`Ставка ★ ${bet} принята. Выбирай:`); addRpsButtons();
+            endSend(); return;
+        }
+        rpsState = 'none'; // написал что-то другое: выходим из игры и болтаем как обычно
+    } else if (rpsState === 'none' && /поиграем|поиграть|сыграем/.test(low0)) {
+        if (!refOk()) botSay('Игра работает только внутри Telegram.');
+        else if (BAL <= 0) botSay('У тебя пока нет звёзд ★. Заработай их в заданиях и возвращайся!');
+        else { rpsState = 'bet'; Hologram.react('happy', 'cheer', 2500); botSay(`Давай в камень-ножницы-бумагу! Сделай ставку, например 5. У тебя ★ ${BAL}.`); }
+        endSend(); return;
+    }
 
     // --- СЕКРЕТНАЯ КОМАНДА: Я ТЕБЯ ЛЮБЛЮ ---
     if (text.toLowerCase().includes('я тебя люблю') || text.toLowerCase().includes('люблю тебя')) {
@@ -896,6 +963,7 @@ $('do-clear').addEventListener('click', async () => {
     $('forget').checked = false; 
     
     chatHistory.innerHTML = '';
+    rpsState = 'none';
     if (char === 'holo') Hologram.react('surprised', 'idle', 2000);
     
     if (forget) {
@@ -1065,7 +1133,7 @@ const tierOf = it => it.excl ? { n: 'Эксклюзив', c: '#FF9EC4' } : it.pr
 const sellOf = it => Math.floor(it.price / SELL_DIV);
 const caseSvg = (a, b) => `<svg viewBox="0 0 96 96" role="img" aria-label="Кейс"><rect x="14" y="42" width="68" height="42" rx="6" fill="${a}" fill-opacity=".35" stroke="${b}" stroke-width="2"/><rect x="10" y="26" width="76" height="18" rx="5" fill="${a}" fill-opacity=".6" stroke="${b}" stroke-width="2"/><rect x="42" y="38" width="12" height="16" rx="3" fill="#FFD166" stroke="#FFF1B8"/><path d="M26 26 L48 8 L70 26" fill="none" stroke="${b}" stroke-width="2" stroke-linejoin="round" opacity=".5"/></svg>`;
 const CASE_ERR = { not_subscribed: 'Сначала подпишись на канал', cooldown: 'Бесплатный кейс ещё недоступен', no_funds: 'Не хватает ★', channel_unavailable: 'Не удалось проверить подписку, попробуй позже', auth: 'Открой приложение из Telegram', pending: 'Сначала реши, что делать с прошлым предметом' };
-let CASES = { loaded: false, readyAt: 0, subscribed: null, configured: true, link: '', price: 40, pending: null, busy: false };
+let CASES = { loaded: false, readyAt: 0, subscribed: null, configured: true, link: '', price: 50, pending: null, busy: false };
 const DROP = { item: null, kind: null, busy: false };
 function fmtWait(sec){ const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return h > 0 ? `${h} ч ${m} мин` : `${m} мин ${s} с`; }
 async function refreshCases(){
@@ -1094,7 +1162,7 @@ function renderCases(){
     const canPaid = refOk() && CASES.loaded;
     $('cases-list').innerHTML =
         `<div class="case">${caseSvg('#4FD1E8', '#9AF0FF')}<div class="info"><div class="name">Ежедневный кейс</div><div class="desc">Бесплатно раз в 24 часа: обычные аксессуары и два эксклюзива, которых нет в магазине (шанс по 2%).</div><div class="xl">${ex}</div><div class="desc">${info}</div>${btns}</div></div>` +
-        `<div class="case">${caseSvg('#A78BFA', '#D4C5FF')}<div class="info"><div class="name">Кейс «Всё сразу»</div><div class="desc">Любой предмет из магазина. Шансы: обычный 55%, необычный 30%, редкий 12%, эпический 3%. Выпавшее можно продать за половину цены или оставить в инвентаре.</div><div class="price">★ ${CASES.price}</div><button class="txtbtn on" data-cact="all" ${CASES.busy || !canPaid ? 'disabled' : ''}>Открыть за ★ ${CASES.price}</button></div></div>` +
+        `<div class="case">${caseSvg('#A78BFA', '#D4C5FF')}<div class="info"><div class="name">Кейс «Всё сразу»</div><div class="desc">Любой предмет из магазина. Шансы: обычный 55%, необычный 30%, редкий 12%, эпический 3%. Выпавшее можно продать за половину цены или оставить в инвентаре.</div><div class="price">★ ${CASES.price} или ⭐ ${CASES.price} Telegram Stars</div><div class="row" style="flex-direction:column"><button class="txtbtn on" style="flex:none" data-cact="all" ${CASES.busy || !canPaid ? 'disabled' : ''}>Открыть за ★ ${CASES.price}</button><button class="txtbtn" style="flex:none" data-cact="all_tg" ${CASES.busy || !canPaid ? 'disabled' : ''}>Открыть за ⭐ ${CASES.price} Stars</button></div></div></div>` +
         '<div class="hint">Выпавший предмет нужно сразу продать или оставить. Пока решение не принято, новый кейс открыть нельзя.</div>';
 }
 $('cases-list').addEventListener('click', e => {
@@ -1108,6 +1176,7 @@ setInterval(() => {
     if (t && wait > 0) t.textContent = fmtWait(wait); else if (t && wait <= 0){ renderCases(); updateDots(); }
 }, 1000);
 async function openCase(kind){
+    if (kind === 'all_tg') return buyCaseTg();
     if (CASES.busy) return;
     if (!refOk()){ toast(CASE_ERR.auth); return; }
     if (kind === 'all' && BAL < CASES.price){ toast(CASE_ERR.no_funds); return; }
@@ -1125,10 +1194,31 @@ async function openCase(kind){
         } else {
             if (res && res.reason === 'not_subscribed') CASES.subscribed = false;
             if (res && res.reason === 'cooldown') CASES.readyAt = Date.now() + (res.wait || 0) * 1000;
-            toast(CASE_ERR[res && res.reason] || 'Не получилось открыть кейс');
+            toast(res && res.detail ? 'Ошибка: ' + res.detail : (CASE_ERR[res && res.reason] || 'Не получилось открыть кейс'));
         }
     } catch(e) { toast('Нет связи, попробуй позже'); }
     CASES.busy = false; updateDots(); if (shopOpen && tabNow === 'cases') renderCases();
+}
+async function buyCaseTg(){
+    if (CASES.busy) return;
+    if (!refOk()){ toast(CASE_ERR.auth); return; }
+    if (CASES.pending){ showDrop(CASES.pending.item, CASES.pending.kind, false); return; }
+    CASES.busy = true; renderCases();
+    try {
+        const data = await tgPost('invoice', { item: 'case_all' });
+        if (!data.link) throw new Error(data.error === 'pending' ? 'сначала реши, что делать с прошлым предметом' : data.error === 'payments_disabled' ? 'оплата временно недоступна' : 'нет ссылки на оплату');
+        tg.openInvoice(data.link, status => { if (status === 'paid') waitCasePaid(); });
+    } catch(e) { toast('Не получилось: ' + e.message); }
+    CASES.busy = false; if (shopOpen && tabNow === 'cases') renderCases();
+}
+async function waitCasePaid(){
+    toast('Оплата прошла, открываю кейс…');
+    for (let i = 0; i < 10; i++){
+        await refreshCases();
+        if (CASES.pending){ showDrop(CASES.pending.item, CASES.pending.kind); return; }
+        await new Promise(r => setTimeout(r, 1500));
+    }
+    toast('Оплата в обработке. Кейс появится чуть позже');
 }
 function showDrop(itemId, kind, animate){
     if (!byId[itemId]) return;
@@ -1240,6 +1330,34 @@ const ICON_ON  = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" st
 const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>';
 function drawSnd(){ sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
+
+/* ============================================================
+   АДМИНКА (команда /admin) И ОНЛАЙН-ПИНГ
+   ============================================================ */
+const ADMIN_ID = 5194423911;
+let admT = null;
+function openAdmin(){ $('admin-panel').classList.add('open'); refreshAdmin(); clearInterval(admT); admT = setInterval(refreshAdmin, 5000); }
+function closeAdmin(){ clearInterval(admT); $('admin-panel').classList.remove('open'); }
+async function refreshAdmin(){
+    if (!refOk()) return;
+    try {
+        const r = await tgPost('admin/stats');
+        if (r.status === 'ok'){ $('adm-total').textContent = r.total; $('adm-online').textContent = r.online; }
+        else toast('Нет доступа');
+    } catch(e) {}
+}
+async function adminGiveMoney(){
+    if (!refOk()){ toast('Только в Telegram'); return; }
+    const n = parseInt($('adm-amount').value, 10);
+    if (!n || n <= 0){ toast('Введи сумму'); return; }
+    try {
+        const r = await tgPost('admin/give', { amount: n });
+        if (r.status === 'ok'){ BAL = r.bal; store.set('bal', BAL); renderBal(); $('adm-amount').value = ''; toast('Выдано: +' + n + ' ★'); }
+        else toast('Не получилось');
+    } catch(e) { toast('Нет связи'); }
+}
+function ping(){ if (refOk() && !document.hidden) tgPost('ping').catch(() => {}); }
+setInterval(ping, 60000); ping();
 
 /* Старт */
 ensureQuests(); renderBal(); updateDots();
