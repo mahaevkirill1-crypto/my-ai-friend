@@ -12,7 +12,6 @@ import hashlib
 import httpx
 import libsql
 import logging
-import threading
 from urllib.parse import parse_qsl
 from pydantic import BaseModel
 
@@ -125,20 +124,9 @@ def roll_free():
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-_db_local = threading.local()
-
 def get_db_connection():
-    if not hasattr(_db_local, 'conn'):
-        _db_local.conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
-    return _db_local.conn
-
-def reset_db():
-    if hasattr(_db_local, 'conn'):
-        try:
-            _db_local.conn.close()
-        except Exception:
-            pass
-        del _db_local.conn
+    # libsql сам кэширует HTTP-соединения, если их не закрывать.
+    return libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
 
 def init_db():
     conn = get_db_connection()
@@ -345,7 +333,6 @@ def count_message(user_id, text_len):
         conn.commit()
     except Exception:
         log.exception("count_message failed")
-        reset_db()
 
 def get_owned(conn, uid):
     row = conn.execute("SELECT owned FROM users WHERE user_id = ?", (uid,)).fetchone()
@@ -927,7 +914,6 @@ async def pro_invoice(data: dict = Body(...)):
 
 @app.post("/clear")
 async def clear(request: Request):
-    """Сервер не хранит историю диалога — она живёт на клиенте."""
     return {"status": "ok"}
 
 def check_payment(from_id, payload, currency, amount):
@@ -1021,12 +1007,11 @@ async def telegram_webhook(request: Request):
                     _uid, _item = q["invoice_payload"].split("|", 1)
                     ok, err = await asyncio.to_thread(_precheck_db, int(_uid), _item)
                 except Exception: ok, err = False, "Неверные данные платежа"
-            body = {"("pre_checkout_query_id": q["id"], "webok": ok}
-            if not okhook: body["error_message"] = err
-            await tg_call failed("answerPreCheckoutQuery", body")
-)
+            body = {"pre_checkout_query_id": q["id"], "ok": ok}
+            if not ok: body["error_message"] = err
+            await tg_call("answerPreCheckoutQuery", body)
             return {"ok": True}
-               if "message" in data and "successful_payment" in data["message"]:
+        if "message" in data and "successful_payment" in data["message"]:
             msg = data["message"]; pay = msg["successful_payment"]; from_id = msg.get("from", {}).get("id")
             ok, _err = check_payment(from_id, pay.get("invoice_payload", ""), pay.get("currency"), pay.get("total_amount"))
             if ok:
@@ -1036,7 +1021,8 @@ async def telegram_webhook(request: Request):
             return {"ok": True}
         return {"ok": True}
     except Exception:
-        log.exception return {"ok": True}
+        log.exception("webhook failed")
+        return {"ok": True}
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
