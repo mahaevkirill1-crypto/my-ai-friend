@@ -9,7 +9,6 @@
     :root { --bg-color: #0E1726; --bot-msg-bg: #1c2533; --user-msg-bg: #2b5278; --text-color: #ffffff; --accent-color: #4FD1E8; }
     * { box-sizing: border-box; }
     
-    /* Анимация тряски для глюка */
     @keyframes shake {
         0% { transform: translate(1px, 1px) rotate(0deg); }
         10% { transform: translate(-1px, -2px) rotate(-1deg); }
@@ -45,41 +44,25 @@
     .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
     .msg-row.bot { align-self: flex-start; }
     @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
-.avatar { width: 28px; height: 28px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; font-size: 14px; background: #4FD1E8; color: #0E1726; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
-.msg-row.user .avatar { background: #2b5278; color: #EAF6FF; }
-.col { min-width: 0; } .lbl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #4B8FA0; margin: 0 0 3px 2px; } .msg-row.user .lbl { text-align: right; margin: 0 2px 3px 0; } .tm { font-size: 10px; color: #4B8FA0; margin: 3px 2px 0; } .msg-row.user .tm { text-align: right; } .tm:empty { display: none; }
+    .avatar { width: 28px; height: 28px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; font-size: 14px; background: #4FD1E8; color: #0E1726; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+    .msg-row.user .avatar { background: #2b5278; color: #EAF6FF; }
+    .col { min-width: 0; } .lbl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #4B8FA0; margin: 0 0 3px 2px; } .msg-row.user .lbl { text-align: right; margin: 0 2px 3px 0; } .tm { font-size: 10px; color: #4B8FA0; margin: 3px 2px 0; } .msg-row.user .tm { text-align: right; } .tm:empty { display: none; }
     .message { padding: 9px 13px; font-size: 14px; line-height: 1.45; color: #E8FBFF; word-wrap: break-word; max-height: 180px; overflow-y: auto; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-.msg-row.user .message { background: #163B57; border: 1px solid rgba(79,209,232,.55); border-right: 3px solid #9AF0FF; border-radius: 14px 4px 4px 14px; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
-.msg-row.bot .message { background: #10202F; border: 1px solid rgba(79,209,232,.35); border-left: 3px solid #4FD1E8; border-radius: 4px 14px 14px 4px; clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
+    .msg-row.user .message { background: #163B57; border: 1px solid rgba(79,209,232,.55); border-right: 3px solid #9AF0FF; border-radius: 14px 4px 4px 14px; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+    .msg-row.bot .message { background: #10202F; border: 1px solid rgba(79,209,232,.35); border-left: 3px solid #4FD1E8; border-radius: 4px 14px 14px 4px; clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
     .message.typing { display: flex; gap: 4px; padding: 14px; }
     .typing span { width: 6px; height: 6px; background: #4FD1E8; animation: tp 1s infinite; }
     .typing span:nth-child(2) { animation-delay: .15s; } .typing span:nth-child(3) { animation-delay: .3s; }
     @keyframes tp { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
     #hud-panel { 
-        padding: 12px 16px; 
-        width: 100%; 
-        max-width: 450px; 
-        background: var(--bg-color); 
-        display: flex; 
-        z-index: 20; 
-        padding-bottom: max(16px, env(safe-area-inset-bottom)); 
-        flex-shrink: 0; 
-        border-top: 1px solid rgba(255,255,255,0.05); 
-        
-        /* Фиксируем панель внизу, чтобы она поднималась вместе с клавиатурой */
-        position: fixed;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
+        padding: 12px 16px; width: 100%; max-width: 450px; background: var(--bg-color); display: flex; z-index: 20; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.05); 
+        position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+        flex-direction: column; padding-top: 10px; padding-bottom: 8px;
     }
-    
-    /* ИСПРАВЛЕНО: border-radius убран, он конфликтовал с clip-path и обрезал рамку */
 
-
-    #hud-panel { flex-direction: column; padding-top: 10px; }
     #chips { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
     #chips::-webkit-scrollbar { display: none; }
     .chip { flex: none; font: inherit; font-size: 12px; color: #9AF0FF; background: #0B2230; border: 1px solid rgba(79,209,232,.35); border-radius: 4px; padding: 5px 11px; cursor: pointer; }
@@ -96,20 +79,6 @@
     #shop-tabs { overflow-x: auto; }
     #shop-tabs .txtbtn { white-space: nowrap; flex: none; }
     .pane { flex: 1; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
-    .refrow, .case .row, .dropbox .row { display: flex; gap: 8px; }
-    .refrow .txtbtn, .case .row .txtbtn, .dropbox .row .txtbtn { flex: 1; white-space: nowrap; }
-    .case { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; }
-    .case > svg { width: 84px; flex: none; }
-    .xl { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
-    .xl span { font-size: 11px; padding: 3px 8px; border: 1px solid #FF9EC4; color: #FF9EC4; border-radius: 4px; }
-    #drop { background: rgba(7,12,20,.88); align-items: center; justify-content: center; padding: 16px; z-index: 70; }
-    .dropbox { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; text-align: center; display: flex; flex-direction: column; gap: 8px; }
-    .dropbox > svg { display: block; margin: 0 auto; height: auto; }
-    .dropbox .bs { margin: 0; }
-    .tier { align-self: center; font-size: 11px; padding: 2px 10px; border-radius: 4px; border: 1px solid; }
-    .shake { width: 120px; margin: 8px auto; animation: boxshake .45s infinite; }
-    .shake svg { width: 100%; display: block; }
-    @keyframes boxshake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg) translateY(-2px); } 75% { transform: rotate(6deg) translateY(-2px); } }
     .overlay { position: fixed; inset: 0; display: none; }
     .overlay.open { display: flex; }
     #shop { background: var(--bg-color); flex-direction: column; z-index: 50; }
@@ -155,6 +124,23 @@
     .qr { font-size: 11px; color: #4B8FA0; }
     .q button { width: 80px; flex-shrink: 0; }
     .res { font-size: 13px; color: #FFD166; text-align: center; }
+    .ref-box { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; background: rgba(79,209,232,.1); padding: 12px; border-radius: 8px; border: 1px dashed #4FD1E8; }
+    .ref-link { word-break: break-all; font-size: 12px; color: #9AF0FF; background: #0E1726; padding: 8px; border-radius: 6px; text-align: center; font-family: monospace; }
+    .ref-stats { display: flex; justify-content: space-between; font-size: 13px; color: #C8F8FF; }
+    .refrow, .case .row, .dropbox .row { display: flex; gap: 8px; }
+    .refrow .txtbtn, .case .row .txtbtn, .dropbox .row .txtbtn { flex: 1; white-space: nowrap; }
+    .case { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; }
+    .case > svg { width: 84px; flex: none; }
+    .xl { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
+    .xl span { font-size: 11px; padding: 3px 8px; border: 1px solid #FF9EC4; color: #FF9EC4; border-radius: 4px; }
+    #drop { background: rgba(7,12,20,.88); align-items: center; justify-content: center; padding: 16px; z-index: 70; }
+    .dropbox { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; text-align: center; display: flex; flex-direction: column; gap: 8px; }
+    .dropbox > svg { display: block; margin: 0 auto; height: auto; }
+    .dropbox .bs { margin: 0; }
+    .tier { align-self: center; font-size: 11px; padding: 2px 10px; border-radius: 4px; border: 1px solid; }
+    .shake { width: 120px; margin: 8px auto; animation: boxshake .45s infinite; }
+    .shake svg { width: 100%; display: block; }
+    @keyframes boxshake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg) translateY(-2px); } 75% { transform: rotate(6deg) translateY(-2px); } }
     #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #0B2230; border: 1px solid #2E8FA3; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
     #confirm { background: rgba(7,12,20,.82); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
@@ -165,23 +151,10 @@
     .dialog .btns { display: flex; gap: 8px; }
     .dialog .btns button { flex: 1; }
     #do-clear { background: #FF6B6B; border: none; color: #0E1726; font: inherit; font-size: 13px; border-radius: 4px; padding: 8px 12px; cursor: pointer; }
-    
-    /* Слой глюка */
-    #hack-overlay {
-        position: fixed; inset: 0; background: #000; z-index: 999;
-        display: none; flex-direction: column; justify-content: center; align-items: center;
-        color: #ff3333; font-family: monospace; font-size: 20px; text-align: center;
-    }
+    #hack-overlay { position: fixed; inset: 0; background: #000; z-index: 999; display: none; flex-direction: column; justify-content: center; align-items: center; color: #ff3333; font-family: monospace; font-size: 20px; text-align: center; }
     #hack-overlay.show { display: flex; }
     .glitch-text { animation: glitch 0.2s infinite; }
-    @keyframes glitch {
-        0% { transform: translate(0) }
-        20% { transform: translate(-2px, 2px) }
-        40% { transform: translate(-2px, -2px) }
-        60% { transform: translate(2px, 2px) }
-        80% { transform: translate(2px, -2px) }
-        100% { transform: translate(0) }
-    }
+    @keyframes glitch { 0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) } }
 </style>
 </head>
 <body>
@@ -255,7 +228,7 @@
 <div id="bub"></div>
 <div id="chat-history"></div>
 <div id="hud-panel">
-    <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Расскажи шутку">Расскажи шутку</button><button class="chip" data-shop="1">Магазин</button></div>
+    <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Расскажи шутку">Расскажи шутку</button><button class="chip" data-say="Поиграем">Поиграем</button><button class="chip" data-shop="1">Магазин</button></div>
     <div class="input-container">
         <div class="input-inner">
             <span class="prompt">&gt;</span>
@@ -329,6 +302,23 @@
   </div>
 </div>
 <div id="drop" class="overlay"><div class="dropbox" id="drop-box"></div></div>
+<div id="admin-panel" class="overlay" style="background: rgba(0,0,0,0.9); z-index: 999; align-items: center; justify-content: center;">
+  <div class="dialog" style="border-color: #FFD166; max-width: 350px;">
+    <h3 style="color: #FFD166;">👑 Админ-панель</h3>
+    <p>Статистика в реальном времени:</p>
+    <div style="font-size: 20px; text-align: center; margin-bottom: 15px;">
+      <div>Всего юзеров: <span id="adm-total" style="color: #4FD1E8;">...</span></div>
+      <div>Онлайн: <span id="adm-online" style="color: #5BD17A;">...</span></div>
+    </div>
+    <div class="input-container" style="margin-bottom: 10px;">
+        <div class="input-inner">
+            <input type="number" id="adm-amount" placeholder="Сумма звезд" style="background: transparent; border: none; color: #fff; padding: 8px; outline: none; width: 100%;">
+        </div>
+    </div>
+    <button class="txtbtn on" style="width: 100%; margin-bottom: 10px;" onclick="adminGiveMoney()">💰 Выдать указанную сумму</button>
+    <button class="txtbtn" style="width: 100%;" onclick="document.getElementById('admin-panel').classList.remove('open')">Закрыть</button>
+  </div>
+</div>
 <div id="toast"></div>
 <script>
 const $ = id => document.getElementById(id);
@@ -343,14 +333,12 @@ const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k 
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
 
-let isFirstLoad = true; // Флаг для первого запуска
+let isFirstLoad = true;
 
 if (tg) { 
     tg.ready(); 
     tg.expand(); 
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#0E1726'); } catch(e) {} 
-    
-    // Не пересчитываем при открытии клавиатуры (используем стабильную высоту)
     tg.onEvent('viewportChanged', () => { onViewport(); });
 }
 
@@ -361,9 +349,6 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 };
 
-/* ============================================================
-   ЗВУКИ
-   ============================================================ */
 const Snd = (() => {
   const VOL = .6;
   let ctx = null, master = null, nbuf = null, jet = null;
@@ -391,6 +376,8 @@ let OWNED = store.get('owned', {});
 let EQUIP = store.get('equip', {});
 let char = store.get('char', 'holo');
 let isOffended = store.get('isOffended', false);
+let rpsState = 'none';
+let currentBet = 0;
 if (char === 'astro' && !OWNED.astro) char = 'holo';
 const GREET = { holo: 'Привет! Я твой голо-друг. Давай поболтаем?', astro: 'Приветствую, путник. Звёзды привели тебя сюда…' };
 const EMOTIONS = {
@@ -449,7 +436,6 @@ const WEAR = [
   {id:'a_cyber', slot:'arm', name:'Кибер-рука', price:110, sw:'#9AA7B8', svg:`<rect x="124" y="196" width="24" height="76" rx="10" fill="#9AA7B8" stroke="#E2E8F0" stroke-width="1.5"/><rect x="124" y="226" width="24" height="5" fill="#55657A"/><rect x="124" y="250" width="24" height="5" fill="#55657A"/><circle cx="136" cy="204" r="6" fill="#4B5563" stroke="#CBD5E1"/><path d="M128 208 C118 220 150 228 130 242 C118 254 150 258 134 270" fill="none" stroke="#FF4F5E" stroke-width="2" stroke-linecap="round"/><path d="M144 208 C152 222 120 234 140 248" fill="none" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/><circle cx="136" cy="266" r="4" fill="#00E5FF"><animate attributeName="opacity" values="1;.2;1" dur="1.4s" repeatCount="indefinite"/></circle>`},
   {id:'b_cape', slot:'back', name:'Неоновый плащ', price:120, sw:'#FF4FD8', svg:`<path d="M152 190 Q116 270 112 348 Q146 336 168 352 Q190 338 212 352 Q234 336 268 348 Q264 270 228 190 Z" fill="#FF4FD8" fill-opacity=".85" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="2"><animate attributeName="fill" values="#FF4FD8;#4FD1E8;#A78BFA;#5EEAD4;#FFD166;#FF4FD8" dur="5s" repeatCount="indefinite"/></path><path d="M164 200 Q138 270 134 332 Q158 322 176 338 Q190 328 204 338 Q222 322 246 332 Q242 270 216 200 Z" fill="#4FD1E8" fill-opacity=".55"><animate attributeName="fill" values="#4FD1E8;#A78BFA;#5EEAD4;#FFD166;#FF4FD8;#4FD1E8" dur="5s" repeatCount="indefinite"/></path><path d="M152 190 Q116 270 112 348" fill="none" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"><animate attributeName="stroke" values="#00E5FF;#FF4FD8;#00E5FF" dur="2.5s" repeatCount="indefinite"/></path><path d="M228 190 Q264 270 268 348" fill="none" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"><animate attributeName="stroke" values="#00E5FF;#FF4FD8;#00E5FF" dur="2.5s" repeatCount="indefinite"/></path>`},
   {id:'h_ushanka', slot:'head', name:'Шапка-ушанка', price:130, sw:'#8B5E3C', svg:`<path d="M144 112 Q146 70 190 66 Q234 70 236 112 Z" fill="#8B5E3C" stroke="#C99B6D" stroke-width="2"/><path d="M138 108 Q126 124 132 152 Q146 160 154 146 L152 112 Z" fill="#8B5E3C" stroke="#C99B6D" stroke-width="2" stroke-linejoin="round"/><path d="M242 108 Q254 124 248 152 Q234 160 226 146 L228 112 Z" fill="#8B5E3C" stroke="#C99B6D" stroke-width="2" stroke-linejoin="round"/><rect x="140" y="100" width="100" height="18" rx="9" fill="#D6BF9B" stroke="#F1E3C8" stroke-width="1.5"/><polygon points="190,78 194,87 204,88 197,94 199,104 190,99 181,104 183,94 176,88 186,87" fill="#E63946" stroke="#FFD166" stroke-width="1.2" stroke-linejoin="round"/>`},
-  // Эксклюзивы: выпадают только из ежедневного кейса, в магазине не продаются. price нужен для расчёта продажи.
   {id:'h_halo', slot:'head', name:'Нимб', price:150, excl:true, sw:'#FFE08A', svg:`<ellipse cx="190" cy="64" rx="34" ry="9" fill="none" stroke="#FFE08A" stroke-width="6"/><ellipse cx="190" cy="64" rx="34" ry="9" fill="none" stroke="#FFF6D2" stroke-width="2"/>`},
   {id:'f_visor', slot:'face', name:'Кибер-визор', price:150, excl:true, sw:'#00E5FF', svg:`<rect x="148" y="122" width="84" height="28" rx="14" fill="#00E5FF" fill-opacity=".22" stroke="#00E5FF" stroke-width="3"/><line x1="158" y1="136" x2="222" y2="136" stroke="#E0FFFF" stroke-width="1.5" opacity=".8"/><circle cx="160" cy="136" r="2.5" fill="#E0FFFF"/><circle cx="220" cy="136" r="2.5" fill="#E0FFFF"/>`}
 ];
@@ -484,7 +470,6 @@ function layout(){
     const w = innerWidth;
     const cur = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
     const stab = (tg && tg.viewportStableHeight) ? tg.viewportStableHeight : innerHeight;
-    // Базовая высота = максимальная высота без клавиатуры для этой ширины (Telegram после анимации тоже уменьшает stableHeight)
     if (w !== baseW){ baseW = w; baseH = stab; }
     else if (stab > baseH) baseH = stab;
     const wasKb = kb;
@@ -560,7 +545,6 @@ function drawHolo(t, dt, sp){ for (const key in tgt) cur[key] += (tgt[key] - cur
 requestAnimationFrame(frame);
 (function loop(){ setTimeout(() => { blink = 1; setTimeout(() => { blink = 0; loop(); }, 130); }, 3000 + Math.random() * 2000); })();
 setInterval(() => { if (char === 'astro' && st === 'hover' && $('bub').style.display === 'none' && !isSending) say(LINES[R(LINES.length)], 3800); }, 6500);
-/* ИСПРАВЛЕНО: здесь было повторное объявление "let resetTimer, danceTimer;" — оно ломало весь скрипт */
 const Hologram = { 
     emotion(name){ const e = EMOTIONS[name]; if (!e) return; curEmo = name; setTargets(e); applyTint(); }, 
     pose(name){ const p = POSES[name]; if (!p) return; this.stopDance(); setTargets(p); }, 
@@ -596,38 +580,93 @@ let typingRow = null;
 function showTyping(){ hideTyping(); const row = document.createElement('div'); row.className = 'msg-row bot'; row.innerHTML = '<div class="avatar">' + (char === 'astro' ? '🧑‍🚀' : BOT_ICON) + '</div><div class="col"><div class="message typing"><span></span><span></span><span></span></div></div>'; chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row; }
 function hideTyping(){ if (typingRow){ typingRow.remove(); typingRow = null; } }
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
-// --- СИНХРОНИЗАЦИЯ ПРОГРЕССА С СЕРВЕРОМ ---
-// Сервер главный: предметы и баланс меняются только его командами (покупка, кейс, оплата, ежедневная награда).
-// Клиент присылает лишь заработанное за задания (с суточным лимитом на сервере) и список надетых вещей.
-function applyServerState(res, withEquip){
-    if (!res) return;
-    if (typeof res.bal === 'number'){ BAL = res.bal; store.set('bal', BAL); renderBal(); }
-    if (res.owned){ OWNED = res.owned; store.set('owned', OWNED); }
-    if (withEquip && res.equip){ EQUIP = res.equip; store.set('equip', EQUIP); }
-}
-let syncChain = Promise.resolve();
-function syncToServer(){
-    syncChain = syncChain.then(async () => {
-        if (!refOk()) return;
-        try {
-            const res = await tgPost('save_progress', { bal: BAL, equip: EQUIP });
-            if (res && res.status === 'ok'){ applyServerState(res, false); renderWear(); if (shopOpen && tabNow === 'inv') renderInv(); }
-        } catch(e) { console.error('Save error', e); }
-    });
-    return syncChain;
-}
-async function loadProgress() {
-    if (!refOk()) return;
+
+async function syncToServer() {
+    const uid = userId();
+    if (!uid) return;
     try {
-        const res = await tgPost('load_progress');
-        if (res && res.status === 'ok'){
-            applyServerState(res, true);
-            if (res.daily){ DLY.loaded = true; DLY.readyAt = Date.now() + res.daily.wait * 1000; DLY.streak = res.daily.streak; }
-            renderBal(); renderWear(); applyOutfit(); updateDots();
-            if (shopOpen && tabNow === 'bonus') renderBonus();
-            if (shopOpen && tabNow === 'inv') renderInv();
+        await fetch(`${BACKEND_URL}/save_progress`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: uid, bal: BAL, owned: OWNED, equip: EQUIP })
+        });
+    } catch(e) { console.error("Save error", e); }
+}
+
+async function loadProgress() {
+    const uid = userId();
+    if (!uid) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/load_progress/${uid}`);
+        const data = await res.json();
+        
+        if (data && (data.bal > 0 || Object.keys(data.owned || {}).length > 0)) {
+            BAL = data.bal || 0;
+            OWNED = data.owned || {};
+            EQUIP = data.equip || {};
+            store.set('bal', BAL);
+            store.set('owned', OWNED);
+            store.set('equip', EQUIP);
+            renderBal(); 
+            renderWear(); 
+            applyOutfit();
+        } else {
+            syncToServer();
         }
-    } catch(e) { console.error('Load error', e); }
+        setTimeout(scrollChat, 100);
+        setTimeout(scrollChat, 500);
+    } catch(e) { console.error("Load error", e); }
+}
+
+async function initReferralSystem() {
+    if (!tg || !tg.initData) return;
+    const initData = tg.initData;
+    const startParam = tg.initDataUnsafe?.start_param || '';
+
+    if (startParam.startsWith('ref_')) {
+        try {
+            await fetch(`${BACKEND_URL}/referral/register`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ init_data: initData })
+            });
+        } catch(e) { console.error("Ref reg error", e); }
+    }
+    await updateRefStatus();
+}
+
+async function updateRefStatus() {
+    if (!tg || !tg.initData) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/referral/status`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ init_data: tg.initData })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            window._refData = data;
+            renderRefTab(data);
+        }
+    } catch(e) { console.error("Ref status error", e); }
+}
+
+async function claimRefReward() {
+    if (!tg || !tg.initData) return;
+    try {
+        const res = await fetch(`${BACKEND_URL}/referral/claim`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ init_data: tg.initData })
+        });
+        const data = await res.json();
+        if (data.status === 'ok' && data.reward > 0) {
+            BAL += data.reward;
+            store.set('bal', BAL);
+            renderBal();
+            Snd.cash();
+            toast(`Получено: +${data.reward} ★`);
+            await updateRefStatus();
+        } else {
+            toast('Нет доступных наград.');
+        }
+    } catch(e) { console.error("Ref claim error", e); }
 }
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
@@ -635,6 +674,15 @@ if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHi
 async function sendMessage(text) {
     if (!text || isSending) return;
     isSending = true;
+
+    if (text.trim().toLowerCase() === '/admin') {
+        addToHistory(text, 'user');
+        input.value = '';
+        input.readOnly = false; sendBtn.disabled = false;
+        isSending = false;
+        openAdminPanel();
+        return;
+    }
 
     addToHistory(text, 'user');
     input.value = ''; $('cnt').textContent = '0 / 500';
@@ -644,7 +692,6 @@ async function sendMessage(text) {
     Quest.add('msg');
     if (text.length >= 50) Quest.add('long');
 
-    // --- СЕКРЕТНАЯ КОМАНДА: Я ТЕБЯ ЛЮБЛЮ ---
     if (text.toLowerCase().includes('я тебя люблю') || text.toLowerCase().includes('люблю тебя')) {
         Hologram.react('surprised', 'cheer', 5000);
         Snd.fanfare();
@@ -665,7 +712,6 @@ async function sendMessage(text) {
         return;
     }
 
-    // --- СЕКРЕТНАЯ КОМАНДА: SYSTEM HACK ---
     if (text.toLowerCase().includes('system hack')) {
         addToHistory("ВНИМАНИЕ: СИСТЕМА ВЗЛОМАНА.", 'bot');
         
@@ -809,6 +855,82 @@ async function sendMessage(text) {
         return;
     }
 
+    if (rpsState === 'waiting_bet') {
+        const bet = parseInt(lowText);
+        if (isNaN(bet) || bet < 0) {
+            addToHistory("Напиши число. Например: 5", 'bot');
+            input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+        }
+        if (BAL < bet) {
+            addToHistory("У тебя нет столько звезд. Ставь меньше.", 'bot');
+            rpsState = 'none'; 
+            input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+        }
+        currentBet = bet;
+        rpsState = 'waiting_choice';
+        addToHistory(`Ставка ${bet} ★. Твой ход: камень, ножницы или бумага?`, 'bot');
+        input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+    }
+
+    if (rpsState === 'waiting_choice') {
+        let choice = '';
+        if (lowText.includes('камень')) choice = 'rock';
+        else if (lowText.includes('ножниц')) choice = 'scissors';
+        else if (lowText.includes('бумаг')) choice = 'paper';
+        
+        if (!choice) {
+            addToHistory("Не понял. Напиши: камень, ножницы или бумага.", 'bot');
+            input.readOnly = false; sendBtn.disabled = false; isSending = false; return;
+        }
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/play_rps`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId(), bet: currentBet, choice: choice })
+            });
+            const data = await res.json();
+            
+            if (data.error) {
+                addToHistory(data.error, 'bot');
+            } else {
+                BAL = data.new_bal;
+                store.set('bal', BAL);
+                renderBal();
+                
+                const botChoices = { rock: 'Камень 🪨', paper: 'Бумага 📄', scissors: 'Ножницы ✂️' };
+                let msg = `Я выбрал: ${botChoices[data.bot_choice]}\n`;
+                
+                if (data.tie) {
+                    msg += "Ничья! Ставка возвращается.";
+                    Hologram.react('thinking', 'idle', 3000);
+                } else if (data.win) {
+                    msg += `Ты победил! +${currentBet * 2} ★`;
+                    Hologram.react('surprised', 'cheer', 3000);
+                    Snd.cash();
+                } else {
+                    msg += `Ты проиграл. -${currentBet} ★`;
+                    Hologram.react('sad', 'idle', 3000);
+                }
+                addToHistory(msg, 'bot');
+                syncToServer();
+            }
+        } catch(e) {
+            addToHistory("Ошибка соединения с сервером.", 'bot');
+        }
+        
+        rpsState = 'none';
+        currentBet = 0; 
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
+    }
+
+    if (lowText === 'игра' || lowText === 'поиграем' || lowText === 'сыграем') {
+        rpsState = 'waiting_bet';
+        currentBet = 0; 
+        addToHistory("Давай сыграем в Камень-Ножницы-Бумага! Какая ставка? (напиши число, например 5, или 0 чтобы без ставок)", 'bot');
+        Hologram.react('happy', 'wave', 3000);
+        input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false; return;
+    }
+
     if (char === 'astro') say('Слушаю звёзды…', 20000);
     else Hologram.react('thinking', 'think');
 
@@ -822,7 +944,7 @@ async function sendMessage(text) {
                 text: text,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 history: historyText,
-                init_data: (tg && tg.initData) || ''
+                user_id: userId()
             })
         });
 
@@ -897,14 +1019,11 @@ $('do-clear').addEventListener('click', async () => {
     } catch (e) {}
 });
 
-/* ============================================================
-   БОНУСЫ
-   ============================================================ */
 const DROP_CHANCE = .15;
 const DROP_MAX_PRICE = 65;
 const BONUS_CAN_BUY_SKINS = false;
 let BAL = store.get('bal', 0);
-let DLY = { loaded: false, readyAt: 0, streak: 0, busy: false };
+let DAILY = store.get('daily', { last: '', streak: 0 });
 let Q = store.get('quests', null);
 let tabNow = 'shop', lastResult = '';
 const sfx = n => { try { Snd[n](); } catch(e) {} };
@@ -933,232 +1052,88 @@ const toastEl = $('toast'); let toastT;
 function toast(s){ toastEl.textContent = s; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2800); }
 const tabsEl = $('shop-tabs');
 tabsEl.addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
-function updateDots(){ const bonus = canDaily() || questReady() || REF.pending > 0; const cf = CASES.loaded && CASES.configured && CASES.subscribed !== false && CASES.readyAt - Date.now() <= 0; $('shop-btn').classList.toggle('has', bonus || cf); tabsEl.querySelector('[data-t="bonus"]').classList.toggle('has', bonus); tabsEl.querySelector('[data-t="cases"]').classList.toggle('has', !!cf); }
-const canDaily = () => DLY.loaded && DLY.readyAt <= Date.now();
-const curStreak = () => DLY.streak;
-
-
-async function claimDaily(){
-    if (!canDaily() || DLY.busy) return; DLY.busy = true;
-    try {
-        const res = await tgPost('daily/claim');
-        if (res && res.status === 'ok'){
-            BAL += res.stars; store.set('bal', BAL);
-            const drop = res.drop && byId[res.drop] ? byId[res.drop] : null;
-            if (drop){ OWNED[drop.id] = true; store.set('owned', OWNED); }
-            DLY.readyAt = Date.now() + res.wait * 1000; DLY.streak = res.streak;
-            lastResult = `Получено: +${res.stars} ★` + (drop ? `. Выпал аксессуар «${drop.name}»! Он уже в инвентаре.` : '');
-            sfx(drop ? 'fanfare' : 'cash'); renderWear(); renderInv();
-        } else if (res && res.reason === 'wait'){ DLY.readyAt = Date.now() + (res.wait || 0) * 1000; toast('Награда уже получена. Приходи позже'); }
-        else toast('Не получилось, попробуй позже');
-    } catch(e) { toast('Нет связи, попробуй позже'); }
-    DLY.busy = false; renderBal(); renderBonus(); updateDots();
-}
+function updateDots(){ const flag = canDaily() || questReady(); $('shop-btn').classList.toggle('has', flag); tabsEl.querySelector('[data-t="bonus"]').classList.toggle('has', flag); }
+const canDaily = () => DAILY.last !== todayStr();
+function curStreak(){ if (!DAILY.last) return 0; return dn(todayStr()) - dn(DAILY.last) <= 1 ? DAILY.streak : 0; }
+function rollStars(){ const w = [30, 28, 22, 13, 7]; let r = Math.random() * 100, i = 0; while (i < 4 && r >= w[i]){ r -= w[i]; i++; } return i + 1; }
+function rollDrop(){ if (Math.random() >= DROP_CHANCE) return null; const pool = WEAR.filter(w => w.slot !== 'color' && w.price <= DROP_MAX_PRICE && !OWNED[w.id]); return pool.length ? pool[R(pool.length)] : null; }
+function claimDaily(){ if (!canDaily()) return; const today = todayStr(); const cont = DAILY.last && dn(today) - dn(DAILY.last) === 1; DAILY = { last: today, streak: cont ? DAILY.streak + 1 : 1 }; store.set('daily', DAILY); const stars = rollStars(), drop = rollDrop(); BAL += stars; store.set('bal', BAL); lastResult = `Получено: +${stars} ★` + (drop ? `. Выпал аксессуар «${drop.name}»! Он уже в гардеробе.` : ''); if (drop){ OWNED[drop.id] = true; store.set('owned', OWNED); sfx('fanfare'); renderWear(); } else sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
 function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
 function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
-function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = can ? cs % 7 : (cs > 0 ? ((cs - 1) % 7) + 1 : 0); let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); bonusEl.innerHTML = `<div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : (DLY.loaded ? 'Приходи позже' : 'Доступно в Telegram')}</button><div class="res">${lastResult}</div></div><div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div>${refCard()}<div class="hint">Звёзды из бонусов можно потратить на наряды.</div>`; }
-$('bonus-list').addEventListener('click', e => { if (e.target.closest('#ref-share')) return refShare(); if (e.target.closest('#ref-copy')) return refCopy(); if (e.target.closest('#ref-claim')) return refClaim(); if (e.target.closest('#claim-d')) return claimDaily(); const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q); });
-
-/* --- Общие запросы к серверу (личность берётся из подписанных данных Telegram) --- */
-const refOk = () => !!(tg && tg.initData);
-async function tgPost(path, extra){
-    const r = await fetch(`${BACKEND_URL}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ init_data: tg.initData }, extra || {})) });
-    return r.json();
-}
-
-/* --- Реферальная система --- */
-let REF = { loaded: false, link: '', invited: 0, active: 0, limit: 30, pending: 0, me: null, rr: 10, ri: 5, need: 3, busy: false };
-async function registerReferral(){
-    if (!refOk()) return;
-    const sp = tg.initDataUnsafe && tg.initDataUnsafe.start_param;
-    if (!sp || sp.indexOf('ref_') !== 0 || store.get('ref_tried', false)) return;
-    try {
-        const res = await tgPost('referral/register');
-        if (res && res.status !== 'error') store.set('ref_tried', true);
-        if (res && res.status === 'registered') toast(`Приглашение принято! Отправь ${res.need_msgs} сообщения и забери ★ ${res.reward} во вкладке «Бонусы»`);
-    } catch(e) {}
-}
-async function refreshRef(){
-    if (!refOk()) return;
-    try {
-        const res = await tgPost('referral/status');
-        if (res && res.status === 'ok'){
-            Object.assign(REF, { loaded: true, link: res.link || '', invited: res.invited, active: res.active, limit: res.limit, pending: res.pending, me: res.me, rr: res.reward_referrer, ri: res.reward_invitee, need: res.need_msgs });
-            updateDots(); if (shopOpen && tabNow === 'bonus') renderBonus();
+function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7; let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); 
+    
+    const refData = window._refData || null;
+    let refHtml = '';
+    if (refData) {
+        let meText = '';
+        if (refData.me) {
+            if (refData.me.state === 'waiting') meText = `<div class="hint" style="text-align:center; color:#FFD166; margin-top:5px;">Отправь еще ${refData.me.msgs}/${refData.me.need} сообщений, чтобы активировать награду (или подожди ${Math.ceil(refData.me.wait_sec/60)} мин).</div>`;
+            else if (refData.me.state === 'ready') meText = `<div class="hint" style="text-align:center; color:#4FD1E8; margin-top:5px;">Награда за вход по ссылке готова!</div>`;
         }
-    } catch(e) {}
-}
-function refCard(){
-    let body;
-    if (!refOk()) body = '<div class="bs">Приглашения работают только внутри Telegram.</div>';
-    else if (!REF.loaded) body = '<div class="bs">Загрузка…</div>';
-    else {
-        const me = REF.me; let mine = '';
-        if (me && me.state === 'waiting'){ const left = Math.max(0, me.need - me.msgs); mine = '<div class="bs">Ты пришёл по приглашению. ' + (left > 0 ? `Отправь ещё сообщений: ${left}, чтобы получить ★ ${REF.ri}.` : `Награда ★ ${REF.ri} станет доступна через пару минут.`) + '</div>'; }
-        else if (me && me.state === 'ready') mine = '<div class="bs">Бонус за приглашение готов, забери его ниже.</div>';
-        body = `<div class="bs">Пригласи друга: ты получишь ★ ${REF.rr}, а друг ★ ${REF.ri}. Награда засчитывается, когда друг отправит сообщений: ${REF.need}.</div>` + mine +
-            `<div class="bs">Приглашено: ${REF.invited} из ${REF.limit} · засчитано: ${REF.active}</div>` +
-            (REF.link ? '<div class="refrow"><button class="txtbtn on" id="ref-share">Пригласить друга</button><button class="txtbtn" id="ref-copy">Скопировать ссылку</button></div>' : '<div class="bs">Ссылка пока недоступна: на сервере не указано имя бота.</div>') +
-            (REF.pending > 0 ? `<button class="txtbtn on" id="ref-claim" style="width:100%">Забрать ★ ${REF.pending}</button>` : '');
+        
+        const claimBtn = refData.pending > 0 
+            ? `<button class="txtbtn on" style="width:100%; margin-top:10px;" onclick="claimRefReward()">Забрать ${refData.pending} ★</button>` 
+            : '';
+            
+        refHtml = `<div class="bcard" style="border-color: #FFD166;">
+            <div class="bt" style="color: #FFD166;">🤝 Пригласи друга</div>
+            <div class="bs">За каждого друга ты получаешь ${refData.reward_referrer} ★, а друг — ${refData.reward_invitee} ★.</div>
+            <div class="ref-box">
+                <div class="ref-link" id="ref-link-text">${refData.link || 'Загрузка...'}</div>
+                <button class="txtbtn" onclick="copyRefLink()">Скопировать ссылку</button>
+            </div>
+            <div class="ref-stats">
+                <span>Пришло: ${refData.invited}</span>
+                <span>Активных: ${refData.active} / ${refData.limit}</span>
+            </div>
+            ${meText}
+            ${claimBtn}
+        </div>`;
     }
-    return `<div class="bcard"><div class="bt">Пригласи друга</div>${body}</div>`;
-}
-function refShare(){
-    if (!REF.link) return;
-    const url = 'https://t.me/share/url?url=' + encodeURIComponent(REF.link) + '&text=' + encodeURIComponent(`Заходи к моему голо-другу! Тебе подарят ★ ${REF.ri}`);
-    if (tg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url, '_blank');
-}
-async function refCopy(){
-    if (!REF.link) return;
-    try { await navigator.clipboard.writeText(REF.link); toast('Ссылка скопирована'); }
-    catch(e){ const ta = document.createElement('textarea'); ta.value = REF.link; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Ссылка скопирована'); } catch(e2) { toast(REF.link); } ta.remove(); }
-}
-async function refClaim(){
-    if (REF.busy) return; REF.busy = true;
-    try {
-        const res = await tgPost('referral/claim');
-        if (res && res.status === 'ok' && res.reward > 0){ BAL += res.reward; store.set('bal', BAL); renderBal(); sfx('cash'); toast(`+${res.reward} ★ за приглашения`); syncToServer(); }
-    } catch(e) { toast('Не получилось, попробуй позже'); }
-    REF.busy = false; await refreshRef();
-}
 
-/* --- Предпросмотр персонажа с любым набором предметов --- */
-function figSvg(eq, w){
-    const col = eq.color && byId[eq.color], h = eq.head && byId[eq.head], f = eq.face && byId[eq.face], sh = eq.feet && byId[eq.feet], bk = eq.back && byId[eq.back], ar = eq.arm && byId[eq.arm];
-    const c = col ? col.c : '#4FD1E8', sc = col ? col.s : '#9AF0FF';
-    return `<svg viewBox="110 15 160 362" width="${w}" style="--c:${c};--s:${sc}" role="img" aria-label="Предпросмотр">` +
-        (bk ? bk.svg : '') +
-        '<rect class="c s" x="160" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/><rect class="c s" x="198" y="262" width="22" height="100" rx="10" fill-opacity=".55" stroke-width="1.5"/>' +
-        (sh ? sh.shoe(171) + sh.shoe(209) : '') +
-        '<rect class="c s" x="148" y="188" width="84" height="100" rx="26" fill-opacity=".6" stroke-width="1.5"/><circle class="c s" cx="190" cy="140" r="46" fill-opacity=".7" stroke-width="2"/>' +
-        '<line class="s" x1="190" y1="94" x2="190" y2="80" stroke-width="2" stroke-linecap="round"/><circle cx="190" cy="76" r="5" fill="#FFD166"/>' +
-        '<ellipse cx="160" cy="154" rx="7" ry="4" fill="#FF9EC4" fill-opacity=".7"/><ellipse cx="220" cy="154" rx="7" ry="4" fill="#FF9EC4" fill-opacity=".7"/>' +
-        '<ellipse cx="174" cy="136" rx="7" ry="9" fill="#0E1726"/><ellipse cx="206" cy="136" rx="7" ry="9" fill="#0E1726"/><circle cx="176" cy="133" r="2.5" fill="#fff"/><circle cx="208" cy="133" r="2.5" fill="#fff"/>' +
-        '<path d="M174 158 Q190 174 206 158" fill="none" stroke="#0E1726" stroke-width="3" stroke-linecap="round"/>' +
-        (f ? f.svg : '') + (h ? h.svg : '') +
-        (ar ? `<g transform="rotate(6 136 204)">${ar.svg}</g>` : '<rect class="c s" x="124" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5" transform="rotate(6 136 204)"/>') +
-        '<rect class="c s" x="232" y="196" width="24" height="76" rx="12" fill-opacity=".55" stroke-width="1.5" transform="rotate(-6 244 204)"/></svg>';
+    bonusEl.innerHTML = `
+        <div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : 'Приходи завтра'}</button><div class="res">${lastResult}</div></div>
+        <div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div>
+        ${refHtml}
+        <div class="hint">Звёзды из бонусов можно потратить на наряды.</div>
+    `; 
 }
+$('bonus-list').addEventListener('click', e => { if (e.target.closest('#claim-d')) return claimDaily(); const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q); });
 
-/* --- Кейсы --- */
-const SELL_DIV = 2;   // продажа = цена / 2 (так же считает сервер)
-const tierOf = it => it.excl ? { n: 'Эксклюзив', c: '#FF9EC4' } : it.price <= 30 ? { n: 'Обычный', c: '#9AB4C0' } : it.price <= 60 ? { n: 'Необычный', c: '#5BD17A' } : it.price <= 100 ? { n: 'Редкий', c: '#A78BFA' } : { n: 'Эпический', c: '#FFC857' };
-const sellOf = it => Math.floor(it.price / SELL_DIV);
-const caseSvg = (a, b) => `<svg viewBox="0 0 96 96" role="img" aria-label="Кейс"><rect x="14" y="42" width="68" height="42" rx="6" fill="${a}" fill-opacity=".35" stroke="${b}" stroke-width="2"/><rect x="10" y="26" width="76" height="18" rx="5" fill="${a}" fill-opacity=".6" stroke="${b}" stroke-width="2"/><rect x="42" y="38" width="12" height="16" rx="3" fill="#FFD166" stroke="#FFF1B8"/><path d="M26 26 L48 8 L70 26" fill="none" stroke="${b}" stroke-width="2" stroke-linejoin="round" opacity=".5"/></svg>`;
-const CASE_ERR = { not_subscribed: 'Сначала подпишись на канал', cooldown: 'Бесплатный кейс ещё недоступен', no_funds: 'Не хватает ★', channel_unavailable: 'Не удалось проверить подписку, попробуй позже', auth: 'Открой приложение из Telegram', pending: 'Сначала реши, что делать с прошлым предметом' };
-let CASES = { loaded: false, readyAt: 0, subscribed: null, configured: true, link: '', price: 40, pending: null, busy: false };
-const DROP = { item: null, kind: null, busy: false };
-function fmtWait(sec){ const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return h > 0 ? `${h} ч ${m} мин` : `${m} мин ${s} с`; }
-async function refreshCases(){
-    if (!refOk()) return null;
-    try {
-        const res = await tgPost('case/status');
-        if (res && res.status === 'ok'){
-            Object.assign(CASES, { loaded: true, readyAt: Date.now() + res.free_wait * 1000, subscribed: res.subscribed, configured: res.configured, link: res.channel_link || '', price: res.price, pending: res.pending ? { item: res.pending, kind: res.pending_case } : null });
-            updateDots(); if (shopOpen && tabNow === 'cases') renderCases();
-        }
-        return res;
-    } catch(e) { return null; }
-}
-function renderCases(){
-    const wait = Math.max(0, Math.ceil((CASES.readyAt - Date.now()) / 1000));
-    const ex = WEAR.filter(w => w.excl).map(w => `<span>${w.name}</span>`).join('');
-    let info, btns = '';
-    if (!refOk()) info = 'Кейсы доступны только внутри Telegram.';
-    else if (!CASES.loaded) info = 'Загрузка…';
-    else if (!CASES.configured) info = 'Канал для подписки пока не настроен администратором.';
-    else if (wait > 0){ info = `Следующий бесплатный кейс через <b id="case-timer">${fmtWait(wait)}</b>`; btns = '<button class="txtbtn" disabled>Открыть бесплатно</button>'; }
-    else {
-        info = CASES.subscribed === true ? 'Подписка подтверждена. Кейс готов!' : CASES.subscribed === false ? 'Чтобы открыть кейс, подпишись на наш канал.' : 'Подписка проверяется при открытии.';
-        btns = '<div class="row">' + (CASES.link && CASES.subscribed !== true ? '<button class="txtbtn" data-cact="sub">Подписаться</button>' : '') + `<button class="txtbtn on" data-cact="free" ${CASES.busy ? 'disabled' : ''}>Открыть бесплатно</button></div>`;
+window.copyRefLink = function() {
+    const linkEl = $('ref-link-text');
+    if (!linkEl) return;
+    const link = linkEl.textContent;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => {
+            toast('Ссылка скопирована!');
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        }).catch(() => {
+            const textArea = document.createElement("textarea");
+            textArea.value = link;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textArea);
+            toast('Ссылка скопирована!');
+        });
+    } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = link;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        toast('Ссылка скопирована!');
     }
-    const canPaid = refOk() && CASES.loaded;
-    $('cases-list').innerHTML =
-        `<div class="case">${caseSvg('#4FD1E8', '#9AF0FF')}<div class="info"><div class="name">Ежедневный кейс</div><div class="desc">Бесплатно раз в 24 часа: обычные аксессуары и два эксклюзива, которых нет в магазине (шанс по 2%).</div><div class="xl">${ex}</div><div class="desc">${info}</div>${btns}</div></div>` +
-        `<div class="case">${caseSvg('#A78BFA', '#D4C5FF')}<div class="info"><div class="name">Кейс «Всё сразу»</div><div class="desc">Любой предмет из магазина. Шансы: обычный 55%, необычный 30%, редкий 12%, эпический 3%. Выпавшее можно продать за половину цены или оставить в инвентаре.</div><div class="price">★ ${CASES.price}</div><button class="txtbtn on" data-cact="all" ${CASES.busy || !canPaid ? 'disabled' : ''}>Открыть за ★ ${CASES.price}</button></div></div>` +
-        '<div class="hint">Выпавший предмет нужно сразу продать или оставить. Пока решение не принято, новый кейс открыть нельзя.</div>';
-}
-$('cases-list').addEventListener('click', e => {
-    const b = e.target.closest('button[data-cact]'); if (!b) return;
-    if (b.dataset.cact === 'sub'){ if (CASES.link){ if (tg && tg.openTelegramLink) tg.openTelegramLink(CASES.link); else window.open(CASES.link, '_blank'); } return; }
-    openCase(b.dataset.cact);
-});
-setInterval(() => {
-    if (!(shopOpen && tabNow === 'cases') || !CASES.loaded) return;
-    const wait = Math.ceil((CASES.readyAt - Date.now()) / 1000), t = $('case-timer');
-    if (t && wait > 0) t.textContent = fmtWait(wait); else if (t && wait <= 0){ renderCases(); updateDots(); }
-}, 1000);
-async function openCase(kind){
-    if (CASES.busy) return;
-    if (!refOk()){ toast(CASE_ERR.auth); return; }
-    if (kind === 'all' && BAL < CASES.price){ toast(CASE_ERR.no_funds); return; }
-    CASES.busy = true; renderCases();
-    try {
-        if (kind === 'all') await syncToServer();
-        const res = await tgPost('case/open', { case: kind });
-        if (res && res.status === 'ok'){
-            if (kind === 'all'){ BAL = res.new_bal; store.set('bal', BAL); renderBal(); } else { CASES.readyAt = Date.now() + 86400 * 1000; CASES.subscribed = true; }
-            CASES.pending = { item: res.item, kind: res.case };
-            showDrop(res.item, res.case);
-        } else if (res && res.reason === 'pending'){
-            CASES.pending = { item: res.item, kind: res.case };
-            showDrop(res.item, res.case, false);
-        } else {
-            if (res && res.reason === 'not_subscribed') CASES.subscribed = false;
-            if (res && res.reason === 'cooldown') CASES.readyAt = Date.now() + (res.wait || 0) * 1000;
-            toast(CASE_ERR[res && res.reason] || 'Не получилось открыть кейс');
-        }
-    } catch(e) { toast('Нет связи, попробуй позже'); }
-    CASES.busy = false; updateDots(); if (shopOpen && tabNow === 'cases') renderCases();
-}
-function showDrop(itemId, kind, animate){
-    if (!byId[itemId]) return;
-    DROP.item = itemId; DROP.kind = kind; DROP.busy = false;
-    $('drop').classList.add('open');
-    if (animate === false){ revealDrop(); return; }
-    $('drop-box').innerHTML = `<div class="shake">${kind === 'free' ? caseSvg('#4FD1E8', '#9AF0FF') : caseSvg('#A78BFA', '#D4C5FF')}</div><div class="bs">Открываем кейс…</div>`;
-    sfx('click'); setTimeout(() => { if (DROP.item === itemId) revealDrop(); }, 1100);
-}
-function revealDrop(){
-    const it = byId[DROP.item]; if (!it){ closeDrop(); return; }
-    const t = tierOf(it), dup = !!OWNED[it.id], sell = sellOf(it);
-    sfx(it.excl || it.price > 60 ? 'fanfare' : 'cash');
-    $('drop-box').innerHTML = `<div class="tier" style="color:${t.c};border-color:${t.c}">${t.n}</div><div class="name">${it.name}</div>${figSvg(Object.assign({}, EQUIP, { [it.slot]: it.id }), 130)}<div class="bs">${dup ? 'Такой предмет у тебя уже есть, его можно только продать.' : 'Оставить в инвентаре или продать?'}</div><div class="row">${dup ? '' : '<button class="txtbtn on" data-dact="keep">Оставить</button>'}<button class="txtbtn" data-dact="sell">Продать ★ ${sell}</button></div>`;
-}
-function closeDrop(){ $('drop').classList.remove('open'); DROP.item = null; }
-$('drop-box').addEventListener('click', e => { const b = e.target.closest('button[data-dact]'); if (b) resolveDrop(b.dataset.dact); });
-async function resolveDrop(action){
-    if (DROP.busy || !DROP.item) return; DROP.busy = true;
-    try {
-        const res = await tgPost('case/resolve', { action });
-        if (res && res.status === 'ok'){
-            if (res.action === 'sell'){ BAL += res.sell; store.set('bal', BAL); renderBal(); sfx('cash'); toast(`Продано: +${res.sell} ★`); }
-            else { OWNED[res.item] = true; store.set('owned', OWNED); sfx('fanfare'); toast('Предмет добавлен в инвентарь'); }
-            CASES.pending = null; syncToServer(); closeDrop(); renderInv(); renderWear(); updateDots();
-            if (shopOpen && tabNow === 'cases') renderCases();
-        } else { toast('Не получилось, попробуй ещё раз'); DROP.busy = false; }
-    } catch(e) { toast('Нет связи, попробуй ещё раз'); DROP.busy = false; }
-}
+};
 
-/* --- Инвентарь --- */
-let invTab = 'head', invSel = null;
-function renderInv(){
-    const el = $('inv-list'), mine = WEAR.filter(w => OWNED[w.id]);
-    if (!mine.length){ el.innerHTML = '<div class="bcard"><div class="bt">Инвентарь пуст</div><div class="bs">Здесь появятся купленные предметы и всё, что выпало из кейсов.</div></div>'; return; }
-    const inTab = mine.filter(w => w.slot === invTab);
-    if (!invSel || !byId[invSel] || byId[invSel].slot !== invTab || !OWNED[invSel]) invSel = (EQUIP[invTab] && OWNED[EQUIP[invTab]]) ? EQUIP[invTab] : (inTab[0] ? inTab[0].id : null);
-    const it = invSel ? byId[invSel] : null, worn = !!it && EQUIP[it.slot] === it.id;
-    const eq = it ? Object.assign({}, EQUIP, { [it.slot]: it.id }) : EQUIP;
-    const tabs = SLOTS.map(sl => `<button class="txtbtn ${sl.k === invTab ? 'on' : ''}" data-itab="${sl.k}">${sl.n} · ${mine.filter(w => w.slot === sl.k).length}</button>`).join('');
-    const grid = inTab.length ? inTab.map(i => `<div class="gi ${i.id === invSel ? 'sel' : ''}" data-iw="${i.id}"><span class="dot" style="background:${i.sw}"></span><div>${i.name}</div><div class="${EQUIP[i.slot] === i.id ? 'pr' : 'own'}">${EQUIP[i.slot] === i.id ? 'Надето' : tierOf(i).n}</div></div>`).join('') : '<div class="hint" style="grid-column:1/-1">В этой категории пока ничего нет.</div>';
-    const info = it ? `<div class="name">${it.name}</div><div class="desc" style="color:${tierOf(it).c}">${tierOf(it).n}${it.excl ? ' · в магазине не продаётся' : ''}</div><div class="price">${worn ? 'Надето' : 'В инвентаре'}</div><button class="txtbtn ${worn ? 'on' : ''}" id="inv-btn" data-id="${it.id}" data-act="${worn ? 'off' : 'on'}">${worn ? 'Снять' : 'Надеть'}</button>` : '<div class="desc">В этой категории пока нет предметов.</div>';
-    el.innerHTML = `<div class="sect">Примерка и экипировка</div><div class="try">${figSvg(eq, 100)}<div class="info">${info}</div></div><div class="tabs">${tabs}</div><div class="grid">${grid}</div><div class="hint">Нажми на предмет, чтобы примерить его. «Надеть» закрепит его на голо-друге.</div>`;
+const origShowTab = showTab;
+window.showTab = function(t) {
+    origShowTab(t);
+    if (t === 'bonus') updateRefStatus();
 }
-$('inv-list').addEventListener('click', e => {
-    const t = e.target.closest('[data-itab]'); if (t){ invTab = t.dataset.itab; invSel = null; renderInv(); return; }
-    const g = e.target.closest('.gi'); if (g){ invSel = g.dataset.iw; Quest.add('try'); renderInv(); return; }
-    const b = e.target.closest('#inv-btn'); if (b){ const it = byId[b.dataset.id]; if (!it) return; EQUIP[it.slot] = b.dataset.act === 'on' ? it.id : null; store.set('equip', EQUIP); applyOutfit(); syncToServer(); renderInv(); renderWear(); }
-});
 
 /* --- Магазин --- */
 const SHOP_ITEMS = [ { id: 'astro', char: 'astro', name: 'Космонавт', desc: 'Прилетает на тарелке и говорит загадками о звёздах и невесомости. Если написать «смотри пришельцы», начнётся перестрелка.', price: 299 } ];
@@ -1176,55 +1151,26 @@ function pvColor(t){ const it = pvEq.color && byId[pvEq.color]; let c = '#4FD1E8
 $('w-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (!b) return; tab = b.dataset.tab; selW = null; renderWear(); });
 $('w-grid').addEventListener('click', e => { const c = e.target.closest('.gi'); if (!c) return; selW = c.dataset.w; Quest.add('try'); renderWear(); });
 $('w-btn').addEventListener('click', () => { const id = $('w-btn').dataset.id, act = $('w-btn').dataset.act, it = byId[id]; if (!it) return; if (act === 'buy'){ buy(id); return; } EQUIP[it.slot] = act === 'on' ? id : null; store.set('equip', EQUIP); applyOutfit(); renderWear(); syncToServer(); });
-const SHOP_ERR = { no_funds: 'Не хватает ★', owned: 'Это уже куплено', bad_item: 'Этот предмет нельзя купить за ★', auth: 'Открой приложение из Telegram' };
-function grant(id){ const w = byId[id]; if (w){ EQUIP[w.slot] = id; store.set('equip', EQUIP); applyOutfit(); renderWear(); renderInv(); Snd.cash(); Quest.add('buy'); syncToServer(); return; } const it = SHOP_ITEMS.find(i => i.id === id); if (it){ closeShop(); setChar(it.char); Snd.cash(); Quest.add('buy'); } }
-async function buy(id){
-    const it = findItem(id); if (!it) return;
-    if (!refOk()){ toast('Покупки доступны только в Telegram'); return; }
-    const isSkin = !!SHOP_ITEMS.find(i => i.id === id);
-    if (!isSkin && BAL >= it.price){
-        try {
-            await syncToServer();
-            const res = await tgPost('shop/buy', { item: id });
-            if (res && res.status === 'ok'){ applyServerState(res, false); grant(id); }
-            else toast(SHOP_ERR[res && res.reason] || 'Не получилось купить');
-        } catch(e) { toast('Нет связи, попробуй позже'); }
-        return;
-    }
-    try {
-        const data = await tgPost('invoice', { item: id });
-        if (!data.link) throw new Error(data.error === 'owned' ? 'это уже куплено' : data.error === 'payments_disabled' ? 'оплата временно недоступна' : 'нет ссылки на оплату');
-        tg.openInvoice(data.link, status => { if (status === 'paid') waitPaid(id); });
-    } catch(e) { addToHistory(`Не получилось открыть оплату: ${e.message}`, 'bot'); closeShop(); }
-}
-async function waitPaid(id){
-    toast('Оплата прошла, зачисляю…');
-    for (let i = 0; i < 10; i++){
-        await loadProgress();
-        if (OWNED[id]){ grant(id); return; }
-        await new Promise(r => setTimeout(r, 1500));
-    }
-    toast('Оплата в обработке. Предмет появится в инвентаре чуть позже');
-}
+function grant(id){ OWNED[id] = true; store.set('owned', OWNED); const w = byId[id]; if (w){ EQUIP[w.slot] = id; store.set('equip', EQUIP); applyOutfit(); renderWear(); Snd.cash(); Quest.add('buy'); syncToServer(); return; } const it = SHOP_ITEMS.find(i => i.id === id); if (it){ closeShop(); setChar(it.char); Snd.cash(); Quest.add('buy'); syncToServer(); } }
+async function buy(id){ const it = findItem(id); if (!it) return; const isSkin = !!SHOP_ITEMS.find(i => i.id === id); if ((!isSkin || BONUS_CAN_BUY_SKINS) && BAL >= it.price){ BAL -= it.price; store.set('bal', BAL); renderBal(); grant(id); return; } if (DEMO_BUY){ grant(id); return; } try { const r = await fetch(`${BACKEND_URL}/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: id, user_id: userId() }) }); const data = await r.json(); if (!data.link) throw new Error('нет ссылки на оплату'); tg.openInvoice(data.link, status => { if (status === 'paid') grant(id); }); } catch (e) { addToHistory(`Не получилось открыть оплату: ${e.message}`, 'bot'); closeShop(); } }
 function openShop(){ Quest.add('shop'); renderChars(); renderWear(); renderBal(); showTab('shop'); shopOpen = true; shop.classList.add('open'); if (tg && tg.BackButton){ tg.BackButton.show(); tg.BackButton.onClick(closeShop); } }
 function closeShop(){ shopOpen = false; shop.classList.remove('open'); if (tg && tg.BackButton){ tg.BackButton.hide(); tg.BackButton.offClick(closeShop); } }
 $('shop-btn').addEventListener('click', openShop); $('shop-close').addEventListener('click', closeShop);
 const q = new URLSearchParams(location.search);
 applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
 setTimeout(() => { Hologram.react('happy', 'wave', 3500); const hour = new Date().getHours(); let greeting = GREET[char]; if (chatHistoryForServer.length === 0) { if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?"; else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?"; else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?"; else greeting = "Ты чего не спишь? Давай поболтаем."; } addToHistory(greeting, 'bot'); }, 500);
-registerReferral();
-loadProgress().finally(() => { refreshRef(); refreshCases().then(() => { if (CASES.pending && !DROP.item) showDrop(CASES.pending.item, CASES.pending.kind, false); }); });
+loadProgress();
+initReferralSystem();
 
-/* Переключатель звуков */
 const sndBtn = $('snd-btn');
 const ICON_ON  = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>';
 function drawSnd(){ sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
 
-/* Старт */
-ensureQuests(); renderBal(); updateDots();
-setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
+document.body.classList.add('loaded');
+syncBody();
+layout();
 </script>
 </body>
 </html>
