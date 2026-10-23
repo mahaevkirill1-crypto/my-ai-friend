@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Body
+from fastapi.responses import JSONResponse
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
@@ -10,8 +11,12 @@ import hmac
 import hashlib
 import httpx
 import libsql
+import logging
 from urllib.parse import parse_qsl
 from pydantic import BaseModel
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("holo")
 
 client = AsyncOpenAI(
     api_key=os.getenv("PROXYAPI_KEY"),
@@ -39,9 +44,21 @@ REF_MIN_AGE = 300
 REF_NEW_WINDOW = 3600
 REF_MAX_TOTAL = 30
 REF_MAX_PER_DAY = 5
+REF_REQUIRE_PURCHASE = True
+REF_SAME_IP_LIMIT = 3
 MSG_MIN_LEN = 3
 MSG_MIN_GAP = 8
 INIT_DATA_MAX_AGE = 86400
+
+# --- RATE LIMIT ДЛЯ /ask ---
+ASK_MIN_GAP = 3
+ASK_DAY_LIMIT = 100
+
+# --- ПОДПИСКА PRO ---
+PRO_PRICE = 499                    # Telegram Stars за месяц
+PRO_PERIOD = 30 * 24 * 3600        # 30 дней
+PRO_REQUESTS = 500                 # запросов к GPT за период
+PRO_WARN_LEFT = 50                 # за сколько предупредить
 
 # --- НАСТРОЙКИ КЕЙСОВ ---
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
@@ -134,6 +151,10 @@ def init_db():
             last_ts INTEGER DEFAULT 0
         )
     """)
+    try:
+        conn.execute("ALTER TABLE user_stats ADD COLUMN long_msgs INTEGER DEFAULT 0")
+    except Exception:
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS referrals (
             invitee_id INTEGER PRIMARY KEY,
@@ -146,6 +167,15 @@ def init_db():
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals (referrer_id)")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ref_ip (
+            ip TEXT NOT NULL,
+            referrer_id INTEGER NOT NULL,
+            day TEXT NOT NULL,
+            cnt INTEGER DEFAULT 0,
+            PRIMARY KEY (ip, referrer_id, day)
+        )
+    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS daily_state (
             user_id INTEGER PRIMARY KEY,
@@ -182,10 +212,32 @@ def init_db():
             last_seen INTEGER DEFAULT 0
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rate_state (
+            user_id INTEGER PRIMARY KEY,
+            last_ask INTEGER DEFAULT 0,
+            day TEXT DEFAULT '',
+            ask_count INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pro_state (
+            user_id INTEGER PRIMARY KEY,
+            expires_at INTEGER DEFAULT 0,
+            requests_left INTEGER DEFAULT 0,
+            last_charge_id TEXT DEFAULT '',
+            auto_renew INTEGER DEFAULT 0
+        )
+    """)
     conn.commit()
     conn.close()
 
-init_db()
+@app.on_event("startup")
+def _startup():
+    try:
+        init_db()
+    except Exception:
+        log.exception("DB init failed — приложение стартует без БД")
 
 BASE_PROMPT = """
 Ты — ИИ-друг, голографический робот-подросток. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией, но без грубости.
@@ -225,6 +277,14 @@ def scalar(conn, sql, params=()):
     row = conn.execute(sql, params).fetchone()
     return row[0] if row else 0
 
+def try_spend(conn, uid, amount):
+    """Атомарно списывает amount, если хватает баланса. True если списалось."""
+    cur = conn.execute(
+        "UPDATE users SET bal = bal - ? WHERE user_id = ? AND bal >= ?",
+        (amount, uid, amount)
+    )
+    return cur.rowcount == 1
+
 def touch_meta(conn, user_id, now=None):
     conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen) VALUES (?, ?)", (user_id, int(now if now is not None else time.time())))
 
@@ -233,6 +293,7 @@ def mark_seen(conn, uid, now):
 
 def stars_price(item):
     if not isinstance(item, str): return None
+    if item == "pro": return PRO_PRICE
     return CASE_ALL_PRICE if item == "case_all" else SHOP_PRICES.get(item)
 
 def make_link(user_id):
@@ -246,8 +307,15 @@ def refresh_activation(conn, column, user_id, now):
     rows = conn.execute(f"SELECT invitee_id, created_at FROM referrals WHERE {column} = ? AND activated = 0", (user_id,)).fetchall()
     for invitee_id, created_at in rows:
         msgs = scalar(conn, "SELECT msgs FROM user_stats WHERE user_id = ?", (invitee_id,))
-        if msgs >= REF_MIN_MSGS and now - created_at >= REF_MIN_AGE:
-            conn.execute("UPDATE referrals SET activated = 1, activated_at = ? WHERE invitee_id = ?", (now, invitee_id))
+        if msgs < REF_MIN_MSGS or now - created_at < REF_MIN_AGE:
+            continue
+        if REF_REQUIRE_PURCHASE:
+            paid = scalar(conn, "SELECT COUNT(*) FROM payments WHERE user_id = ?", (invitee_id,)) > 0
+            if not paid:
+                owned = get_owned(conn, invitee_id)
+                if not owned:
+                    continue
+        conn.execute("UPDATE referrals SET activated = 1, activated_at = ? WHERE invitee_id = ?", (now, invitee_id))
     conn.commit()
 
 def count_message(user_id, text_len):
@@ -258,16 +326,21 @@ def count_message(user_id, text_len):
     try:
         conn = get_db_connection()
         row = conn.execute("SELECT msgs, last_ts FROM user_stats WHERE user_id = ?", (uid,)).fetchone()
-        if not row: conn.execute("INSERT INTO user_stats (user_id, msgs, last_ts) VALUES (?, 1, ?)", (uid, now))
-        elif now - row[1] >= MSG_MIN_GAP: conn.execute("UPDATE user_stats SET msgs = msgs + 1, last_ts = ? WHERE user_id = ?", (now, uid))
+        is_long = 1 if text_len >= 50 else 0
+        if not row:
+            conn.execute("INSERT INTO user_stats (user_id, msgs, last_ts, long_msgs) VALUES (?, 1, ?, ?)", (uid, now, is_long))
+        elif now - row[1] >= MSG_MIN_GAP:
+            conn.execute("UPDATE user_stats SET msgs = msgs + 1, last_ts = ?, long_msgs = long_msgs + ? WHERE user_id = ?", (now, is_long, uid))
         conn.commit(); conn.close()
-    except Exception: pass
+    except Exception:
+        log.exception("count_message failed")
 
 def get_owned(conn, uid):
     row = conn.execute("SELECT owned FROM users WHERE user_id = ?", (uid,)).fetchone()
     try: owned = json.loads(row[0]) if row and row[0] else {}
     except ValueError: owned = {}
-    return owned if isinstance(owned, dict) else {}
+    if not isinstance(owned, dict): owned = {}
+    return {k: True for k in owned if k in ITEM_PRICE}
 
 def grant_item(conn, uid, item):
     conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
@@ -288,6 +361,40 @@ def daily_info(conn, uid, now):
     last, streak = (row[0], row[1]) if row else (0, 0)
     return {"wait": max(0, last + DAILY_COOLDOWN - now), "streak": streak if last and now - last < DAILY_STREAK_KEEP else 0}
 
+def pro_info(conn, uid, now):
+    row = conn.execute(
+        "SELECT expires_at, requests_left, auto_renew FROM pro_state WHERE user_id = ?",
+        (uid,)
+    ).fetchone()
+    if not row:
+        return {"active": False, "expires_at": 0, "left": 0, "auto_renew": 0, "limit": PRO_REQUESTS}
+    expires_at, left, auto = row
+    active = expires_at > now and left > 0
+    return {
+        "active": active,
+        "expires_at": expires_at,
+        "left": max(0, left) if active else 0,
+        "auto_renew": auto,
+        "limit": PRO_REQUESTS,
+    }
+
+def pro_grant(conn, uid, now, charge_id=""):
+    """Выдаёт/продлевает Pro. При активном Pro — продлевает без сгорания."""
+    row = conn.execute("SELECT expires_at, requests_left FROM pro_state WHERE user_id = ?", (uid,)).fetchone()
+    if row and row[0] > now:
+        expires_at = row[0] + PRO_PERIOD
+        left = row[1] + PRO_REQUESTS
+    else:
+        expires_at = now + PRO_PERIOD
+        left = PRO_REQUESTS
+    conn.execute("""INSERT INTO pro_state (user_id, expires_at, requests_left, last_charge_id, auto_renew)
+        VALUES (?, ?, ?, ?, 0)
+        ON CONFLICT(user_id) DO UPDATE SET expires_at = excluded.expires_at,
+            requests_left = excluded.requests_left,
+            last_charge_id = excluded.last_charge_id""",
+        (uid, expires_at, left, charge_id or ""))
+    return {"expires_at": expires_at, "left": left}
+
 @app.post("/load_progress")
 def load_progress(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
@@ -304,7 +411,15 @@ def load_progress(data: dict = Body(...)):
         try: equip = json.loads(row[1]) if row[1] else {}
         except ValueError: equip = {}
         conn.commit()
-        return {"status": "ok", "bal": row[0], "owned": owned, "equip": clean_equip(equip, owned), "daily": daily_info(conn, uid, now)}
+        return {
+            "status": "ok",
+            "bal": row[0],
+            "owned": owned,
+            "equip": clean_equip(equip, owned),
+            "daily": daily_info(conn, uid, now),
+            "pro": pro_info(conn, uid, now),
+            "pro_price": PRO_PRICE,
+        }
     finally: conn.close()
 
 @app.post("/ping")
@@ -326,7 +441,8 @@ def admin_stats(data: dict = Body(...)):
     try:
         total = scalar(conn, "SELECT COUNT(*) FROM users")
         online = scalar(conn, "SELECT COUNT(*) FROM user_seen WHERE last_seen > ?", (int(time.time()) - ONLINE_WINDOW,))
-        return {"status": "ok", "total": total, "online": online}
+        pro_cnt = scalar(conn, "SELECT COUNT(*) FROM pro_state WHERE expires_at > ? AND requests_left > 0", (int(time.time()),))
+        return {"status": "ok", "total": total, "online": online, "pro_active": pro_cnt}
     finally: conn.close()
 
 @app.post("/admin/give")
@@ -343,6 +459,20 @@ def admin_give(data: dict = Body(...)):
         conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (amount, uid))
         conn.commit()
         return {"status": "ok", "bal": scalar(conn, "SELECT bal FROM users WHERE user_id = ?", (uid,))}
+    finally: conn.close()
+
+@app.post("/admin/pro")
+def admin_pro(data: dict = Body(...)):
+    """Выдать Pro себе (только админ)."""
+    info = validate_init_data(data.get("init_data", ""))
+    if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
+    uid = info["user"]["id"]; now = int(time.time())
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
+        pro_grant(conn, uid, now, "admin")
+        conn.commit()
+        return {"status": "ok", "pro": pro_info(conn, uid, now)}
     finally: conn.close()
 
 @app.post("/save_progress")
@@ -387,14 +517,13 @@ def shop_buy(data: dict = Body(...)):
     try:
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
         if get_owned(conn, uid).get(item): return {"status": "error", "reason": "owned"}
-        bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
-        if bal < price:
+        if not try_spend(conn, uid, price):
             conn.commit()
             return {"status": "error", "reason": "no_funds"}
-        conn.execute("UPDATE users SET bal = bal - ? WHERE user_id = ?", (price, uid))
         owned = grant_item(conn, uid, item)
         conn.commit()
-        return {"status": "ok", "bal": bal - price, "owned": owned}
+        bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
+        return {"status": "ok", "bal": bal, "owned": owned}
     finally: conn.close()
 
 @app.post("/daily/claim")
@@ -406,17 +535,28 @@ def daily_claim(data: dict = Body(...)):
     conn = get_db_connection()
     try:
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-        row = conn.execute("SELECT last_ts, streak FROM daily_state WHERE user_id = ?", (uid,)).fetchone()
-        last, streak = (row[0], row[1]) if row else (0, 0)
-        if now - last < DAILY_COOLDOWN: return {"status": "error", "reason": "wait", "wait": DAILY_COOLDOWN - (now - last)}
-        streak = streak + 1 if last and now - last < DAILY_STREAK_KEEP else 1
+        cutoff = now - DAILY_COOLDOWN
+        cur = conn.execute(
+            "UPDATE daily_state SET last_ts = ?, streak = streak + 1 WHERE user_id = ? AND last_ts <= ?",
+            (now, uid, cutoff)
+        )
+        if cur.rowcount != 1:
+            row = conn.execute("SELECT last_ts, streak FROM daily_state WHERE user_id = ?", (uid,)).fetchone()
+            if not row:
+                conn.execute("INSERT INTO daily_state (user_id, last_ts, streak) VALUES (?, ?, 1)", (uid, now))
+            else:
+                last, streak = row
+                wait = max(0, last + DAILY_COOLDOWN - now)
+                conn.commit()
+                return {"status": "error", "reason": "wait", "wait": wait}
+        row = conn.execute("SELECT streak FROM daily_state WHERE user_id = ?", (uid,)).fetchone()
+        streak = row[0] if row else 1
         stars = _rng.choices([1, 2, 3, 4, 5], weights=[30, 28, 22, 13, 7])[0]
         owned = get_owned(conn, uid)
         drop = None
         if _rng.random() < DAILY_DROP_CHANCE:
             pool = [i for i, p in ITEM_PRICE.items() if i not in EXCLUSIVE_PRICES and not i.startswith("c_") and p <= DAILY_DROP_MAX_PRICE and not owned.get(i)]
             if pool: drop = _rng.choice(pool)
-        conn.execute("""INSERT INTO daily_state (user_id, last_ts, streak) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_ts = excluded.last_ts, streak = excluded.streak""", (uid, now, streak))
         conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (stars, uid))
         if drop: grant_item(conn, uid, drop)
         conn.commit()
@@ -424,7 +564,7 @@ def daily_claim(data: dict = Body(...)):
     finally: conn.close()
 
 @app.post("/referral/register")
-def referral_register(data: dict = Body(...)):
+async def referral_register(request: Request, data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     user = info["user"]; uid = user["id"]; param = info["start_param"] or ""
@@ -432,6 +572,8 @@ def referral_register(data: dict = Body(...)):
     referrer_id = int(param[4:])
     if user.get("is_bot") or referrer_id == uid: return {"status": "ignored", "reason": "self"}
     now = int(time.time())
+    ip = (request.client.host if request and request.client else "unknown") or "unknown"
+    day = time.strftime("%Y-%m-%d", time.gmtime(now))
     conn = get_db_connection()
     try:
         if conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ?", (uid,)).fetchone(): return {"status": "ignored", "reason": "already"}
@@ -441,7 +583,11 @@ def referral_register(data: dict = Body(...)):
         if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (referrer_id,)).fetchone(): return {"status": "ignored", "reason": "bad_referrer"}
         if scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (referrer_id,)) >= REF_MAX_TOTAL: return {"status": "ignored", "reason": "limit"}
         if scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND created_at > ?", (referrer_id, now - 86400)) >= REF_MAX_PER_DAY: return {"status": "ignored", "reason": "limit_day"}
+        ip_row = conn.execute("SELECT cnt FROM ref_ip WHERE ip = ? AND referrer_id = ? AND day = ?", (ip, referrer_id, day)).fetchone()
+        if ip_row and ip_row[0] >= REF_SAME_IP_LIMIT: return {"status": "ignored", "reason": "ip_limit"}
         conn.execute("INSERT INTO referrals (invitee_id, referrer_id, created_at) VALUES (?, ?, ?)", (uid, referrer_id, now))
+        conn.execute("""INSERT INTO ref_ip (ip, referrer_id, day, cnt) VALUES (?, ?, ?, 1)
+            ON CONFLICT(ip, referrer_id, day) DO UPDATE SET cnt = cnt + 1""", (ip, referrer_id, day))
         conn.commit()
         return {"status": "registered", "need_msgs": REF_MIN_MSGS, "reward": REF_REWARD_INVITEE}
     finally: conn.close()
@@ -497,6 +643,7 @@ def referral_claim(data: dict = Body(...)):
 
 _member_cache = {}
 MEMBER_TTL = 300
+MEMBER_MAX = 5000
 _http = httpx.AsyncClient(timeout=8)
 
 async def channel_check(user_id):
@@ -510,12 +657,18 @@ async def channel_check(user_id):
     except Exception:
         return None, "нет связи с Telegram"
     if not res.get("ok"):
-        err = res.get("description", "unknown"); print("getChatMember error:", err)
+        err = res.get("description", "unknown"); log.warning("getChatMember error: %s", err)
         return None, err
     member = res.get("result", {}); status = member.get("status")
     is_m = status in ("creator", "administrator", "member") or (status == "restricted" and bool(member.get("is_member")))
-    if is_m: _member_cache[user_id] = time.time()
-    else: _member_cache.pop(user_id, None)
+    if is_m:
+        if len(_member_cache) >= MEMBER_MAX:
+            oldest = sorted(_member_cache.items(), key=lambda kv: kv[1])[:1000]
+            for kk, _ in oldest:
+                del _member_cache[kk]
+        _member_cache[user_id] = time.time()
+    else:
+        _member_cache.pop(user_id, None)
     return is_m, ""
 
 async def is_channel_member(user_id):
@@ -544,23 +697,39 @@ def _case_open_db(uid, kind):
     now = int(time.time())
     conn = get_db_connection()
     try:
-        row = conn.execute("SELECT last_free, pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-        last_free, pending, pending_case = (row[0], row[1], row[2]) if row else (0, "", "")
-        if pending: return {"status": "error", "reason": "pending", "item": pending, "case": pending_case}
+        row = conn.execute("SELECT pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
+        pending = row[0] if row else ""
+        if pending:
+            return {"status": "error", "reason": "pending", "item": pending, "case": row[1]}
+
         if kind == "free":
-            if now - last_free < CASE_FREE_COOLDOWN: return {"status": "error", "reason": "cooldown", "wait": CASE_FREE_COOLDOWN - (now - last_free)}
+            cutoff = now - CASE_FREE_COOLDOWN
+            cur = conn.execute(
+                "UPDATE case_state SET last_free = ? WHERE user_id = ? AND last_free <= ?",
+                (now, uid, cutoff)
+            )
+            if cur.rowcount != 1:
+                row2 = conn.execute("SELECT last_free FROM case_state WHERE user_id = ?", (uid,)).fetchone()
+                if not row2:
+                    conn.execute("INSERT INTO case_state (user_id, last_free) VALUES (?, ?)", (uid, now))
+                else:
+                    wait = max(0, row2[0] + CASE_FREE_COOLDOWN - now)
+                    conn.commit()
+                    return {"status": "error", "reason": "cooldown", "wait": wait}
             item = roll_free()
-            conn.execute("""INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, ?, ?, 'free') ON CONFLICT(user_id) DO UPDATE SET last_free = excluded.last_free, pending = excluded.pending, pending_case = 'free'""", (uid, now, item))
+            conn.execute("UPDATE case_state SET pending = ?, pending_case = 'free' WHERE user_id = ?", (item, uid))
             conn.commit()
             return {"status": "ok", "item": item, "case": "free"}
-        bal_row = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()
-        bal = bal_row[0] if bal_row else 0
-        if bal < CASE_ALL_PRICE: return {"status": "error", "reason": "no_funds"}
+
+        if not try_spend(conn, uid, CASE_ALL_PRICE):
+            conn.commit()
+            return {"status": "error", "reason": "no_funds"}
         item = roll_all()
-        conn.execute("UPDATE users SET bal = bal - ? WHERE user_id = ?", (CASE_ALL_PRICE, uid))
-        conn.execute("""INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all') ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'""", (uid, item))
+        conn.execute("""INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all')
+            ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'""", (uid, item))
+        bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
         conn.commit()
-        return {"status": "ok", "item": item, "case": "all", "new_bal": bal - CASE_ALL_PRICE}
+        return {"status": "ok", "item": item, "case": "all", "new_bal": bal}
     finally: conn.close()
 
 @app.post("/case/open")
@@ -588,13 +757,19 @@ def case_resolve(data: dict = Body(...)):
         if not item: return {"status": "error", "reason": "nothing"}
         sell = ITEM_PRICE.get(item, 0) // SELL_DIV
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-        if action == "keep" and get_owned(conn, uid).get(item): action = "sell"
-        conn.execute("UPDATE case_state SET pending = '', pending_case = '' WHERE user_id = ?", (uid,))
+        cur = conn.execute("UPDATE case_state SET pending = '', pending_case = '' WHERE user_id = ? AND pending = ?", (uid, item))
+        if cur.rowcount != 1:
+            conn.commit()
+            return {"status": "error", "reason": "nothing"}
+        if action == "keep" and get_owned(conn, uid).get(item):
+            action = "sell"
         if action == "sell":
             if sell > 0: conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (sell, uid))
-        else: grant_item(conn, uid, item)
+        else:
+            grant_item(conn, uid, item)
         conn.commit()
-        return {"status": "ok", "action": action, "item": item, "sell": sell if action == "sell" else 0}
+        bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
+        return {"status": "ok", "action": action, "item": item, "sell": sell if action == "sell" else 0, "bal": bal}
     finally: conn.close()
 
 class BetData(BaseModel):
@@ -611,18 +786,20 @@ def play_rps(data: BetData):
     if data.bet <= 0: return {"error": "Ставка должна быть больше нуля"}
     conn = get_db_connection()
     try:
-        row = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()
-        if not row: return {"error": "Пользователь не найден. Перезайди в бота."}
-        bal = row[0]
-        if bal < data.bet: return {"error": "Недостаточно звезд"}
+        if not try_spend(conn, uid, data.bet):
+            conn.commit()
+            return {"error": "Недостаточно звезд"}
         bot_choice = _rng.choice(["rock", "paper", "scissors"])
         beats = {"rock": "scissors", "paper": "rock", "scissors": "paper"}
         tie = data.choice == bot_choice
         win = (not tie) and beats[data.choice] == bot_choice
-        delta = data.bet if win else (0 if tie else -data.bet)
-        if delta: conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (delta, uid))
+        if tie:
+            conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (data.bet, uid))
+        elif win:
+            conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (data.bet * 2, uid))
         conn.commit()
-        return {"status": "ok", "bot_choice": bot_choice, "win": win, "tie": tie, "new_bal": bal + delta}
+        bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
+        return {"status": "ok", "bot_choice": bot_choice, "win": win, "tie": tie, "new_bal": bal}
     finally: conn.close()
 
 @app.post("/ask")
@@ -632,30 +809,112 @@ async def ask(request: Request):
         user_text = data.get("text", "").lower()
         history_text = data.get("history", "")
         persona = data.get("persona", "hologram")
-        if not user_text: return {"text": "Я не вижу текста.", "emotion": "thinking"}
+
         ask_info = validate_init_data(data.get("init_data", ""))
-        if ask_info: asyncio.get_running_loop().run_in_executor(None, count_message, ask_info["user"]["id"], len(user_text.strip()))
+        if not ask_info:
+            return JSONResponse({"text": "Ошибка авторизации. Открой приложение из Telegram.", "emotion": "sad"}, status_code=401)
+
+        uid = ask_info["user"]["id"]
+        now = int(time.time())
+        conn = get_db_connection()
+        pro = None
+        try:
+            pro = pro_info(conn, uid, now)
+            r = conn.execute("SELECT last_ask, day, ask_count FROM rate_state WHERE user_id = ?", (uid,)).fetchone()
+            last_ask, day, cnt = (r[0], r[1], r[2]) if r else (0, "", 0)
+            today = time.strftime("%Y-%m-%d", time.gmtime(now))
+            if today != day:
+                cnt = 0
+
+            # анти-спам — общий для всех
+            if now - last_ask < ASK_MIN_GAP:
+                return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
+
+            if pro["active"]:
+                # списываем 1 запрос из Pro
+                cur = conn.execute(
+                    "UPDATE pro_state SET requests_left = requests_left - 1 WHERE user_id = ? AND requests_left > 0 AND expires_at > ?",
+                    (uid, now)
+                )
+                if cur.rowcount != 1:
+                    conn.commit()
+                    return JSONResponse({"text": "Лимит Pro закончился. Продли подписку.", "emotion": "sleepy", "pro": pro_info(conn, uid, now)}, status_code=402)
+                pro = pro_info(conn, uid, now)
+            else:
+                # бесплатный дневной лимит
+                if cnt >= ASK_DAY_LIMIT:
+                    conn.commit()
+                    return JSONResponse({"text": "Бесплатные запросы на сегодня закончились. Оформи Pro — 500 запросов на месяц.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
+                cnt += 1
+
+            conn.execute("""INSERT INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET last_ask = excluded.last_ask, day = excluded.day, ask_count = excluded.ask_count""",
+                (uid, now, today, cnt))
+            conn.commit()
+        finally:
+            conn.close()
+
+        asyncio.get_running_loop().run_in_executor(None, count_message, uid, len(user_text.strip()))
+
+        if not user_text: return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro}
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
         if persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             response = await client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."}, {"role": "user", "content": "Я прошу тебя станцевать."}], max_tokens=50, temperature=0.7)
-            return {"text": response.choices[0].message.content, "action": "dance", "dance_name": chosen_dance}
+            return {"text": response.choices[0].message.content, "action": "dance", "dance_name": chosen_dance, "pro": pro}
         messages = [{"role": "system", "content": system_prompt}]
         if history_text: messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}"})
         messages.append({"role": "user", "content": user_text})
         response = await client.chat.completions.create(model="openai/gpt-4o-mini", messages=messages, max_tokens=200, temperature=0.75, response_format={"type": "json_object"})
         result = json.loads(response.choices[0].message.content)
-        return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy")}
-    except Exception as e: return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
+        return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy"), "pro": pro}
+    except Exception as e:
+        log.exception("ask failed")
+        return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
+
+@app.post("/pro/status")
+def pro_status(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return {"status": "error", "reason": "auth"}
+    uid = info["user"]["id"]; now = int(time.time())
+    conn = get_db_connection()
+    try:
+        return {"status": "ok", "pro": pro_info(conn, uid, now), "price": PRO_PRICE, "limit": PRO_REQUESTS}
+    finally: conn.close()
+
+@app.post("/pro/invoice")
+async def pro_invoice(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return {"error": "auth"}
+    uid = info["user"]["id"]
+    if not WEBHOOK_SECRET: return {"error": "payments_disabled"}
+    payload = {
+        "title": "Holo Friend Pro — 30 дней",
+        "description": f"{PRO_REQUESTS} запросов к ИИ-другу на месяц",
+        "payload": f"{uid}|pro",
+        "currency": "XTR",
+        "provider_token": "",
+        "prices": [{"label": "Pro на 30 дней", "amount": PRO_PRICE}],
+    }
+    r = await tg_call("createInvoiceLink", payload)
+    res = r.json()
+    if res.get("ok"): return {"link": res["result"]}
+    return {"error": "Не удалось создать счет", "details": res}
 
 @app.post("/clear")
-async def clear(request: Request): return {"status": "ok"}
+async def clear(request: Request):
+    """Сервер не хранит историю диалога — она живёт на клиенте.
+    Эндпоинт оставлен для совместимости; ничего не удаляет."""
+    return {"status": "ok"}
 
 def check_payment(from_id, payload, currency, amount):
     try: p_uid, item = str(payload).split("|", 1); p_uid = int(p_uid)
     except (ValueError, TypeError): return False, "Неверные данные платежа"
-    if p_uid != from_id or currency != "XTR" or stars_price(item) != amount: return False, "Платёж не прошёл проверку"
+    if p_uid != from_id or currency != "XTR": return False, "Платёж не прошёл проверку"
+    if item == "pro":
+        return (amount == PRO_PRICE), ""
+    if stars_price(item) != amount: return False, "Платёж не прошёл проверку"
     return True, ""
 
 async def tg_call(method, payload):
@@ -663,6 +922,7 @@ async def tg_call(method, payload):
     return await _http.post(url, json=payload, timeout=10)
 
 def _invoice_blocked(uid, item_id):
+    if item_id == "pro": return None
     conn = get_db_connection()
     try:
         if item_id == "case_all":
@@ -689,6 +949,7 @@ async def create_invoice(data: dict = Body(...)):
     return {"error": "Не удалось создать счет", "details": res}
 
 def _precheck_db(uid, item):
+    if item == "pro": return True, ""
     conn = get_db_connection()
     try:
         if item == "case_all":
@@ -703,11 +964,13 @@ def _apply_payment(from_id, item, charge):
     try:
         if charge and not conn.execute("SELECT 1 FROM payments WHERE charge_id = ?", (charge,)).fetchone():
             conn.execute("INSERT INTO payments (charge_id, user_id, item, created_at) VALUES (?, ?, ?, ?)", (charge, from_id, item, int(time.time())))
-            if item == "case_all":
+            if item == "pro":
+                conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
+                pro_grant(conn, from_id, int(time.time()), charge)
+            elif item == "case_all":
                 row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (from_id,)).fetchone()
                 conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
                 if row and row[0]:
-                    # уже есть неразрешённый предмет: возвращаем стоимость внутренними звёздами
                     conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (CASE_ALL_PRICE, from_id))
                 else:
                     conn.execute("""INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all') ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'""", (from_id, roll_all()))
@@ -746,8 +1009,9 @@ async def telegram_webhook(request: Request):
             await tg_call("sendMessage", {"chat_id": msg["chat"]["id"], "text": "✅ Оплата прошла успешно! Возвращайся в приложение."})
             return {"ok": True}
         return {"ok": True}
-    except Exception as e: return {"ok": True}
+    except Exception:
+        log.exception("webhook failed")
+        return {"ok": True}
 
-# HEAD метод для Render
 @app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
