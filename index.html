@@ -695,7 +695,7 @@ async function buyPro(){
 async function waitProPaid(){
     $('pro-msg').style.color = '#7FE5F5';
     $('pro-msg').textContent = 'Оплата прошла, активирую…';
-    for (let i = 0; i < 10; i++){
+    for (let i = 0; i < 20; i++){
         await refreshPro();
         if (PRO.active && PRO.left > 0){
             $('pro-msg').style.color = '#5BD17A';
@@ -704,7 +704,7 @@ async function waitProPaid(){
             setTimeout(() => { $('pro-msg').textContent = ''; closePro(); }, 1500);
             return;
         }
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 800));
     }
     $('pro-msg').style.color = '#FF9E9E';
     $('pro-msg').textContent = 'Оплата в обработке. Загляни в Pro через минуту.';
@@ -716,9 +716,6 @@ $('pro-btn').addEventListener('click', openPro);
 
 /* --- Синхронизация прогресса --- */
 let BAL = store.get('bal', 0);
-let balDirty = false;
-let syncChain = Promise.resolve();
-const ensureSynced = () => balDirty ? syncToServer() : syncChain;
 function applyServerState(res, withEquip){
     if (!res) return;
     if (typeof res.bal === 'number'){ BAL = res.bal; store.set('bal', BAL); renderBal(); }
@@ -727,14 +724,10 @@ function applyServerState(res, withEquip){
     if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, loaded: true }); renderPro(); }
 }
 function syncToServer(){
-    syncChain = syncChain.then(async () => {
-        if (!refOk()) return;
-        try {
-            const res = await tgPost('save_progress', { bal: BAL, equip: EQUIP });
-            if (res && res.status === 'ok'){ balDirty = false; applyServerState(res, false); renderWear(); if (shopOpen && tabNow === 'inv') renderInv(); }
-        } catch(e) { console.error('Save error', e); }
-    });
-    return syncChain;
+    if (!refOk()) return Promise.resolve();
+    return tgPost('save_progress', { bal: BAL, equip: EQUIP }).then(res => {
+        if (res && res.status === 'ok'){ applyServerState(res, false); renderWear(); if (shopOpen && tabNow === 'inv') renderInv(); }
+    }).catch(e => console.error('Save error', e));
 }
 async function loadProgress() {
     if (!refOk()) return;
@@ -775,7 +768,6 @@ chatHistory.addEventListener('click', async e => {
     b.parentElement.querySelectorAll('button').forEach(x => { x.disabled = true; });
     let msg;
     try {
-        await ensureSynced();
         const res = await tgPost('play_rps', { bet, choice });
         if (res && res.status === 'ok'){
             BAL = res.new_bal; store.set('bal', BAL); renderBal();
@@ -1143,7 +1135,7 @@ async function claimDaily(){
     } catch(e) { toast('Нет связи, попробуй позже'); }
     DLY.busy = false; renderBal(); renderBonus(); updateDots();
 }
-function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); balDirty = true; sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
+function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed[id] || (Q.prog[id] || 0) < d.n) return; Q.claimed[id] = true; store.set('quests', Q); BAL += d.r; store.set('bal', BAL); sfx('cash'); renderBal(); renderBonus(); updateDots(); syncToServer(); }
 function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
 function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = can ? cs % 7 : (cs > 0 ? ((cs - 1) % 7) + 1 : 0); let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); bonusEl.innerHTML = `<div class="bcard"><div class="bt">Ежедневная награда</div><div class="bs">Заходи каждый день и забирай звёзды. Серия: ${cs} дн. Награда: от 1 до 5 ★.</div><div class="week">${week}</div><button class="txtbtn ${can ? 'on' : ''}" id="claim-d" style="width:100%" ${can ? '' : 'disabled'}>${can ? 'Забрать награду' : (DLY.loaded ? 'Приходи позже' : 'Доступно в Telegram')}</button><div class="res">${lastResult}</div></div><div class="bcard"><div class="bt">Задания на сегодня</div><div class="bs">Три задания каждый день. Новые появятся через ${untilMidnight()}.</div>${quests}</div>${refCard()}<div class="hint">Звёзды из бонусов можно потратить на наряды.</div>`; }
 $('bonus-list').addEventListener('click', e => { if (e.target.closest('#ref-share')) return refShare(); if (e.target.closest('#ref-copy')) return refCopy(); if (e.target.closest('#ref-claim')) return refClaim(); if (e.target.closest('#claim-d')) return claimDaily(); const b = e.target.closest('button[data-q]'); if (b) claimQuest(b.dataset.q); });
@@ -1270,6 +1262,7 @@ setInterval(() => {
     if (t && wait > 0) t.textContent = fmtWait(wait); else if (t && wait <= 0){ renderCases(); updateDots(); }
 }, 1000);
 setInterval(() => { if (shopOpen && tabNow === 'cases') refreshCases(); }, 30000);
+
 async function openCase(kind){
     if (kind === 'all_tg') return buyCaseTg();
     if (CASES.busy) return;
@@ -1277,7 +1270,7 @@ async function openCase(kind){
     if (kind === 'all' && BAL < CASES.price){ toast(CASE_ERR.no_funds); return; }
     CASES.busy = true; renderCases();
     try {
-        if (kind === 'all') await ensureSynced();
+        // Убрали ensureSynced(), чтобы не делать лишний запрос перед списанием. Сервер сам проверит баланс.
         const res = await tgPost('case/open', { case: kind });
         if (res && res.status === 'ok'){
             if (kind === 'all'){ BAL = res.new_bal; store.set('bal', BAL); renderBal(); } else { CASES.readyAt = Date.now() + 86400 * 1000; CASES.subscribed = true; }
@@ -1308,10 +1301,10 @@ async function buyCaseTg(){
 }
 async function waitCasePaid(){
     toast('Оплата прошла, открываю кейс…');
-    for (let i = 0; i < 10; i++){
+    for (let i = 0; i < 20; i++){
         await refreshCases();
         if (CASES.pending){ showDrop(CASES.pending.item, CASES.pending.kind); return; }
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 800)); // Ускорили опрос
     }
     toast('Оплата в обработке. Кейс появится чуть позже');
 }
@@ -1341,7 +1334,7 @@ async function resolveDrop(action){
                 sfx('cash'); toast(`Продано: +${res.sell} ★`);
             }
             else { OWNED[res.item] = true; store.set('owned', OWNED); sfx('fanfare'); toast('Предмет добавлен в инвентарь'); }
-            CASES.pending = null; syncToServer(); closeDrop(); renderInv(); renderWear(); updateDots();
+            CASES.pending = null; closeDrop(); renderInv(); renderWear(); updateDots();
             if (shopOpen && tabNow === 'cases') renderCases();
         } else { toast('Не получилось, попробуй ещё раз'); DROP.busy = false; }
     } catch(e) { toast('Нет связи, попробуй ещё раз'); DROP.busy = false; }
@@ -1392,7 +1385,7 @@ async function buy(id){
     const isSkin = !!SHOP_ITEMS.find(i => i.id === id);
     if (!isSkin && BAL >= it.price){
         try {
-            await ensureSynced();
+            // Убрали await ensureSynced();
             const res = await tgPost('shop/buy', { item: id });
             if (res && res.status === 'ok'){ applyServerState(res, false); grant(id); }
             else toast(SHOP_ERR[res && res.reason] || 'Не получилось купить');
@@ -1407,10 +1400,10 @@ async function buy(id){
 }
 async function waitPaid(id){
     toast('Оплата прошла, зачисляю…');
-    for (let i = 0; i < 10; i++){
+    for (let i = 0; i < 20; i++){
         await loadProgress();
         if (OWNED[id]){ grant(id); return; }
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 800)); // Ускорили опрос
     }
     toast('Оплата в обработке. Предмет появится в инвентаре чуть позже');
 }
