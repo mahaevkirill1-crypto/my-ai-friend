@@ -12,6 +12,7 @@ import hashlib
 import httpx
 import libsql
 import logging
+import threading
 from urllib.parse import parse_qsl
 from pydantic import BaseModel
 
@@ -55,10 +56,10 @@ ASK_MIN_GAP = 3
 ASK_DAY_LIMIT = 100
 
 # --- ПОДПИСКА PRO ---
-PRO_PRICE = 499                    # Telegram Stars за месяц
-PRO_PERIOD = 30 * 24 * 3600        # 30 дней
-PRO_REQUESTS = 500                 # запросов к GPT за период
-PRO_WARN_LEFT = 50                 # за сколько предупредить
+PRO_PRICE = 499
+PRO_PERIOD = 30 * 24 * 3600
+PRO_REQUESTS = 500
+PRO_WARN_LEFT = 50
 
 # --- НАСТРОЙКИ КЕЙСОВ ---
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
@@ -124,8 +125,20 @@ def roll_free():
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
+_db_local = threading.local()
+
 def get_db_connection():
-    return libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+    if not hasattr(_db_local, 'conn'):
+        _db_local.conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+    return _db_local.conn
+
+def reset_db():
+    if hasattr(_db_local, 'conn'):
+        try:
+            _db_local.conn.close()
+        except Exception:
+            pass
+        del _db_local.conn
 
 def init_db():
     conn = get_db_connection()
@@ -230,7 +243,6 @@ def init_db():
         )
     """)
     conn.commit()
-    conn.close()
 
 @app.on_event("startup")
 def _startup():
@@ -278,7 +290,6 @@ def scalar(conn, sql, params=()):
     return row[0] if row else 0
 
 def try_spend(conn, uid, amount):
-    """Атомарно списывает amount, если хватает баланса. True если списалось."""
     cur = conn.execute(
         "UPDATE users SET bal = bal - ? WHERE user_id = ? AND bal >= ?",
         (amount, uid, amount)
@@ -331,9 +342,10 @@ def count_message(user_id, text_len):
             conn.execute("INSERT INTO user_stats (user_id, msgs, last_ts, long_msgs) VALUES (?, 1, ?, ?)", (uid, now, is_long))
         elif now - row[1] >= MSG_MIN_GAP:
             conn.execute("UPDATE user_stats SET msgs = msgs + 1, last_ts = ?, long_msgs = long_msgs + ? WHERE user_id = ?", (now, is_long, uid))
-        conn.commit(); conn.close()
+        conn.commit()
     except Exception:
         log.exception("count_message failed")
+        reset_db()
 
 def get_owned(conn, uid):
     row = conn.execute("SELECT owned FROM users WHERE user_id = ?", (uid,)).fetchone()
@@ -379,7 +391,6 @@ def pro_info(conn, uid, now):
     }
 
 def pro_grant(conn, uid, now, charge_id=""):
-    """Выдаёт/продлевает Pro. При активном Pro — продлевает без сгорания."""
     row = conn.execute("SELECT expires_at, requests_left FROM pro_state WHERE user_id = ?", (uid,)).fetchone()
     if row and row[0] > now:
         expires_at = row[0] + PRO_PERIOD
@@ -420,7 +431,8 @@ def load_progress(data: dict = Body(...)):
             "pro": pro_info(conn, uid, now),
             "pro_price": PRO_PRICE,
         }
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/ping")
 def ping(data: dict = Body(...)):
@@ -431,7 +443,8 @@ def ping(data: dict = Body(...)):
         mark_seen(conn, info["user"]["id"], int(time.time()))
         conn.commit()
         return {"status": "ok"}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/admin/stats")
 def admin_stats(data: dict = Body(...)):
@@ -443,7 +456,8 @@ def admin_stats(data: dict = Body(...)):
         online = scalar(conn, "SELECT COUNT(*) FROM user_seen WHERE last_seen > ?", (int(time.time()) - ONLINE_WINDOW,))
         pro_cnt = scalar(conn, "SELECT COUNT(*) FROM pro_state WHERE expires_at > ? AND requests_left > 0", (int(time.time()),))
         return {"status": "ok", "total": total, "online": online, "pro_active": pro_cnt}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/admin/give")
 def admin_give(data: dict = Body(...)):
@@ -459,11 +473,11 @@ def admin_give(data: dict = Body(...)):
         conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (amount, uid))
         conn.commit()
         return {"status": "ok", "bal": scalar(conn, "SELECT bal FROM users WHERE user_id = ?", (uid,))}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/admin/pro")
 def admin_pro(data: dict = Body(...)):
-    """Выдать Pro себе (только админ)."""
     info = validate_init_data(data.get("init_data", ""))
     if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
     uid = info["user"]["id"]; now = int(time.time())
@@ -473,7 +487,8 @@ def admin_pro(data: dict = Body(...)):
         pro_grant(conn, uid, now, "admin")
         conn.commit()
         return {"status": "ok", "pro": pro_info(conn, uid, now)}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/save_progress")
 def save_progress(data: dict = Body(...)):
@@ -503,7 +518,8 @@ def save_progress(data: dict = Body(...)):
         conn.execute("UPDATE users SET equip = ? WHERE user_id = ?", (json.dumps(equip), uid))
         conn.commit()
         return {"status": "ok", "bal": server_bal + accepted, "owned": owned, "equip": equip}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/shop/buy")
 def shop_buy(data: dict = Body(...)):
@@ -524,7 +540,8 @@ def shop_buy(data: dict = Body(...)):
         conn.commit()
         bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
         return {"status": "ok", "bal": bal, "owned": owned}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/daily/claim")
 def daily_claim(data: dict = Body(...)):
@@ -561,7 +578,8 @@ def daily_claim(data: dict = Body(...)):
         if drop: grant_item(conn, uid, drop)
         conn.commit()
         return {"status": "ok", "stars": stars, "drop": drop, "streak": streak, "wait": DAILY_COOLDOWN}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/referral/register")
 async def referral_register(request: Request, data: dict = Body(...)):
@@ -590,7 +608,8 @@ async def referral_register(request: Request, data: dict = Body(...)):
             ON CONFLICT(ip, referrer_id, day) DO UPDATE SET cnt = cnt + 1""", (ip, referrer_id, day))
         conn.commit()
         return {"status": "registered", "need_msgs": REF_MIN_MSGS, "reward": REF_REWARD_INVITEE}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/referral/status")
 def referral_status(data: dict = Body(...)):
@@ -614,7 +633,8 @@ def referral_status(data: dict = Body(...)):
             elif activated: me = {"state": "ready"}; pending_me = REF_REWARD_INVITEE
             else: me = {"state": "waiting", "msgs": msgs, "need": REF_MIN_MSGS, "wait_sec": max(0, REF_MIN_AGE - (now - created_at))}
         return {"status": "ok", "link": make_link(uid), "invited": invited, "active": active, "limit": REF_MAX_TOTAL, "pending": pending_ref + pending_me, "me": me, "reward_referrer": REF_REWARD_REFERRER, "reward_invitee": REF_REWARD_INVITEE, "need_msgs": REF_MIN_MSGS}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/referral/claim")
 def referral_claim(data: dict = Body(...)):
@@ -639,7 +659,8 @@ def referral_claim(data: dict = Body(...)):
             conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (reward, uid))
         conn.commit()
         return {"status": "ok", "reward": reward}
-    finally: conn.close()
+    finally:
+        pass
 
 _member_cache = {}
 MEMBER_TTL = 300
@@ -679,7 +700,8 @@ def _case_row(uid):
     try:
         row = conn.execute("SELECT last_free, pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
         return (row[0], row[1], row[2]) if row else (0, "", "")
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/case/status")
 async def case_status(data: dict = Body(...)):
@@ -730,7 +752,8 @@ def _case_open_db(uid, kind):
         bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
         conn.commit()
         return {"status": "ok", "item": item, "case": "all", "new_bal": bal}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/case/open")
 async def case_open(data: dict = Body(...)):
@@ -770,7 +793,8 @@ def case_resolve(data: dict = Body(...)):
         conn.commit()
         bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
         return {"status": "ok", "action": action, "item": item, "sell": sell if action == "sell" else 0, "bal": bal}
-    finally: conn.close()
+    finally:
+        pass
 
 class BetData(BaseModel):
     init_data: str
@@ -800,7 +824,8 @@ def play_rps(data: BetData):
         conn.commit()
         bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
         return {"status": "ok", "bot_choice": bot_choice, "win": win, "tie": tie, "new_bal": bal}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/ask")
 async def ask(request: Request):
@@ -826,12 +851,10 @@ async def ask(request: Request):
             if today != day:
                 cnt = 0
 
-            # анти-спам — общий для всех
             if now - last_ask < ASK_MIN_GAP:
                 return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
 
             if pro["active"]:
-                # списываем 1 запрос из Pro
                 cur = conn.execute(
                     "UPDATE pro_state SET requests_left = requests_left - 1 WHERE user_id = ? AND requests_left > 0 AND expires_at > ?",
                     (uid, now)
@@ -841,7 +864,6 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Лимит Pro закончился. Продли подписку.", "emotion": "sleepy", "pro": pro_info(conn, uid, now)}, status_code=402)
                 pro = pro_info(conn, uid, now)
             else:
-                # бесплатный дневной лимит
                 if cnt >= ASK_DAY_LIMIT:
                     conn.commit()
                     return JSONResponse({"text": "Бесплатные запросы на сегодня закончились. Оформи Pro — 500 запросов на месяц.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
@@ -852,7 +874,7 @@ async def ask(request: Request):
                 (uid, now, today, cnt))
             conn.commit()
         finally:
-            conn.close()
+            pass
 
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, len(user_text.strip()))
 
@@ -881,7 +903,8 @@ def pro_status(data: dict = Body(...)):
     conn = get_db_connection()
     try:
         return {"status": "ok", "pro": pro_info(conn, uid, now), "price": PRO_PRICE, "limit": PRO_REQUESTS}
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/pro/invoice")
 async def pro_invoice(data: dict = Body(...)):
@@ -904,8 +927,7 @@ async def pro_invoice(data: dict = Body(...)):
 
 @app.post("/clear")
 async def clear(request: Request):
-    """Сервер не хранит историю диалога — она живёт на клиенте.
-    Эндпоинт оставлен для совместимости; ничего не удаляет."""
+    """Сервер не хранит историю диалога — она живёт на клиенте."""
     return {"status": "ok"}
 
 def check_payment(from_id, payload, currency, amount):
@@ -929,7 +951,8 @@ def _invoice_blocked(uid, item_id):
             row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
             return "pending" if (row and row[0]) else None
         return "owned" if get_owned(conn, uid).get(item_id) else None
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/invoice")
 async def create_invoice(data: dict = Body(...)):
@@ -957,7 +980,8 @@ def _precheck_db(uid, item):
             if row and row[0]: return False, "Сначала реши, что делать с прошлым предметом"
         elif get_owned(conn, uid).get(item): return False, "Этот предмет у тебя уже есть"
         return True, ""
-    finally: conn.close()
+    finally:
+        pass
 
 def _apply_payment(from_id, item, charge):
     conn = get_db_connection()
@@ -977,7 +1001,8 @@ def _apply_payment(from_id, item, charge):
             else:
                 grant_item(conn, from_id, item)
             conn.commit()
-    finally: conn.close()
+    finally:
+        pass
 
 @app.post("/telegram/webhook")
 async def telegram_webhook(request: Request):
@@ -996,11 +1021,12 @@ async def telegram_webhook(request: Request):
                     _uid, _item = q["invoice_payload"].split("|", 1)
                     ok, err = await asyncio.to_thread(_precheck_db, int(_uid), _item)
                 except Exception: ok, err = False, "Неверные данные платежа"
-            body = {"pre_checkout_query_id": q["id"], "ok": ok}
-            if not ok: body["error_message"] = err
-            await tg_call("answerPreCheckoutQuery", body)
+            body = {"("pre_checkout_query_id": q["id"], "webok": ok}
+            if not okhook: body["error_message"] = err
+            await tg_call failed("answerPreCheckoutQuery", body")
+)
             return {"ok": True}
-        if "message" in data and "successful_payment" in data["message"]:
+               if "message" in data and "successful_payment" in data["message"]:
             msg = data["message"]; pay = msg["successful_payment"]; from_id = msg.get("from", {}).get("id")
             ok, _err = check_payment(from_id, pay.get("invoice_payload", ""), pay.get("currency"), pay.get("total_amount"))
             if ok:
@@ -1010,8 +1036,7 @@ async def telegram_webhook(request: Request):
             return {"ok": True}
         return {"ok": True}
     except Exception:
-        log.exception("webhook failed")
-        return {"ok": True}
+        log.exception return {"ok": True}
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
