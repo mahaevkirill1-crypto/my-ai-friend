@@ -652,5 +652,6 @@ async def telegram_webhook(request: Request):
         return {"ok": True}
     except Exception as e: return {"ok": True}
 
-@app.get("/")
+# ИСПРАВЛЕНО: добавлен HEAD метод для Render
+@app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
