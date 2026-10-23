@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Body
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 import os
@@ -288,8 +289,7 @@ def daily_info(conn, uid, now):
     return {"wait": max(0, last + DAILY_COOLDOWN - now), "streak": streak if last and now - last < DAILY_STREAK_KEEP else 0}
 
 @app.post("/load_progress")
-async def load_progress(request: Request):
-    data = await request.json()
+def load_progress(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]
@@ -308,8 +308,7 @@ async def load_progress(request: Request):
     finally: conn.close()
 
 @app.post("/ping")
-async def ping(request: Request):
-    data = await request.json()
+def ping(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     conn = get_db_connection()
@@ -320,8 +319,7 @@ async def ping(request: Request):
     finally: conn.close()
 
 @app.post("/admin/stats")
-async def admin_stats(request: Request):
-    data = await request.json()
+def admin_stats(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
     conn = get_db_connection()
@@ -332,8 +330,7 @@ async def admin_stats(request: Request):
     finally: conn.close()
 
 @app.post("/admin/give")
-async def admin_give(request: Request):
-    data = await request.json()
+def admin_give(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
     try: amount = int(data.get("amount", 0))
@@ -349,8 +346,7 @@ async def admin_give(request: Request):
     finally: conn.close()
 
 @app.post("/save_progress")
-async def save_progress(request: Request):
-    data = await request.json()
+def save_progress(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]
@@ -380,8 +376,7 @@ async def save_progress(request: Request):
     finally: conn.close()
 
 @app.post("/shop/buy")
-async def shop_buy(request: Request):
-    data = await request.json()
+def shop_buy(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]
@@ -403,8 +398,7 @@ async def shop_buy(request: Request):
     finally: conn.close()
 
 @app.post("/daily/claim")
-async def daily_claim(request: Request):
-    data = await request.json()
+def daily_claim(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]
@@ -430,8 +424,7 @@ async def daily_claim(request: Request):
     finally: conn.close()
 
 @app.post("/referral/register")
-async def referral_register(request: Request):
-    data = await request.json()
+def referral_register(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     user = info["user"]; uid = user["id"]; param = info["start_param"] or ""
@@ -454,8 +447,7 @@ async def referral_register(request: Request):
     finally: conn.close()
 
 @app.post("/referral/status")
-async def referral_status(request: Request):
-    data = await request.json()
+def referral_status(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]; now = int(time.time())
@@ -479,8 +471,7 @@ async def referral_status(request: Request):
     finally: conn.close()
 
 @app.post("/referral/claim")
-async def referral_claim(request: Request):
-    data = await request.json()
+def referral_claim(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]; now = int(time.time())
@@ -504,50 +495,52 @@ async def referral_claim(request: Request):
         return {"status": "ok", "reward": reward}
     finally: conn.close()
 
+_member_cache = {}
+MEMBER_TTL = 300
+_http = httpx.AsyncClient(timeout=8)
+
 async def channel_check(user_id):
     if not CHANNEL_USERNAME or not BOT_TOKEN: return None, "CHANNEL_USERNAME или BOT_TOKEN не заданы"
+    hit = _member_cache.get(user_id)
+    if hit and time.time() - hit < MEMBER_TTL: return True, ""
     chat = CHANNEL_USERNAME if (CHANNEL_USERNAME.startswith("@") or CHANNEL_USERNAME.lstrip("-").isdigit()) else "@" + CHANNEL_USERNAME
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember"
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            r = await c.post(url, json={"chat_id": chat, "user_id": user_id}); res = r.json()
+        r = await _http.post(url, json={"chat_id": chat, "user_id": user_id}); res = r.json()
     except Exception:
         return None, "нет связи с Telegram"
     if not res.get("ok"):
         err = res.get("description", "unknown"); print("getChatMember error:", err)
         return None, err
     member = res.get("result", {}); status = member.get("status")
-    return (status in ("creator", "administrator", "member") or (status == "restricted" and bool(member.get("is_member")))), ""
+    is_m = status in ("creator", "administrator", "member") or (status == "restricted" and bool(member.get("is_member")))
+    if is_m: _member_cache[user_id] = time.time()
+    else: _member_cache.pop(user_id, None)
+    return is_m, ""
 
 async def is_channel_member(user_id):
     return (await channel_check(user_id))[0]
 
-@app.post("/case/status")
-async def case_status(request: Request):
-    data = await request.json()
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]
-    member = await is_channel_member(uid) if CHANNEL_USERNAME else None
-    now = int(time.time())
+def _case_row(uid):
     conn = get_db_connection()
     try:
         row = conn.execute("SELECT last_free, pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-        last_free, pending, pending_case = (row[0], row[1], row[2]) if row else (0, "", "")
-        return {"status": "ok", "free_wait": max(0, last_free + CASE_FREE_COOLDOWN - now), "subscribed": member, "configured": bool(CHANNEL_USERNAME), "channel_link": CHANNEL_LINK, "price": CASE_ALL_PRICE, "pending": pending or None, "pending_case": pending_case or None}
+        return (row[0], row[1], row[2]) if row else (0, "", "")
     finally: conn.close()
 
-@app.post("/case/open")
-async def case_open(request: Request):
-    data = await request.json()
+@app.post("/case/status")
+async def case_status(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; kind = data.get("case")
-    if kind not in ("free", "all"): return {"status": "error", "reason": "bad_case"}
-    if kind == "free":
-        member, why = await channel_check(uid)
-        if member is None: return {"status": "error", "reason": "channel_unavailable", "detail": why if uid == ADMIN_ID else ""}
-        if not member: return {"status": "error", "reason": "not_subscribed"}
+    uid = info["user"]["id"]
+    now = int(time.time())
+    if CHANNEL_USERNAME:
+        (last_free, pending, pending_case), (member, _why) = await asyncio.gather(asyncio.to_thread(_case_row, uid), channel_check(uid))
+    else:
+        (last_free, pending, pending_case), member = await asyncio.to_thread(_case_row, uid), None
+    return {"status": "ok", "free_wait": max(0, last_free + CASE_FREE_COOLDOWN - now), "subscribed": member, "configured": bool(CHANNEL_USERNAME), "channel_link": CHANNEL_LINK, "price": CASE_ALL_PRICE, "pending": pending or None, "pending_case": pending_case or None}
+
+def _case_open_db(uid, kind):
     now = int(time.time())
     conn = get_db_connection()
     try:
@@ -570,9 +563,20 @@ async def case_open(request: Request):
         return {"status": "ok", "item": item, "case": "all", "new_bal": bal - CASE_ALL_PRICE}
     finally: conn.close()
 
+@app.post("/case/open")
+async def case_open(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return {"status": "error", "reason": "auth"}
+    uid = info["user"]["id"]; kind = data.get("case")
+    if kind not in ("free", "all"): return {"status": "error", "reason": "bad_case"}
+    if kind == "free":
+        member, why = await channel_check(uid)
+        if member is None: return {"status": "error", "reason": "channel_unavailable", "detail": why if uid == ADMIN_ID else ""}
+        if not member: return {"status": "error", "reason": "not_subscribed"}
+    return await asyncio.to_thread(_case_open_db, uid, kind)
+
 @app.post("/case/resolve")
-async def case_resolve(request: Request):
-    data = await request.json()
+def case_resolve(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]; action = data.get("action")
@@ -599,7 +603,7 @@ class BetData(BaseModel):
     choice: str
 
 @app.post("/play_rps")
-async def play_rps(data: BetData):
+def play_rps(data: BetData):
     info = validate_init_data(data.init_data)
     if not info: return {"error": "auth"}
     uid = info["user"]["id"]
@@ -630,7 +634,7 @@ async def ask(request: Request):
         persona = data.get("persona", "hologram")
         if not user_text: return {"text": "Я не вижу текста.", "emotion": "thinking"}
         ask_info = validate_init_data(data.get("init_data", ""))
-        if ask_info: count_message(ask_info["user"]["id"], len(user_text.strip()))
+        if ask_info: asyncio.get_running_loop().run_in_executor(None, count_message, ask_info["user"]["id"], len(user_text.strip()))
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
         if persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
@@ -656,30 +660,61 @@ def check_payment(from_id, payload, currency, amount):
 
 async def tg_call(method, payload):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
-    async with httpx.AsyncClient(timeout=10) as c: return await c.post(url, json=payload)
+    return await _http.post(url, json=payload, timeout=10)
+
+def _invoice_blocked(uid, item_id):
+    conn = get_db_connection()
+    try:
+        if item_id == "case_all":
+            row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
+            return "pending" if (row and row[0]) else None
+        return "owned" if get_owned(conn, uid).get(item_id) else None
+    finally: conn.close()
 
 @app.post("/invoice")
-async def create_invoice(request: Request):
-    data = await request.json()
+async def create_invoice(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"error": "auth"}
     uid = info["user"]["id"]; item_id = data.get("item")
     price = stars_price(item_id)
     if not price: return {"error": "item not found"}
     if not WEBHOOK_SECRET: return {"error": "payments_disabled"}
-    conn = get_db_connection()
-    try:
-        if item_id == "case_all":
-            row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-            if row and row[0]: return {"error": "pending"}
-        elif get_owned(conn, uid).get(item_id): return {"error": "owned"}
-    finally: conn.close()
+    blocked = await asyncio.to_thread(_invoice_blocked, uid, item_id)
+    if blocked: return {"error": blocked}
     title = "Кейс «Всё сразу»" if item_id == "case_all" else f"Покупка: {item_id}"
     payload = {"title": title, "description": "Покупка в Holo Friend", "payload": f"{uid}|{item_id}", "currency": "XTR", "provider_token": "", "prices": [{"label": "Товар", "amount": price}]}
     r = await tg_call("createInvoiceLink", payload)
     res = r.json()
     if res.get("ok"): return {"link": res["result"]}
     return {"error": "Не удалось создать счет", "details": res}
+
+def _precheck_db(uid, item):
+    conn = get_db_connection()
+    try:
+        if item == "case_all":
+            row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
+            if row and row[0]: return False, "Сначала реши, что делать с прошлым предметом"
+        elif get_owned(conn, uid).get(item): return False, "Этот предмет у тебя уже есть"
+        return True, ""
+    finally: conn.close()
+
+def _apply_payment(from_id, item, charge):
+    conn = get_db_connection()
+    try:
+        if charge and not conn.execute("SELECT 1 FROM payments WHERE charge_id = ?", (charge,)).fetchone():
+            conn.execute("INSERT INTO payments (charge_id, user_id, item, created_at) VALUES (?, ?, ?, ?)", (charge, from_id, item, int(time.time())))
+            if item == "case_all":
+                row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (from_id,)).fetchone()
+                conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
+                if row and row[0]:
+                    # уже есть неразрешённый предмет: возвращаем стоимость внутренними звёздами
+                    conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (CASE_ALL_PRICE, from_id))
+                else:
+                    conn.execute("""INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all') ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'""", (from_id, roll_all()))
+            else:
+                grant_item(conn, from_id, item)
+            conn.commit()
+    finally: conn.close()
 
 @app.post("/telegram/webhook")
 async def telegram_webhook(request: Request):
@@ -696,13 +731,7 @@ async def telegram_webhook(request: Request):
             if ok:
                 try:
                     _uid, _item = q["invoice_payload"].split("|", 1)
-                    conn = get_db_connection()
-                    try:
-                        if _item == "case_all":
-                            row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (int(_uid),)).fetchone()
-                            if row and row[0]: ok, err = False, "Сначала реши, что делать с прошлым предметом"
-                        elif get_owned(conn, int(_uid)).get(_item): ok, err = False, "Этот предмет у тебя уже есть"
-                    finally: conn.close()
+                    ok, err = await asyncio.to_thread(_precheck_db, int(_uid), _item)
                 except Exception: ok, err = False, "Неверные данные платежа"
             body = {"pre_checkout_query_id": q["id"], "ok": ok}
             if not ok: body["error_message"] = err
@@ -713,22 +742,7 @@ async def telegram_webhook(request: Request):
             ok, _err = check_payment(from_id, pay.get("invoice_payload", ""), pay.get("currency"), pay.get("total_amount"))
             if ok:
                 _uid, item = pay["invoice_payload"].split("|", 1); charge = pay.get("telegram_payment_charge_id", "")
-                conn = get_db_connection()
-                try:
-                    if charge and not conn.execute("SELECT 1 FROM payments WHERE charge_id = ?", (charge,)).fetchone():
-                        conn.execute("INSERT INTO payments (charge_id, user_id, item, created_at) VALUES (?, ?, ?, ?)", (charge, from_id, item, int(time.time())))
-                        if item == "case_all":
-                            row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (from_id,)).fetchone()
-                            conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
-                            if row and row[0]:
-                                # уже есть неразрешённый предмет: возвращаем стоимость внутренними звёздами
-                                conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (CASE_ALL_PRICE, from_id))
-                            else:
-                                conn.execute("""INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all') ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'""", (from_id, roll_all()))
-                        else:
-                            grant_item(conn, from_id, item)
-                        conn.commit()
-                finally: conn.close()
+                await asyncio.to_thread(_apply_payment, from_id, item, charge)
             await tg_call("sendMessage", {"chat_id": msg["chat"]["id"], "text": "✅ Оплата прошла успешно! Возвращайся в приложение."})
             return {"ok": True}
         return {"ok": True}
