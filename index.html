@@ -283,6 +283,28 @@
   </div>
 </div>
 <div id="toast"></div>
+
+<!-- АДМИН ПАНЕЛЬ -->
+<div id="admin-panel" class="overlay" style="background: rgba(0,0,0,0.9); z-index: 999; align-items: center; justify-content: center;">
+  <div class="dialog" style="border-color: #FFD166; max-width: 350px;">
+    <h3 style="color: #FFD166;">👑 Админ-панель</h3>
+    <p>Статистика в реальном времени:</p>
+    <div style="font-size: 20px; text-align: center; margin-bottom: 15px;">
+      <div>Всего юзеров: <span id="adm-total" style="color: #4FD1E8;">...</span></div>
+      <div>Онлайн: <span id="adm-online" style="color: #5BD17A;">...</span></div>
+    </div>
+    
+    <div class="input-container" style="margin-bottom: 10px;">
+        <div class="input-inner">
+            <input type="number" id="adm-amount" placeholder="Сумма звезд" style="background: transparent; border: none; color: #fff; padding: 8px; outline: none; width: 100%;">
+        </div>
+    </div>
+    
+    <button class="txtbtn on" style="width: 100%; margin-bottom: 10px;" onclick="adminGiveMoney()">💰 Выдать указанную сумму</button>
+    <button class="txtbtn" style="width: 100%;" onclick="document.getElementById('admin-panel').classList.remove('open')">Закрыть</button>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
 const tr = (id, v) => $(id).setAttribute('transform', v);
@@ -601,7 +623,7 @@ async function updateRefStatus() {
         const data = await res.json();
         if (data.status === 'ok') {
             window._refData = data;
-            renderRefTab(data);
+            if (tabNow === 'bonus') renderBonus(); // Перерисовываем, если мы в бонусах
         }
     } catch(e) { console.error("Ref status error", e); }
 }
@@ -620,7 +642,7 @@ async function claimRefReward() {
             renderBal();
             Snd.cash();
             toast(`Получено: +${data.reward} ★`);
-            await updateRefStatus();
+            await updateRefStatus(); // Обновляем и перерисовываем
         } else {
             toast('Нет доступных наград.');
         }
@@ -632,6 +654,16 @@ if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHi
 async function sendMessage(text) {
     if (!text || isSending) return;
     isSending = true;
+
+    // === ПЕРЕХВАТ КОМАНДЫ /admin ===
+    if (text.trim().toLowerCase() === '/admin') {
+        addToHistory(text, 'user');
+        input.value = '';
+        input.readOnly = false; sendBtn.disabled = false;
+        isSending = false;
+        openAdminPanel();
+        return;
+    }
 
     addToHistory(text, 'user');
     input.value = ''; $('cnt').textContent = '0 / 500';
@@ -1018,6 +1050,7 @@ function claimQuest(id){ ensureQuests(); const d = QDEF[id]; if (!d || Q.claimed
 function untilMidnight(){ const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((m - n) / 1000)); return Math.floor(s / 3600) + ' ч ' + Math.floor(s % 3600 / 60) + ' мин'; }
 function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak(); const done = DAILY.last === todayStr() ? ((DAILY.streak - 1) % 7) + 1 : cs % 7; let week = ''; for (let i = 0; i < 7; i++) week += `<div class="wd ${i < done ? 'f' : (i === done && can ? 't' : '')}">${i + 1}</div>`; const quests = Q.list.map(id => { const d = QDEF[id], p = Q.prog[id] || 0, ok = p >= d.n, got = !!Q.claimed[id]; const btn = got ? '<button class="txtbtn" disabled>Получено</button>' : `<button class="txtbtn ${ok ? 'on' : ''}" data-q="${id}" ${ok ? '' : 'disabled'}>Забрать</button>`; return `<div class="q"><div class="qi"><div class="qt">${d.t}</div><div class="bar"><i style="width:${Math.round(p / d.n * 100)}%"></i></div><div class="qr">${p}/${d.n} · награда ★ ${d.r}</div></div>${btn}</div>`; }).join(''); 
     
+    // Рендерим рефку СРАЗУ, даже если данных еще нет
     const refData = window._refData || null;
     let refHtml = '';
     if (refData) {
@@ -1045,6 +1078,14 @@ function renderBonus(){ ensureQuests(); const can = canDaily(), cs = curStreak()
             ${meText}
             ${claimBtn}
         </div>`;
+    } else {
+        // Заглушка, если данные еще не пришли
+        refHtml = `<div class="bcard" style="border-color: #FFD166;">
+            <div class="bt" style="color: #FFD166;">🤝 Пригласи друга</div>
+            <div class="bs">Загрузка данных...</div>
+        </div>`;
+        // Запускаем обновление в фоне
+        updateRefStatus();
     }
 
     bonusEl.innerHTML = `
@@ -1088,7 +1129,7 @@ window.copyRefLink = function() {
 const origShowTab = showTab;
 window.showTab = function(t) {
     origShowTab(t);
-    if (t === 'bonus') updateRefStatus();
+    if (t === 'bonus') updateRefStatus(); // Обновляем при открытии
 }
 
 /* --- Магазин --- */
@@ -1129,13 +1170,65 @@ sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); draw
 ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 
-// ФИКС: Убираем все ожидания и просто показываем интерфейс
+// === ЛОГИКА АДМИНКИ ===
+async function openAdminPanel() {
+    const adminId = userId();
+    try {
+        const res = await fetch(`${BACKEND_URL}/admin/stats`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_id: adminId })
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            addToHistory("У вас нет прав администратора.", 'bot');
+            return;
+        }
+        
+        $('adm-total').textContent = data.total;
+        $('adm-online').textContent = data.online;
+        $('admin-panel').classList.add('open');
+    } catch(e) {
+        addToHistory("Ошибка админки.", 'bot');
+    }
+}
+
+async function adminGiveMoney() {
+    const adminId = userId();
+    const amountInput = document.getElementById('adm-amount').value;
+    const amount = parseInt(amountInput);
+    
+    if (isNaN(amount) || amount <= 0) {
+        toast('Введи корректное число!');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/admin/give_bal`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_id: adminId, amount: amount })
+        });
+        const data = await res.json();
+        
+        if (data.status === 'ok') {
+            BAL += data.added;
+            store.set('bal', BAL);
+            renderBal();
+            Snd.cash();
+            toast(`Начислено: +${data.added} ★`);
+            document.getElementById('adm-amount').value = ''; 
+        } else {
+            toast('Ошибка: ' + data.error);
+        }
+    } catch(e) {
+        toast('Ошибка соединения');
+    }
+}
+
+// ФИКС: Показываем интерфейс сразу при загрузке
 document.body.classList.add('loaded');
-setTimeout(() => {
-    syncBody();
-    layout();
-    scrollChat();
-}, 100);
+syncBody();
+layout();
 </script>
 </body>
 </html>
