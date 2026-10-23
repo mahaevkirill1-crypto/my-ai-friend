@@ -79,20 +79,6 @@
     #shop-tabs { overflow-x: auto; }
     #shop-tabs .txtbtn { white-space: nowrap; flex: none; }
     .pane { flex: 1; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
-    .refrow, .case .row, .dropbox .row { display: flex; gap: 8px; }
-    .refrow .txtbtn, .case .row .txtbtn, .dropbox .row .txtbtn { flex: 1; white-space: nowrap; }
-    .case { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; }
-    .case > svg { width: 84px; flex: none; }
-    .xl { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
-    .xl span { font-size: 11px; padding: 3px 8px; border: 1px solid #FF9EC4; color: #FF9EC4; border-radius: 4px; }
-    #drop { background: rgba(7,12,20,.88); align-items: center; justify-content: center; padding: 16px; z-index: 70; }
-    .dropbox { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; text-align: center; display: flex; flex-direction: column; gap: 8px; }
-    .dropbox > svg { display: block; margin: 0 auto; height: auto; }
-    .dropbox .bs { margin: 0; }
-    .tier { align-self: center; font-size: 11px; padding: 2px 10px; border-radius: 4px; border: 1px solid; }
-    .shake { width: 120px; margin: 8px auto; animation: boxshake .45s infinite; }
-    .shake svg { width: 100%; display: block; }
-    @keyframes boxshake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg) translateY(-2px); } 75% { transform: rotate(6deg) translateY(-2px); } }
     .overlay { position: fixed; inset: 0; display: none; }
     .overlay.open { display: flex; }
     #shop { background: var(--bg-color); flex-direction: column; z-index: 50; }
@@ -141,6 +127,20 @@
     .ref-box { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; background: rgba(79,209,232,.1); padding: 12px; border-radius: 8px; border: 1px dashed #4FD1E8; }
     .ref-link { word-break: break-all; font-size: 12px; color: #9AF0FF; background: #0E1726; padding: 8px; border-radius: 6px; text-align: center; font-family: monospace; }
     .ref-stats { display: flex; justify-content: space-between; font-size: 13px; color: #C8F8FF; }
+    .refrow, .case .row, .dropbox .row { display: flex; gap: 8px; }
+    .refrow .txtbtn, .case .row .txtbtn, .dropbox .row .txtbtn { flex: 1; white-space: nowrap; }
+    .case { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; }
+    .case > svg { width: 84px; flex: none; }
+    .xl { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
+    .xl span { font-size: 11px; padding: 3px 8px; border: 1px solid #FF9EC4; color: #FF9EC4; border-radius: 4px; }
+    #drop { background: rgba(7,12,20,.88); align-items: center; justify-content: center; padding: 16px; z-index: 70; }
+    .dropbox { background: #0B2230; border: 1px solid #2E8FA3; border-radius: 12px; padding: 16px; width: 100%; max-width: 320px; text-align: center; display: flex; flex-direction: column; gap: 8px; }
+    .dropbox > svg { display: block; margin: 0 auto; height: auto; }
+    .dropbox .bs { margin: 0; }
+    .tier { align-self: center; font-size: 11px; padding: 2px 10px; border-radius: 4px; border: 1px solid; }
+    .shake { width: 120px; margin: 8px auto; animation: boxshake .45s infinite; }
+    .shake svg { width: 100%; display: block; }
+    @keyframes boxshake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg) translateY(-2px); } 75% { transform: rotate(6deg) translateY(-2px); } }
     #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #0B2230; border: 1px solid #2E8FA3; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
     #confirm { background: rgba(7,12,20,.82); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
@@ -1112,7 +1112,7 @@ window.copyRefLink = function() {
         textArea.value = link;
         document.body.appendChild(textArea);
         textArea.select();
-       -price document.execCommand("copy");
+        document.execCommand("copy");
         document.body.removeChild(textArea);
         toast('Ссылка скопирована!');
     }
@@ -1131,11 +1131,11 @@ const findItem = id => byId[id] || SHOP_ITEMS.find(i => i.id === id);
 const balEl = $('bal-el');
 const bonusEl = $('bonus-list');
 function renderBal(){ balEl.textContent = '★ ' + BAL; }
-function showTab(t){ tabNow = t; tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); $('shop-list').style.display = t === 'shop' ? '' : 'none'; bonus').El.style.display = t === 'textbonus' ? 'flex' : 'none';Content $('cases-list').style.display = t === ' =cases' ? 'flex' : 'none'; own $('inv-list').style.display = t === 'inv' ? 'flex' : 'none'; if (t === 'bonus'){ renderBonus(); refreshRef(); } if (t === 'cases'){ renderCases(); refreshCases(); } if (t === 'inv') renderInv(); }
+function showTab(t){ tabNow = t; tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); $('shop-list').style.display = t === 'shop' ? '' : 'none'; bonusEl.style.display = t === 'bonus' ? 'flex' : 'none'; $('cases-list').style.display = t === 'cases' ? 'flex' : 'none'; $('inv-list').style.display = t === 'inv' ? 'flex' : 'none'; if (t === 'bonus'){ renderBonus(); refreshRef(); } if (t === 'cases'){ renderCases(); refreshCases(); } if (t === 'inv') renderInv(); }
 function renderChars(){ $('chars').innerHTML = SHOP_ITEMS.map(it => { const owned = !!OWNED[it.id], on = owned && char === it.char; const btn = !owned ? `<button class="txtbtn" data-act="buy" data-id="${it.id}">Купить за ★ ${it.price}</button>` : on ? `<button class="txtbtn on" data-act="off" data-id="${it.id}">Снять</button>` : `<button class="txtbtn" data-act="on" data-id="${it.id}">Надеть</button>`; return `<div class="card"><svg viewBox="-85 -140 170 175" style="--su:#EEF3FA;--lc:#FFD166" role="img" aria-label="${it.name}"><use href="#ast"/></svg><div class="info"><div class="name">${it.name}</div><div class="desc">${it.desc}</div><div class="price">★ ${it.price}</div>${btn}</div></div>`; }).join(''); }
 $('chars').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b) return; const it = SHOP_ITEMS.find(i => i.id === b.dataset.id); if (!it) return; if (b.dataset.act === 'buy') buy(it.id); if (b.dataset.act === 'on'){ closeShop(); setChar(it.char); } if (b.dataset.act === 'off'){ closeShop(); setChar('holo'); } });
 let tab = 'head', selW = null, pvEq = {};
-function renderWear(){ if (!selW || byId[selW].slot !== tab) { const eq = EQUIP[tab]; selW = (eq && byId[eq] && !byId[eq].excl) ? eq : WEAR.find(i => i.slot === tab && !i.excl).id; } const it = byId[selW]; const slotInfo = SLOTS.find(s => s.k === it.slot); pvEq = Object.assign({}, EQUIP, { [it.slot]: it.id }); dress('p', pvEq); $('w-tabs').innerHTML = SLOTS.map(s => `<button class="txtbtn ${s.k === tab ? 'on' : ''}" data-tab="${s.k}">${s.n}</button>`).join(''); $('w-grid').innerHTML = WEAR.filter(i => i.slot === tab && !i.excl).map(i => { const worn = EQUIP[i.slot] === i.id, own = !!OWNED[i.id]; const tag = worn ? 'Надето' : own ? 'Куплено' : '★ ' + i.price; return `<div class="gi ${i.id === selW ? 'sel' : ''}" data-w="${i.id}"><span class="dot" style="background:${i.sw}"></span><div>${i.name}</div><div class="${own ? 'own' : 'pr'}">${tag}</div></div>`; }).join(''); const own = !!OWNED[it.id], worn = EQUIP[it.slot] === it.id; $('w-name').textContent = it.name; $('w-desc').textContent = slotInfo.d; $('w ? (worn ? 'Надето' : 'Куплено') : '★ ' + it.price; const b = $('w-btn'); b.dataset.id = it.id; b.dataset.act = !own ? 'buy' : worn ? 'off' : 'on'; b.textContent = !own ? `Купить за ★ ${it.price}` : worn ? 'Снять' : 'Надеть'; b.className = 'txtbtn' + (worn ? ' on' : ''); $('w-note').textContent = char === 'astro' ? 'Наряды надеваются на голограмму. Чтобы увидеть её в чате, сними космонавта.' : ''; }
+function renderWear(){ if (!selW || byId[selW].slot !== tab) { const eq = EQUIP[tab]; selW = (eq && byId[eq] && !byId[eq].excl) ? eq : WEAR.find(i => i.slot === tab && !i.excl).id; } const it = byId[selW]; const slotInfo = SLOTS.find(s => s.k === it.slot); pvEq = Object.assign({}, EQUIP, { [it.slot]: it.id }); dress('p', pvEq); $('w-tabs').innerHTML = SLOTS.map(s => `<button class="txtbtn ${s.k === tab ? 'on' : ''}" data-tab="${s.k}">${s.n}</button>`).join(''); $('w-grid').innerHTML = WEAR.filter(i => i.slot === tab && !i.excl).map(i => { const worn = EQUIP[i.slot] === i.id, own = !!OWNED[i.id]; const tag = worn ? 'Надето' : own ? 'Куплено' : '★ ' + i.price; return `<div class="gi ${i.id === selW ? 'sel' : ''}" data-w="${i.id}"><span class="dot" style="background:${i.sw}"></span><div>${i.name}</div><div class="${own ? 'own' : 'pr'}">${tag}</div></div>`; }).join(''); const own = !!OWNED[it.id], worn = EQUIP[it.slot] === it.id; $('w-name').textContent = it.name; $('w-desc').textContent = slotInfo.d; $('w-price').textContent = own ? (worn ? 'Надето' : 'Куплено') : '★ ' + it.price; const b = $('w-btn'); b.dataset.id = it.id; b.dataset.act = !own ? 'buy' : worn ? 'off' : 'on'; b.textContent = !own ? `Купить за ★ ${it.price}` : worn ? 'Снять' : 'Надеть'; b.className = 'txtbtn' + (worn ? ' on' : ''); $('w-note').textContent = char === 'astro' ? 'Наряды надеваются на голограмму. Чтобы увидеть её в чате, сними космонавта.' : ''; }
 function pvColor(t){ const it = pvEq.color && byId[pvEq.color]; let c = '#4FD1E8', s = '#9AF0FF'; if (it && it.rainbow){ c = `rgb(${hsl((t / 20) % 360, .75, .62)})`; s = `rgb(${hsl((t / 20 + 30) % 360, .9, .8)})`; } else if (it){ c = it.c; s = it.s; } $('pvs').style.setProperty('--c', c); $('pvs').style.setProperty('--s', s); }
 $('w-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (!b) return; tab = b.dataset.tab; selW = null; renderWear(); });
 $('w-grid').addEventListener('click', e => { const c = e.target.closest('.gi'); if (!c) return; selW = c.dataset.w; Quest.add('try'); renderWear(); });
