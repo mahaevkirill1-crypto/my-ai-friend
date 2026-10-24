@@ -9,6 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+    /* CSS-ФИКС ДЛЯ ЗАСТАВКИ (сработает даже при ошибке JS) */
+    #splash { position: fixed; inset: 0; background: #070B14; display: flex; align-items: center; justify-content: center; z-index: 950; animation: splashHide 0s ease-in 1.2s forwards; }
+    #splash .dot { width: 12px; height: 12px; border-radius: 50%; background: #6FE3F2; box-shadow: 0 0 40px 8px rgba(111,227,242,.6); animation: splashPulse 1.2s ease-in-out infinite; }
+    @keyframes splashPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.6); opacity: 1; } }
+    @keyframes splashHide { to { opacity: 0; visibility: hidden; display: none; } }
+
     :root {
         --c: #4FD1E8; --s: #9AF0FF; --su: #EEF3FA; --lc: #FFD166;
         --ui-bg-0:#070B14; --ui-bg-1:#0B1120; --ui-bg-2:#131A2B; --ui-bg-3:#1A2236;
@@ -35,7 +41,6 @@
     body.light-theme .avatar { background: #E2E8F0; border-color: #CBD5E1; color: #0284C7; }
     body.light-theme .msg-row.user .avatar { background: #BAE6FD; color: #0284C7; }
     body.light-theme #topbar .ibtn { background: #FFFFFF; border-color: #E2E8F0; color: #0F172A; }
-    body.light-theme .drow.pro .ibtn { color: #D97706; }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     
@@ -82,7 +87,6 @@
     .txtbtn.on.neon,.welcome-btn.neon{animation:neonG .45s ease-out}
     @keyframes neon{0%{box-shadow:0 0 0 1px var(--ui-cyan),0 0 22px 2px rgba(111,227,242,.6)}100%{box-shadow:0 0 0 1px transparent,0 0 0 0 transparent}}
     @keyframes neonG{0%{box-shadow:0 0 0 1px var(--ui-gold-hi),0 0 26px 3px rgba(240,215,154,.65)}100%{box-shadow:0 0 0 1px transparent,0 0 0 0 transparent}}
-    @media (prefers-reduced-motion:reduce){.rpl,.neon{animation-duration:.01s}}
 
     /* ПЕРСОНАЖ */
     #stage { width: 100%; flex: 0 0 var(--stage-h, 34vh); }
@@ -235,11 +239,6 @@
     .glitch-text { animation: glitch 0.2s infinite; }
     @keyframes glitch { 0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) } }
 
-    #splash { position: fixed; inset: 0; background: var(--ui-bg-0); display: flex; align-items: center; justify-content: center; z-index: 950; transition: opacity .45s ease; }
-    #splash.hide { opacity: 0; pointer-events: none; }
-    #splash .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ui-cyan); box-shadow: 0 0 40px 8px rgba(111,227,242,.6); animation: splashPulse 1.2s ease-in-out infinite; }
-    @keyframes splashPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.6); opacity: 1; } }
-
     #welcome { position: fixed; inset: 0; background: radial-gradient(1000px 700px at 50% 30%, rgba(111,227,242,.12), transparent 60%), radial-gradient(800px 500px at 80% 90%, rgba(217,179,106,.08), transparent 60%), #05080F; z-index: 900; display: none; align-items: center; justify-content: center; padding: 24px; opacity: 0; transition: opacity .5s ease; }
     #welcome.open { display: flex; opacity: 1; }
     .welcome-card { position: relative; width: 100%; max-width: 380px; padding: 40px 26px 28px; text-align: center; border-radius: 28px; background: linear-gradient(180deg, rgba(20,27,46,.92), rgba(11,17,32,.96)); border: 1px solid rgba(255,255,255,.08); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 40px 80px -30px rgba(0,0,0,.9), 0 0 100px -20px rgba(111,227,242,.25); overflow: hidden; }
@@ -269,9 +268,9 @@
 </style>
 </head>
 <body>
-<div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
-
 <div id="splash"><div class="dot"></div></div>
+
+<div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
 
 <div id="welcome">
   <div class="welcome-card">
@@ -308,8 +307,7 @@
     <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Pro</span></div>
     <div class="drow" data-keep="1"><button class="ibtn" id="snd-btn"></button><span>Звуки</span></div>
     
-    <!-- НОВЫЕ КНОПКИ -->
-    <div class="drow"><button class="ibtn" id="theme-btn" aria-label="Тема"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button><span>Тема</span></div>
+    <div class="drow"><button class="ibtn" id="theme-btn" aria-label="Тема"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button><span>Сменить тему</span></div>
     <div class="drow"><button class="ibtn" id="share-btn" aria-label="Поделиться"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><span>Поделиться</span></div>
     <div class="drow"><button class="ibtn" id="support-btn" aria-label="Поддержка"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button><span>Поддержка</span></div>
     
@@ -536,18 +534,6 @@ if (tg) {
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#070B14'); } catch(e) {}
     tg.onEvent('viewportChanged', () => { onViewport(); });
 }
-
-// ТЕМА
-const themeBtn = $('theme-btn');
-if (store.get('theme', 'dark') === 'light') {
-    document.body.classList.add('light-theme');
-}
-themeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    store.set('theme', isLight ? 'light' : 'dark');
-    if (tg) try { tg.setHeaderColor(isLight ? '#F0F4F8' : '#0E1726'); tg.setBackgroundColor(isLight ? '#F0F4F8' : '#070B14'); } catch(e) {}
-});
 
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
 const store = {
@@ -1690,6 +1676,16 @@ const ICON_ON  = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" st
 const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>';
 function drawSnd(){ if(!sndBtn) return; sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
+
+// ТЕМА
+const themeBtn = $('theme-btn');
+if (store.get('theme', 'dark') === 'light') document.body.classList.add('light-theme');
+themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('light-theme');
+    const isLight = document.body.classList.contains('light-theme');
+    store.set('theme', isLight ? 'light' : 'dark');
+    if (tg) try { tg.setHeaderColor(isLight ? '#F0F4F8' : '#0E1726'); tg.setBackgroundColor(isLight ? '#F0F4F8' : '#070B14'); } catch(e) {}
+});
 
 // ПОДЕЛИТЬСЯ
 $('share-btn').addEventListener('click', () => {
