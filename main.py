@@ -88,7 +88,8 @@ SHOP_PRICES = {
     "f_dark": 25, "f_round": 30, "f_heart": 50,
     "s_sneak": 30, "s_dress": 45, "s_gold": 90,
     "h_santa": 35, "h_pirate": 60, "f_guy": 70, "f_cyber": 75, "h_bunny": 80,
-    "h_helmet": 95, "a_cyber": 110, "b_cape": 120, "h_ushanka": 130
+    "h_helmet": 95, "a_cyber": 110, "b_cape": 120, "h_ushanka": 130,
+    "c_aurum": 0, "b_pro_cape": 0 
 }
 EXCLUSIVE_PRICES = {"h_halo": 150, "f_visor": 150}
 ITEM_PRICE = {**{k: v for k, v in SHOP_PRICES.items() if k != "astro"}, **EXCLUSIVE_PRICES}
@@ -106,7 +107,7 @@ def tier_of_price(price):
 def roll_all():
     tiers = {t: [] for t, _ in TIER_WEIGHTS}
     for item_id, price in SHOP_PRICES.items():
-        if item_id != "astro":
+        if item_id != "astro" and not item_id.startswith("c_aurum"):
             tiers[tier_of_price(price)].append(item_id)
     r = _rng.random() * sum(w for _, w in TIER_WEIGHTS)
     for tier, w in TIER_WEIGHTS:
@@ -814,6 +815,42 @@ async def telegram_webhook(request: Request):
     except Exception:
         log.exception("webhook failed")
         return {"ok": True}
+
+# --- НОВЫЙ ЭНДПОИНТ ПОДДЕРЖКИ ---
+class SupportRequest(BaseModel):
+    init_data: str
+    message: str
+    user_id: int = None
+
+@app.post("/support/send")
+async def support_send(data: SupportRequest):
+    info = validate_init_data(data.init_data)
+    if not info: return {"status": "error", "reason": "auth"}
+    
+    uid = info["user"]["id"]
+    username = info["user"].get("username", "Нет юзернейма")
+    first_name = info["user"].get("first_name", "Без имени")
+    
+    text_to_send = f"🆘 **Сообщение в поддержку**\n\n"
+    text_to_send += f"👤 От: [{first_name}](tg://user?id={uid}) (@{username})\n"
+    text_to_send += f"🆔 ID: `{uid}`\n\n"
+    text_to_send += f"💬 Сообщение:\n{data.message}"
+    
+    try:
+        r = await tg_call("sendMessage", {
+            "chat_id": ADMIN_ID,
+            "text": text_to_send,
+            "parse_mode": "Markdown"
+        })
+        res = r.json()
+        if res.get("ok"):
+            return {"status": "ok"}
+        else:
+            log.error(f"Telegram API error: {res}")
+            return {"status": "error", "reason": "telegram_api_error"}
+    except Exception as e:
+        log.exception("support_send failed")
+        return {"status": "error", "reason": str(e)}
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
