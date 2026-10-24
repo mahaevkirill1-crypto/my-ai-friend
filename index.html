@@ -21,28 +21,12 @@
         --text-color:#ffffff; --accent-color:#4FD1E8;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    @keyframes shake {
-        0% { transform: translate(1px, 1px) rotate(0deg); }
-        10% { transform: translate(-1px, -2px) rotate(-1deg); }
-        20% { transform: translate(-3px, 0px) rotate(1deg); }
-        30% { transform: translate(3px, 2px) rotate(0deg); }
-        40% { transform: translate(1px, -1px) rotate(1deg); }
-        50% { transform: translate(-1px, 2px) rotate(-1deg); }
-        60% { transform: translate(-3px, 1px) rotate(0deg); }
-        70% { transform: translate(3px, 1px) rotate(-1deg); }
-        80% { transform: translate(-1px, -1px) rotate(1deg); }
-        90% { transform: translate(1px, 2px) rotate(0deg); }
-        100% { transform: translate(1px, -2px) rotate(-1deg); }
-    }
+    
     html, body {
         margin: 0; height: 100%; color: var(--ui-tx-hi);
         font: 15px/1.4 'Manrope', system-ui, -apple-system, sans-serif;
         letter-spacing: -0.01em; overflow: hidden;
-        background:
-            radial-gradient(1200px 800px at 50% -10%, rgba(111,227,242,.08), transparent 60%),
-            radial-gradient(900px 600px at 100% 100%, rgba(217,179,106,.05), transparent 60%),
-            radial-gradient(900px 600px at 0% 100%, rgba(232,160,184,.04), transparent 60%),
-            var(--ui-bg-0);
+        background: radial-gradient(1200px 800px at 50% -10%, rgba(111,227,242,.08), transparent 60%), radial-gradient(900px 600px at 100% 100%, rgba(217,179,106,.05), transparent 60%), radial-gradient(900px 600px at 0% 100%, rgba(232,160,184,.04), transparent 60%), var(--ui-bg-0);
     }
     body { display: flex; flex-direction: column; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: var(--app-h, 100vh); padding-top: 6px; overscroll-behavior: none; }
     
@@ -99,7 +83,6 @@
     #send-btn:active { transform: scale(.95); }
     #hud-status { display: flex; justify-content: space-between; font: 500 10px 'Manrope', sans-serif; letter-spacing: .05em; color: var(--ui-tx-lo); margin-top: 8px; padding: 0 4px; text-transform: uppercase; font-variant-numeric: tabular-nums; }
 
-    /* МАГАЗИН */
     #shop-tabs { overflow-x: auto; }
     #shop-tabs .txtbtn { white-space: nowrap; flex: none; }
     .pane { flex: 1; overflow-y: auto; padding: 16px; display: none; flex-direction: column; gap: 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
@@ -305,8 +288,10 @@
     <div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>
 </div>
 
+<!-- SPLASH -->
 <div id="splash"><div class="dot"></div></div>
 
+<!-- WELCOME -->
 <div id="welcome">
   <div class="welcome-card">
     <div class="welcome-glow"></div>
@@ -337,6 +322,7 @@
   </button>
 </div>
 
+<!-- DRAWER -->
 <div id="drawer-backdrop" class="drawer-backdrop"></div>
 <aside id="drawer" class="drawer" aria-hidden="true">
   <div class="drawer-head">
@@ -358,6 +344,7 @@
   <div class="drawer-foot"><div class="drawer-ver">Holo Friend · v1.0</div></div>
 </aside>
 
+<!-- PROFILE -->
 <div id="profile" class="overlay">
   <div id="profile-head">
     <button class="txtbtn" id="profile-close">Закрыть</button>
@@ -522,6 +509,7 @@
   </div>
 </div>
 
+<!-- PRO -->
 <div id="pro" class="overlay">
   <div class="dialog" id="pro-dialog"></div>
 </div>
@@ -561,6 +549,7 @@ const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
 
 let isFirstLoad = true;
+let appReady = false; // Флаг, что всё загружено и можно убирать сплэш
 
 if (tg) {
     tg.ready();
@@ -1913,13 +1902,24 @@ ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 
 /* ============================================================
-   WELCOME
+   ФИКС ЗАГРУЗКИ И WELCOME
    ============================================================ */
+// Бронированный таймер для скрытия сплэша
+setTimeout(() => {
+    const s = $('splash');
+    if (s) {
+        s.classList.add('hide');
+        setTimeout(() => s.style.display = 'none', 500); // Полное удаление из DOM
+    }
+    appReady = true;
+}, 600);
+
 (function initWelcome(){
     const KEY = 'welcome_done_v1';
     const el = $('welcome');
     if (!el) return;
 
+    // Если старый юзер или есть баланс/история - Welcome не показываем.
     if (store.get(KEY, false) || chatHistoryForServer.length > 0 || BAL > 0) {
         store.set(KEY, true);
         el.classList.remove('open');
@@ -1997,15 +1997,6 @@ setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная
 
     render();
 })();
-
-setTimeout(() => { const s = $('splash'); if (s) s.classList.add('hide'); }, 700);
-setTimeout(() => { const s = $('splash'); if (s) s.style.display = 'none'; }, 2000);
-window.addEventListener('error', (e) => {
-    const s = document.getElementById('splash');
-    if (s) s.style.display = 'none';
-    console.error('КРИТИЧЕСКАЯ ОШИБКА:', e.message);
-    alert('Ошибка в коде: ' + e.message); 
-});
 
 window.openAdmin = openAdmin;
 window.closeAdmin = closeAdmin;
