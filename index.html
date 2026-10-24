@@ -938,26 +938,31 @@ function applyServerState(res, withEquip){
     if (!res) return;
     if (typeof res.bal === 'number'){ BAL = res.bal; store.set('bal', BAL); renderBal(); }
     if (res.owned){ OWNED = res.owned; store.set('owned', OWNED); }
-    if (withEquip && res.equip){ EQUIP = res.equip; store.set('equip', EQUIP); }
+    
+    // --- ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА ПЛАЩА ---
+    if (withEquip && res.equip) {
+        const localEquip = store.get('equip', {});
+        // Если в локальном хранилище плащ есть, а сервер его стер — возвращаем его
+        if (localEquip.back === 'b_pro_cape') res.equip.back = 'b_pro_cape';
+        if (localEquip.color === 'c_aurum') res.equip.color = 'c_aurum';
+        EQUIP = res.equip; 
+        store.set('equip', EQUIP);
+    }
     if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, loaded: true }); renderPro(); }
 }
 function syncToServer(){
     if (!refOk()) return Promise.resolve();
     
-    // --- ЗАЩИТА ПЛАЩА ---
-    if (OWNED['b_pro_cape'] && !EQUIP.back) {
-        EQUIP.back = 'b_pro_cape';
-        store.set('equip', EQUIP);
-        applyOutfit();
-    }
-    if (OWNED['c_aurum'] && !EQUIP.color) {
-        EQUIP.color = 'c_aurum';
-        store.set('equip', EQUIP);
-        applyOutfit();
-    }
+    let localEquip = Object.assign({}, EQUIP);
+    if (OWNED['b_pro_cape']) localEquip.back = 'b_pro_cape';
+    if (OWNED['c_aurum']) localEquip.color = 'c_aurum';
 
-    return tgPost('save_progress', { bal: BAL, equip: EQUIP }).then(res => {
+    return tgPost('save_progress', { bal: BAL, equip: localEquip }).then(res => {
         if (res && res.status === 'ok'){ 
+            if (res.equip) {
+                if (OWNED['b_pro_cape'] && !res.equip.back) res.equip.back = 'b_pro_cape';
+                if (OWNED['c_aurum'] && !res.equip.color) res.equip.color = 'c_aurum';
+            }
             applyServerState(res, false); 
             renderWear(); 
             if (shopOpen && tabNow === 'inv') renderInv(); 
@@ -1663,7 +1668,20 @@ function renderProfile(){
   const st = [['Сообщений', store.get('stat_msgs', 0)], ['Серия, дней', DLY.streak || 0], ['Предметов', Object.keys(OWNED).filter(k => OWNED[k]).length], ['Pro', PRO.active ? 'до ' + new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU') : 'нет']];
   $('pstats').innerHTML = st.map(s => `<div class="pst"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
 }
-$('menu-btn').addEventListener('click', openDrawer);
+
+// --- ФИКС МЕНЮ ---
+const mb = document.getElementById('menu-btn');
+if (mb) {
+    mb.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.body.classList.add('dr');
+        if (typeof drTab === 'function') drTab('menu');
+    });
+} else {
+    console.error("Кнопка меню не найдена!");
+}
+
 $('drawer-bg').addEventListener('click', closeDrawer);
 $('dr-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-dt]'); if (b) drTab(b.dataset.dt); });
 $('drawer').addEventListener('click', e => {
