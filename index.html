@@ -229,6 +229,7 @@
     #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: rgba(13,20,38,.94); backdrop-filter: blur(20px); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); font: 500 13px 'Manrope', system-ui, sans-serif; padding: 11px 18px; border-radius: 14px; z-index: 1000; opacity: 0; transition: all .3s cubic-bezier(.2,.8,.2,1); pointer-events: none; box-shadow: 0 20px 40px -12px rgba(0,0,0,.8); max-width: 90vw; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
     #confirm { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
+    #pro { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); z-index: 90; }
     .dialog { background: linear-gradient(180deg, #161D30 0%, #10162A 100%); border: 1px solid var(--ui-line-hi); border-radius: 22px; padding: 20px; width: 100%; max-width: 340px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.9); transition: background .3s, border-color .3s; }
     .dialog h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; color: var(--ui-tx-hi); letter-spacing: -.01em; }
     .dialog p { margin: 0 0 14px; font-size: 13px; color: var(--ui-tx-mid); line-height: 1.55; }
@@ -932,6 +933,7 @@ async function waitProPaid(){
 }
 $('pro-buy').addEventListener('click', buyPro);
 $('pro-close').addEventListener('click', closePro);
+$('pro-btn').addEventListener('click', openPro);
 
 let BAL = store.get('bal', 0);
 function applyServerState(res, withEquip){
