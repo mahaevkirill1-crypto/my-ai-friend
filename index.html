@@ -132,7 +132,8 @@
     .ibtn:active { transform: scale(.96); background: rgba(255,255,255,.06); }
 
     /* ЧАТ */
-    #chat-history { flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; z-index: 20; mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); padding-bottom: 150px; }
+    #chat-history { flex: 1; width: 100%; max-width: 450px; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; z-index: 20; mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent); padding-bottom: 12px; }
+    #chat-history::after { content: ''; flex: none; height: var(--hud-h, 170px); }
     .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 88%; animation: slideIn .3s cubic-bezier(.2,.8,.2,1) forwards; opacity: 0; transform: translateY(8px); }
     .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
     .msg-row.bot { align-self: flex-start; }
@@ -145,7 +146,7 @@
     .tm  { font-size: 10px; color: var(--ui-tx-lo); margin: 4px 4px 0; font-variant-numeric: tabular-nums; }
     .msg-row.user .tm { text-align: right; }
     .tm:empty { display: none; }
-    .message { padding: 10px 14px; font-size: 14px; line-height: 1.5; color: var(--ui-tx-hi); word-wrap: break-word; white-space: pre-wrap; max-height: 280px; overflow-y: auto; }
+    .message { padding: 10px 14px; font-size: 14px; line-height: 1.5; color: var(--ui-tx-hi); word-wrap: break-word; white-space: pre-wrap; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
     .msg-row.bot .message { background: linear-gradient(180deg, #141B2E, #0F1626); border: 1px solid var(--ui-line); border-left: 2px solid var(--ui-cyan); border-radius: 6px 18px 18px 18px; box-shadow: 0 8px 24px -12px rgba(0,0,0,.6); transition: background .3s, border-color .3s; }
@@ -712,7 +713,7 @@ function scrollChat(){ const c = $('chat-history'); c.scrollTop = c.scrollHeight
 function syncBody(){
     const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
     document.documentElement.style.setProperty('--app-h', vh + 'px');
-    $('chat-history').style.paddingBottom = ($('hud-panel').offsetHeight + 8) + 'px';
+    document.documentElement.style.setProperty('--hud-h', ($('hud-panel').offsetHeight + 8) + 'px');
 }
 function layout(){
     const w = innerWidth;
@@ -847,12 +848,18 @@ function addToHistory(text, sender, time, img) {
     col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
     row.appendChild(avatar); row.appendChild(col);
     chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight;
+    pinBottom();
 }
 let focusT = 0;
 function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
 let stick = true;
 chatHistory.addEventListener('scroll', () => { stick = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 40; }, { passive: true });
 if (window.ResizeObserver) new ResizeObserver(() => { if (stick) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe(chatHistory);
+let userScrolled = false;
+chatHistory.addEventListener('touchstart', () => { userScrolled = true; }, { passive: true });
+chatHistory.addEventListener('wheel', () => { userScrolled = true; }, { passive: true });
+function pinBottom(){ userScrolled = false; stick = true; [0, 60, 150, 300, 600, 1000].forEach(ms => setTimeout(() => { if (!userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }, ms)); }
+if (window.ResizeObserver) new ResizeObserver(() => { syncBody(); if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe($('hud-panel'));
 let typingRow = null;
 function showTyping(){ hideTyping(); const row = document.createElement('div'); row.className = 'msg-row bot'; row.innerHTML = '<div class="avatar">' + (char === 'astro' ? '🧑‍🚀' : BOT_ICON) + '</div><div class="col"><div class="message typing"><span></span><span></span><span></span></div></div>'; chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row; }
 function hideTyping(){ if (typingRow){ typingRow.remove(); typingRow = null; } }
