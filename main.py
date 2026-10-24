@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 import os
 import io
+import re
 import json
 import base64
 import random
@@ -54,7 +55,8 @@ INIT_DATA_MAX_AGE = 86400
 
 # --- RATE LIMIT ДЛЯ /ask ---
 ASK_MIN_GAP = 3
-ASK_DAY_LIMIT = 100
+ASK_DAY_LIMIT = 20          # бесплатных единиц запросов в сутки (текст = 1, фото/файл = 3, иллюстрация = 10)
+VISUAL_EXTRA = 7            # доплата, если иллюстрация реально нарисована (3 + 7 = 10)
 
 # --- ИИ И ВЛОЖЕНИЯ ---
 AI_MODEL = "openai/gpt-4o-mini"
@@ -69,11 +71,16 @@ IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"GIF8")
 EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
 
+# --- ИЛЛЮСТРАЦИИ (сайт, схема, рисунок рендерятся на клиенте в песочнице) ---
+AI_MAX_TOKENS_VISUAL = 3500
+MAX_VISUAL_LEN = 20000
+VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
+
 # --- ПОДПИСКА PRO ---
-PRO_PRICE = 499
+PRO_PRICE = 399
 PRO_PERIOD = 30 * 24 * 3600
-PRO_REQUESTS = 500
-PRO_WARN_LEFT = 50
+PRO_REQUESTS = 1500
+PRO_WARN_LEFT = 100
 
 # --- НАСТРОЙКИ КЕЙСОВ ---
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
@@ -199,6 +206,26 @@ BASE_PROMPT = RULES
 ASTRO_PROMPT = RULES + """
 СЕЙЧАС ТЫ В ОБЛИКЕ КОСМОНАВТА. Говори спокойно и чуть загадочно; изредка (не в каждом ответе) используй короткую космическую метафору. Суть и польза ответа важнее стиля, объём тот же — коротко.
 """
+
+VISUAL_RULES = """
+РЕЖИМ ИЛЛЮСТРАЦИИ. Если пользователь просит показать, нарисовать или «как это выглядит» (сайт, страница, интерфейс, дизайн, схема, диаграмма, график, картинка, логотип, сцена, код, который ты писал ранее) — добавь поле "visual": {"type": "html" или "svg", "code": "..."}. В "text" напиши 1–2 фразы о том, что нарисовано, без кода.
+Правила для code:
+- Один самодостаточный фрагмент: весь CSS внутри <style>, JS внутри <script> (только если нужен). Никаких внешних файлов, CDN, шрифтов и картинок по ссылкам, fetch и форм. Картинки — только inline SVG или CSS-градиенты.
+- Если речь о коде из диалога — отрисуй именно его (внешние ссылки замени встроенными аналогами). Иначе сделай по описанию.
+- Компактно, до ~6000 символов, но аккуратно: современный вид, width 100%, хорошие отступы, контрастные цвета.
+- Для рисунков, схем, логотипов и диаграмм предпочитай svg с viewBox.
+Если рисовать нечего или просьба не про визуальное — "visual": null.
+Формат ответа в этом режиме: {"text": "...", "emotion": "...", "visual": null или {"type": "...", "code": "..."}}.
+"""
+
+def clean_visual(v):
+    if not isinstance(v, dict): return None
+    kind = v.get("type"); code = v.get("code")
+    if kind not in ("html", "svg") or not isinstance(code, str): return None
+    code = code.strip()
+    code = re.sub(r"^```[a-zA-Z]*\s*", "", code); code = re.sub(r"\s*```$", "", code)
+    if not code or len(code) > MAX_VISUAL_LEN: return None
+    return {"type": kind, "code": code}
 
 def validate_init_data(init_data: str):
     if not init_data or not BOT_TOKEN: return None
@@ -333,7 +360,7 @@ def load_progress(data: dict = Body(...)):
     try: equip = json.loads(row[1]) if row[1] else {}
     except ValueError: equip = {}
     conn.commit()
-    return {"status": "ok", "bal": row[0], "owned": owned, "equip": clean_equip(equip, owned), "daily": daily_info(conn, uid, now), "pro": pro_info(conn, uid, now), "pro_price": PRO_PRICE}
+    return {"status": "ok", "bal": row[0], "owned": owned, "equip": clean_equip(equip, owned), "daily": daily_info(conn, uid, now), "pro": pro_info(conn, uid, now), "pro_price": PRO_PRICE, "free_limit": ASK_DAY_LIMIT}
 
 @app.post("/ping")
 def ping(data: dict = Body(...)):
@@ -688,7 +715,13 @@ def _pdf_to_text(b64):
         return None, "В PDF нет текста (похоже на скан). Пришли его как фото."
     return text, ""
 
-def build_user_content(text, att):
+def ask_weight(att, visual_mode):
+    w = 1
+    if att: w = 3
+    if visual_mode: w = max(w, 3)
+    return w
+
+def build_user_content(text, att, hi=False):
     """Возвращает (content для модели, ошибка). content — строка или список частей."""
     if not att:
         return text, ""
@@ -706,7 +739,7 @@ def build_user_content(text, att):
             return None, "Не получилось прочитать фото."
         if not raw.startswith(IMAGE_MAGIC): return None, "Это не похоже на изображение."
         q = text or "Что на фото? Опиши главное и скажи, чем могу помочь."
-        return [{"type": "text", "text": q}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}", "detail": "auto"}}], ""
+        return [{"type": "text", "text": q}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}", "detail": ("auto" if hi else "low")}}], ""
     if kind == "text":
         body = att.get("text")
         if not isinstance(body, str) or not body.strip(): return None, "Файл пустой."
@@ -744,8 +777,11 @@ async def ask(request: Request):
         if not raw_text and not att:
             return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro_info(conn, uid, now)}
         user_content = None
+        pro_pre = pro_info(conn, uid, now)
+        visual_mode = bool(VISUAL_RE.search(user_text))
+        weight = ask_weight(att, visual_mode)
         if att:
-            user_content, att_err = await asyncio.to_thread(build_user_content, raw_text, att)
+            user_content, att_err = await asyncio.to_thread(build_user_content, raw_text, att, pro_pre["active"])
             if att_err:
                 return {"text": att_err, "emotion": "sad", "pro": pro_info(conn, uid, now)}
         else:
@@ -760,7 +796,7 @@ async def ask(request: Request):
             if now - last_ask < ASK_MIN_GAP:
                 return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
             if pro["active"]:
-                cur = conn.execute("UPDATE pro_state SET requests_left = requests_left - 1 WHERE user_id = ? AND requests_left > 0 AND expires_at > ?", (uid, now))
+                cur = conn.execute("UPDATE pro_state SET requests_left = MAX(requests_left - ?, 0) WHERE user_id = ? AND requests_left > 0 AND expires_at > ?", (weight, uid, now))
                 if cur.rowcount != 1:
                     conn.commit()
                     return JSONResponse({"text": "Лимит Pro закончился. Продли подписку.", "emotion": "sleepy", "pro": pro_info(conn, uid, now)}, status_code=402)
@@ -768,8 +804,8 @@ async def ask(request: Request):
             else:
                 if cnt >= ASK_DAY_LIMIT:
                     conn.commit()
-                    return JSONResponse({"text": "Бесплатные запросы на сегодня закончились. Оформи Pro — 500 запросов на месяц.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
-                cnt += 1
+                    return JSONResponse({"text": f"Бесплатный лимит на сегодня закончился. С Pro — {PRO_REQUESTS} запросов на 30 дней, без дневных ограничений.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
+                cnt += weight
             conn.execute("INSERT INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_ask = excluded.last_ask, day = excluded.day, ask_count = excluded.ask_count", (uid, now, today, cnt))
             conn.commit()
         finally:
@@ -777,6 +813,7 @@ async def ask(request: Request):
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
+        if visual_mode: system_prompt = system_prompt + VISUAL_RULES
         if not att and persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             response = await client.chat.completions.create(model=AI_MODEL, messages=[{"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."}, {"role": "user", "content": "Я прошу тебя станцевать."}], max_tokens=50, temperature=0.7)
@@ -784,16 +821,30 @@ async def ask(request: Request):
         messages = [{"role": "system", "content": system_prompt}]
         if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
         messages.append({"role": "user", "content": user_content})
-        response = await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=AI_MAX_TOKENS, temperature=AI_TEMPERATURE, response_format={"type": "json_object"})
+        response = await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=(AI_MAX_TOKENS_VISUAL if visual_mode else AI_MAX_TOKENS), temperature=AI_TEMPERATURE, response_format={"type": "json_object"})
         raw = response.choices[0].message.content or ""
         try:
             result = json.loads(raw)
             if not isinstance(result, dict): raise ValueError
         except ValueError:
-            result = {"text": raw.strip() or "Что-то я задумался...", "emotion": "thinking"}
+            if raw.lstrip().startswith("{"):
+                result = {"text": "Не получилось собрать ответ целиком. Попробуй попросить проще или короче.", "emotion": "sad"}
+            else:
+                result = {"text": raw.strip() or "Что-то я задумался...", "emotion": "thinking"}
         emotion = result.get("emotion")
         if emotion not in EMOTIONS_OK: emotion = "happy"
-        return {"text": str(result.get("text") or "Что-то я задумался...").strip(), "emotion": emotion, "pro": pro}
+        visual = clean_visual(result.get("visual")) if visual_mode else None
+        if visual:
+            try:
+                if pro and pro.get("active"):
+                    conn.execute("UPDATE pro_state SET requests_left = MAX(requests_left - ?, 0) WHERE user_id = ?", (VISUAL_EXTRA, uid))
+                    pro = pro_info(conn, uid, int(time.time()))
+                else:
+                    conn.execute("UPDATE rate_state SET ask_count = ask_count + ? WHERE user_id = ?", (VISUAL_EXTRA, uid))
+                conn.commit()
+            except Exception:
+                log.exception("visual surcharge failed")
+        return {"text": str(result.get("text") or "Что-то я задумался...").strip(), "emotion": emotion, "visual": visual, "pro": pro}
     except Exception:
         log.exception("ask failed")
         return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
@@ -804,7 +855,7 @@ def pro_status(data: dict = Body(...)):
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]; now = int(time.time())
     conn = get_db_connection()
-    return {"status": "ok", "pro": pro_info(conn, uid, now), "price": PRO_PRICE, "limit": PRO_REQUESTS}
+    return {"status": "ok", "pro": pro_info(conn, uid, now), "price": PRO_PRICE, "limit": PRO_REQUESTS, "free_limit": ASK_DAY_LIMIT}
 
 @app.post("/pro/invoice")
 async def pro_invoice(data: dict = Body(...)):
@@ -812,7 +863,7 @@ async def pro_invoice(data: dict = Body(...)):
     if not info: return {"error": "auth"}
     uid = info["user"]["id"]
     if not WEBHOOK_SECRET: return {"error": "payments_disabled"}
-    payload = {"title": "Holo Friend Pro — 30 дней", "description": f"{PRO_REQUESTS} запросов к ИИ-другу на месяц", "payload": f"{uid}|pro", "currency": "XTR", "provider_token": "", "prices": [{"label": "Pro на 30 дней", "amount": PRO_PRICE}]}
+    payload = {"title": "Holo Friend Pro — 30 дней", "description": f"{PRO_REQUESTS} запросов к ИИ-другу на 30 дней, без дневных лимитов", "payload": f"{uid}|pro", "currency": "XTR", "provider_token": "", "prices": [{"label": "Pro на 30 дней", "amount": PRO_PRICE}]}
     r = await tg_call("createInvoiceLink", payload)
     res = r.json()
     if res.get("ok"): return {"link": res["result"]}
