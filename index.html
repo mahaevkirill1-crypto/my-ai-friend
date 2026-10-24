@@ -289,7 +289,7 @@
     <div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>
 </div>
 
-<!-- SPLASH (теперь скрывается через CSS анимацию) -->
+<!-- SPLASH (скрывается через CSS) -->
 <div id="splash"><div class="dot"></div></div>
 
 <!-- WELCOME -->
@@ -585,8 +585,10 @@ const Snd = (() => {
   return { click, cash, whoosh, hurt, fanfare, jet: jetSet, set, on: () => on, unlock };
 })();
 
+// Защита от потери одежды, если вдруг localStorage пустой
 let OWNED = store.get('owned', {});
 let EQUIP = store.get('equip', {});
+if (!EQUIP || typeof EQUIP !== 'object') EQUIP = {};
 let char = store.get('char', 'holo');
 let isOffended = store.get('isOffended', false);
 let rpsState = 'none';
@@ -1031,7 +1033,11 @@ function applyServerState(res, withEquip){
     if (!res) return;
     if (typeof res.bal === 'number'){ BAL = res.bal; store.set('bal', BAL); renderBal(); }
     if (res.owned){ OWNED = res.owned; store.set('owned', OWNED); }
-    if (withEquip && res.equip){ EQUIP = res.equip; store.set('equip', EQUIP); }
+    if (withEquip && res.equip && Object.keys(res.equip).length > 0){
+        // ЗАЩИТА: не стираем наряды, если сервер прислал пустоту
+        EQUIP = res.equip; 
+        store.set('equip', EQUIP);
+    }
     if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, loaded: true }); renderPro(); }
 }
 function syncToServer(){
@@ -1297,15 +1303,23 @@ async function sendMessage(text) {
 
     try {
         showTyping();
+        
+        // ФИКС: Устанавливаем таймаут для запроса, чтобы бот не зависал навсегда
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         const response = await fetch(`${BACKEND_URL}/ask`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: text,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 history: historyText,
                 init_data: (tg && tg.initData) || ''
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         const data = await response.json().catch(() => ({}));
 
@@ -1358,7 +1372,13 @@ async function sendMessage(text) {
     } catch (error) {
         hideTyping();
         if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
-        addToHistory(`Ошибка: ${error.message}`, 'bot');
+        
+        // ФИКС: Красивое сообщение при таймауте, чтобы не пугать пользователя
+        if (error.name === 'AbortError') {
+            addToHistory('Сервер не отвечает (превышено время ожидания). Попробуй написать ещё раз через минуту.', 'bot');
+        } else {
+            addToHistory(`Ошибка: ${error.message}`, 'bot');
+        }
     } finally {
         input.readOnly = false;
         sendBtn.disabled = false;
@@ -1593,7 +1613,7 @@ async function openCase(kind){
             CASES.pending = { item: res.item, kind: res.case };
             showDrop(res.item, res.case);
         } else if (res && res.reason === 'pending'){
-            CASES.pending = { item: res.item, kind: res.case };
+            CASES.pending = { item: res.item, kind: res.pending_case };
             showDrop(res.item, res.case, false);
         } else {
             if (res && res.reason === 'not_subscribed') CASES.subscribed = false;
