@@ -117,7 +117,7 @@
     @keyframes neonG{0%{box-shadow:0 0 0 1px var(--ui-gold-hi),0 0 26px 3px rgba(240,215,154,.65)}100%{box-shadow:0 0 0 1px transparent,0 0 0 0 transparent}}
 
     /* ПЕРСОНАЖ */
-    #stage { width: 100%; flex: 0 0 var(--stage-h, 34vh); }
+    #stage { width: 100%; flex: 0 0 var(--stage-h, 34vh); transition: flex-basis .3s ease; }
     #sv { position: fixed; top: 0; left: 0; width: 100%; height: var(--sv-h, 100%); z-index: 30; pointer-events: none; display: block; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; --c: #4FD1E8; --s: #9AF0FF; --su: #EEF3FA; --lc: #FFD166; }
     #fly, #astw { pointer-events: visiblePainted; cursor: pointer; }
     .c { fill: var(--c); } .s { stroke: var(--s); } .su { fill: var(--su); stroke: #AEB9C8; stroke-width: 1.5; } .lt { fill: var(--lc); }
@@ -651,7 +651,8 @@ if (tg) {
     tg.ready();
     tg.expand();
     try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#070B14'); } catch(e) {}
-    tg.onEvent('viewportChanged', () => { onViewport(); });
+    try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch(e) {}
+    tg.onEvent('viewportChanged', e => { onViewportLive(!!(e && e.isStateStable)); });
 }
 
 const BACKEND_URL = 'https://ai-friend-brain.onrender.com';
@@ -817,7 +818,9 @@ function layout(){
     }
 }
 function onViewport(){ syncBody(); layout(); scrollChat(); }
-addEventListener('resize', onViewport);
+let vpT = 0;
+function onViewportLive(stable){ syncBody(); clearTimeout(vpT); const apply = () => { layout(); scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
+addEventListener('resize', () => onViewportLive(false));
 addEventListener('scroll', () => { if (scrollY) scrollTo(0, 0); });
 syncBody();
 layout();
@@ -1551,8 +1554,8 @@ async function sendMessage(text) {
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
 [sendBtn, $('att-btn'), $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
-input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); layout(); });
-input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 700); layout(); [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
+input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
+input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 900); onViewportLive(false); [0, 120, 350, 600].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
 $('chips').addEventListener('click', e => { if (e.target.closest('[data-shop]')) { openShop(); return; } const b = e.target.closest('button[data-say]'); if (b) sendMessage(b.dataset.say); });
 function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? 'СВЯЗЬ: ОНЛАЙН' : 'СВЯЗЬ: НЕТ СЕТИ'; el.style.color = on ? '' : '#FF9E9E'; }
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
