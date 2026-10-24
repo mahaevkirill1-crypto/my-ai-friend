@@ -130,7 +130,7 @@
     .tm  { font-size: 10px; color: var(--ui-tx-lo); margin: 4px 4px 0; font-variant-numeric: tabular-nums; }
     .msg-row.user .tm { text-align: right; }
     .tm:empty { display: none; }
-    .message { padding: 10px 14px; font-size: 14px; line-height: 1.5; color: var(--ui-tx-hi); word-wrap: break-word; max-height: 180px; overflow-y: auto; }
+    .message { padding: 10px 14px; font-size: 14px; line-height: 1.5; color: var(--ui-tx-hi); word-wrap: break-word; white-space: pre-wrap; max-height: 280px; overflow-y: auto; }
     .message::-webkit-scrollbar { width: 4px; }
     .message::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
     .msg-row.bot .message { background: linear-gradient(180deg, #141B2E, #0F1626); border: 1px solid var(--ui-line); border-left: 2px solid var(--ui-cyan); border-radius: 6px 18px 18px 18px; box-shadow: 0 8px 24px -12px rgba(0,0,0,.6); transition: background .3s, border-color .3s; }
@@ -279,6 +279,15 @@
     #support-modal .dialog { max-width: 340px; }
     #support-modal textarea { width: 100%; height: 100px; background: rgba(0,0,0,0.2); border: 1px solid var(--ui-line); border-radius: 12px; color: var(--ui-tx-hi); padding: 10px; font: 14px 'Manrope', sans-serif; outline: none; resize: none; margin-bottom: 10px; }
     body.light-theme #support-modal textarea { background: #F8FAFC; }
+    /* ВЛОЖЕНИЯ */
+    #att-btn { width: 36px; height: 40px; flex-shrink: 0; background: transparent; border: none; color: var(--ui-tx-mid); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; border-radius: 10px; }
+    #att-btn:active { transform: scale(.92); color: var(--ui-cyan); }
+    #att-prev { display: none; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 8px; background: rgba(255,255,255,.04); border: 1px solid var(--ui-line); border-radius: 12px; }
+    #att-prev img { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex: none; }
+    #att-prev .att-ic { font-size: 22px; width: 40px; text-align: center; flex: none; }
+    #att-prev .att-name { flex: 1; min-width: 0; font-size: 13px; color: var(--ui-tx-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #att-prev button { background: none; border: none; color: var(--ui-tx-lo); font-size: 16px; padding: 6px 8px; cursor: pointer; }
+    body.light-theme #att-prev { background: #F8FAFC; border-color: #E2E8F0; }
 </style>
 </head>
 <body>
@@ -396,10 +405,13 @@
 <div id="chat-history"></div>
 <div id="hud-panel">
     <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Расскажи шутку">Расскажи шутку</button><button class="chip" data-say="Поиграем">Поиграем</button><button class="chip" data-shop="1">Магазин</button></div>
+    <div id="att-prev"></div>
+    <input type="file" id="att-input" hidden accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.yml,.yaml,.log,.py,.js,.ts,.html,.css,.java,.c,.cpp,.cs,.go,.php,.sql,text/*">
     <div class="input-container">
         <div class="input-inner">
             <span class="prompt">&gt;</span>
             <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off" maxlength="500" enterkeyhint="send">
+            <button id="att-btn" type="button" aria-label="Прикрепить файл или фото"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1 12.2 20.3a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.8 1.8 0 0 1-2.6-2.6l8.5-8.5"/></svg></button>
             <button id="send-btn" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>
         </div>
     </div>
@@ -1021,8 +1033,51 @@ chatHistory.addEventListener('click', async e => {
     rpsState = 'bet'; botSay(msg);
 });
 
+let ATT = null;
+const TEXT_EXT = ['txt','md','csv','json','xml','yml','yaml','log','py','js','ts','html','css','java','c','cpp','cs','go','php','sql','ini','toml','sh'];
+const attInput = $('att-input');
+function renderAtt(){
+    const p = $('att-prev');
+    if (!ATT){ p.style.display = 'none'; p.innerHTML = ''; syncBody(); return; }
+    p.style.display = 'flex';
+    p.innerHTML = (ATT.kind === 'image' ? `<img src="${ATT.preview}" alt="">` : '<span class="att-ic">📎</span>') + '<span class="att-name"></span><button type="button" id="att-x" aria-label="Убрать">✕</button>';
+    p.querySelector('.att-name').textContent = ATT.name;
+    syncBody();
+}
+function loadImage(file){ return new Promise((res, rej) => { const url = URL.createObjectURL(file); const im = new Image(); im.onload = () => { URL.revokeObjectURL(url); res(im); }; im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img')); }; im.src = url; }); }
+async function prepImage(file){
+    const im = await loadImage(file);
+    const sc = Math.min(1, 1280 / Math.max(im.naturalWidth, im.naturalHeight));
+    const w = Math.max(1, Math.round(im.naturalWidth * sc)), h = Math.max(1, Math.round(im.naturalHeight * sc));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, 0, 0, w, h);
+    const url = c.toDataURL('image/jpeg', .82);
+    return { kind: 'image', mime: 'image/jpeg', name: 'Фото', data: url.split(',')[1], preview: url };
+}
+function readB64(file){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(new Error('read')); r.readAsDataURL(file); }); }
+$('att-btn').addEventListener('click', () => { if (!isSending) attInput.click(); });
+$('att-prev').addEventListener('click', e => { if (e.target.closest('#att-x')){ ATT = null; renderAtt(); } });
+attInput.addEventListener('change', async () => {
+    const f = attInput.files && attInput.files[0]; attInput.value = '';
+    if (!f) return;
+    try {
+        const name = (f.name || 'file').slice(0, 80), ext = (name.split('.').pop() || '').toLowerCase();
+        if (f.type.startsWith('image/')) ATT = await prepImage(f);
+        else if (f.type === 'application/pdf' || ext === 'pdf'){
+            if (f.size > 4 * 1024 * 1024){ toast('PDF больше 4 МБ'); return; }
+            ATT = { kind: 'pdf', name, data: await readB64(f) };
+        } else if (f.type.startsWith('text/') || TEXT_EXT.includes(ext)){
+            if (f.size > 1024 * 1024){ toast('Файл больше 1 МБ'); return; }
+            ATT = { kind: 'text', name, text: (await f.text()).slice(0, 30000) };
+        } else { toast('Поддерживаются фото, PDF и текстовые файлы'); return; }
+        renderAtt();
+    } catch(e){ toast('Не удалось прочитать файл'); }
+});
+
 async function sendMessage(text) {
-    if (!text || isSending) return;
+    if ((!text && !ATT) || isSending) return;
+    const att = ATT; ATT = null; renderAtt();
+    const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
 
     if (text.toLowerCase() === '/admin' && userId() === ADMIN_ID) {
         input.value = ''; $('cnt').textContent = '0 / 500';
@@ -1031,7 +1086,7 @@ async function sendMessage(text) {
     }
 
     isSending = true;
-    addToHistory(text, 'user');
+    addToHistory(shown, 'user');
     input.value = ''; $('cnt').textContent = '0 / 500';
     input.readOnly = true;
     sendBtn.disabled = true;
@@ -1234,6 +1289,7 @@ async function sendMessage(text) {
             body: JSON.stringify({
                 text: text,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
+                attachment: att ? (att.kind === 'image' ? { kind: 'image', mime: att.mime, name: att.name, data: att.data } : att.kind === 'pdf' ? { kind: 'pdf', name: att.name, data: att.data } : { kind: 'text', name: att.name, text: att.text }) : null,
                 history: historyText,
                 init_data: (tg && tg.initData) || ''
             })
@@ -1260,6 +1316,7 @@ async function sendMessage(text) {
         if (response.status === 429){
             hideTyping();
             addToHistory(data.text || 'Подожди пару секунд…', 'bot');
+            if (att && !ATT){ ATT = att; renderAtt(); }
             input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         }
@@ -1283,7 +1340,7 @@ async function sendMessage(text) {
         }
 
         addToHistory(data.text, 'bot');
-        chatHistoryForServer.push({ sender: 'user', text: text });
+        chatHistoryForServer.push({ sender: 'user', text: shown });
         chatHistoryForServer.push({ sender: 'bot', text: data.text });
         saveHistory();
 
@@ -1291,6 +1348,7 @@ async function sendMessage(text) {
         hideTyping();
         if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
         addToHistory(`Ошибка: ${error.message}`, 'bot');
+        if (att && !ATT){ ATT = att; renderAtt(); }
     } finally {
         input.readOnly = false;
         sendBtn.disabled = false;
@@ -1300,7 +1358,7 @@ async function sendMessage(text) {
 }
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
-[sendBtn, $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
+[sendBtn, $('att-btn'), $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
 input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); layout(); });
 input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 700); layout(); [0, 120, 350].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
 $('chips').addEventListener('click', e => { if (e.target.closest('[data-shop]')) { openShop(); return; } const b = e.target.closest('button[data-say]'); if (b) sendMessage(b.dataset.say); });
