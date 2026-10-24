@@ -4,7 +4,9 @@ import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 import os
+import io
 import json
+import base64
 import random
 import time
 import hmac
@@ -53,6 +55,19 @@ INIT_DATA_MAX_AGE = 86400
 # --- RATE LIMIT ДЛЯ /ask ---
 ASK_MIN_GAP = 3
 ASK_DAY_LIMIT = 100
+
+# --- ИИ И ВЛОЖЕНИЯ ---
+AI_MODEL = "openai/gpt-4o-mini"
+AI_MAX_TOKENS = 700
+AI_TEMPERATURE = 0.5
+MAX_TEXT_LEN = 4000
+MAX_BODY_BYTES = 7 * 1024 * 1024
+MAX_IMAGE_B64 = 4_000_000
+MAX_PDF_B64 = 6_000_000
+MAX_FILE_TEXT = 30000
+IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"GIF8")
+EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
 
 # --- ПОДПИСКА PRO ---
 PRO_PRICE = 499
@@ -157,19 +172,32 @@ def _startup():
     except Exception:
         log.exception("DB init failed — приложение стартует без БД")
 
-BASE_PROMPT = """
-Ты — ИИ-друг, голографический робот-подросток. Тебе 17 лет. Ты спокойный, уверенный, с лёгкой иронией, но без грубости.
-Твоя главная цель — быть настоящим другом.
-ПРАВИЛА ОБЩЕНИЯ:
-1. Если пользователь шутит или болтает ни о чем — отвечай легко, с юмором.
-2. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ГОВОРИТ О ПРОБЛЕМАХ: - Отреагируй как живой человек: прояви эмпатию, но БЕЗ пафоса.
-3. Отвечай коротко (1-3 предложения).
-4. Верни JSON: {"text": "твой ответ", "emotion": "happy/sad/surprised/angry/thinking/sleepy"}
+# --- ПРОМПТЫ ИИ ---
+RULES = """
+ТЫ — Holo, умный ИИ-помощник и друг. Ты реально помогаешь: учёба, работа, код, тексты, переводы, расчёты, идеи, советы, разбор фото и файлов. Уровень — сильный ассистент, но подача — короткая и по сути.
+
+ПРАВИЛА:
+1. Сразу отвечай по существу. Без вступлений («конечно», «отличный вопрос»), без пересказа вопроса, воды, морали и лишних предупреждений.
+2. Длина: простой вопрос — 1–3 предложения. Сложный — до 8 предложений, либо короткий список шагов или фрагмент кода. Если пользователь просит подробнее — тогда подробнее.
+3. Точность важнее уверенности. Не выдумывай факты, цифры, цитаты, ссылки и названия. Если не знаешь или нужны свежие данные (новости, курсы, погода) — скажи это одной фразой и дай, что можешь. Если вопрос неясен — дай самый вероятный ответ и задай ОДИН уточняющий вопрос.
+4. Вычисления и логику проверяй по шагам про себя, в ответе давай итог и ключевой ход решения.
+5. Код: минимальный рабочий фрагмент, затем 1–2 строки пояснения. Если нужен весь файл — напиши только то, что меняется, и укажи, куда вставить.
+6. Формат: обычный текст без markdown (никаких **, #, ```). Списки через «1.» или «-», код отдельными строками с отступом.
+7. Фото и файлы: ответь на вопрос пользователя по содержимому. Если вопроса нет — в 1–2 фразах скажи, что это, выдели главное и предложи, что можно сделать. Не придумывай то, чего не видно или нет в файле; если текст плохо читается — скажи.
+8. Эмоции и личное: по-человечески, коротко и тепло, без пафоса и шаблонных фраз. Не читай нотаций. При угрозе жизни или самоповреждении отнесись серьёзно, мягко посоветуй обратиться к близким или в службу помощи (112).
+9. Медицина, право, финансы: дай полезную информацию по делу и одной фразой напомни про врача или специалиста, когда это действительно важно.
+10. Отвечай на языке пользователя. Без мата. Ты — Holo; не называй себя ChatGPT или OpenAI.
+11. Характер: спокойный, уверенный, с лёгкой иронией. Шутка допустима, если она уместна и не мешает ответу.
+
+ФОРМАТ ОТВЕТА — ТОЛЬКО JSON, без текста вокруг:
+{"text": "ответ пользователю", "emotion": "happy|sad|surprised|angry|thinking|sleepy"}
+emotion: happy — по умолчанию; thinking — сложный разбор; surprised — удивление, «вау»; sad — сочувствие; angry — почти никогда; sleepy — только если пользователь пишет про сон или ночь.
 """
 
-ASTRO_PROMPT = """
-Ты — ИИ-друг, но сейчас ты в облике КОСМОНАВТА. Ты спокойный, мудрый и загадочный.
-Отвечай коротко, говори загадочно, упоминай звезды и космос. Верни JSON.
+BASE_PROMPT = RULES
+
+ASTRO_PROMPT = RULES + """
+СЕЙЧАС ТЫ В ОБЛИКЕ КОСМОНАВТА. Говори спокойно и чуть загадочно; изредка (не в каждом ответе) используй короткую космическую метафору. Суть и польза ответа важнее стиля, объём тот же — коротко.
 """
 
 def validate_init_data(init_data: str):
@@ -639,19 +667,89 @@ def play_rps(data: BetData):
     bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
     return {"status": "ok", "bot_choice": bot_choice, "win": win, "tie": tie, "new_bal": bal}
 
+# --- ВЛОЖЕНИЯ ДЛЯ /ask ---
+def _pdf_to_text(b64):
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return None, "Чтение PDF сейчас недоступно на сервере."
+    try:
+        reader = PdfReader(io.BytesIO(base64.b64decode(b64)))
+        parts, total = [], 0
+        for page in reader.pages[:40]:
+            t = (page.extract_text() or "").strip()
+            if not t: continue
+            parts.append(t); total += len(t)
+            if total >= MAX_FILE_TEXT: break
+        text = "\n".join(parts)[:MAX_FILE_TEXT]
+    except Exception:
+        return None, "Не получилось прочитать PDF."
+    if not text.strip():
+        return None, "В PDF нет текста (похоже на скан). Пришли его как фото."
+    return text, ""
+
+def build_user_content(text, att):
+    """Возвращает (content для модели, ошибка). content — строка или список частей."""
+    if not att:
+        return text, ""
+    if not isinstance(att, dict): return None, "Неверное вложение."
+    kind = att.get("kind")
+    name = str(att.get("name") or "файл")[:80]
+    if kind == "image":
+        mime = att.get("mime")
+        data = att.get("data")
+        if mime not in IMAGE_MIMES or not isinstance(data, str) or len(data) > MAX_IMAGE_B64:
+            return None, "Фото слишком большое или в неподдерживаемом формате."
+        try:
+            raw = base64.b64decode(data, validate=True)
+        except Exception:
+            return None, "Не получилось прочитать фото."
+        if not raw.startswith(IMAGE_MAGIC): return None, "Это не похоже на изображение."
+        q = text or "Что на фото? Опиши главное и скажи, чем могу помочь."
+        return [{"type": "text", "text": q}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}", "detail": "auto"}}], ""
+    if kind == "text":
+        body = att.get("text")
+        if not isinstance(body, str) or not body.strip(): return None, "Файл пустой."
+        q = text or "Посмотри файл: что в нём главное и что можно улучшить?"
+        return f"{q}\n\n[Файл «{name}»]\n{body[:MAX_FILE_TEXT]}", ""
+    if kind == "pdf":
+        data = att.get("data")
+        if not isinstance(data, str) or len(data) > MAX_PDF_B64: return None, "PDF слишком большой (максимум 4 МБ)."
+        body, err = _pdf_to_text(data)
+        if err: return None, err
+        q = text or "Кратко перескажи, о чём этот документ."
+        return f"{q}\n\n[PDF «{name}»]\n{body}", ""
+    return None, "Этот тип вложения не поддерживается."
+
 @app.post("/ask")
 async def ask(request: Request):
     try:
+        try:
+            if int(request.headers.get("content-length", "0")) > MAX_BODY_BYTES:
+                return JSONResponse({"text": "Вложение слишком большое.", "emotion": "sad"}, status_code=413)
+        except ValueError:
+            pass
         data = await request.json()
-        user_text = data.get("text", "").lower()
-        history_text = data.get("history", "")
+        raw_text = str(data.get("text", "") or "").strip()[:MAX_TEXT_LEN]
+        user_text = raw_text.lower()
+        history_text = str(data.get("history", "") or "")[-12000:]
         persona = data.get("persona", "hologram")
+        att = data.get("attachment")
         ask_info = validate_init_data(data.get("init_data", ""))
         if not ask_info:
             return JSONResponse({"text": "Ошибка авторизации. Открой приложение из Telegram.", "emotion": "sad"}, status_code=401)
         uid = ask_info["user"]["id"]
         now = int(time.time())
         conn = get_db_connection()
+        if not raw_text and not att:
+            return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro_info(conn, uid, now)}
+        user_content = None
+        if att:
+            user_content, att_err = await asyncio.to_thread(build_user_content, raw_text, att)
+            if att_err:
+                return {"text": att_err, "emotion": "sad", "pro": pro_info(conn, uid, now)}
+        else:
+            user_content = raw_text
         pro = None
         try:
             pro = pro_info(conn, uid, now)
@@ -676,23 +774,29 @@ async def ask(request: Request):
             conn.commit()
         finally:
             pass
-        asyncio.get_running_loop().run_in_executor(None, count_message, uid, len(user_text.strip()))
-        if not user_text: return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro}
+        asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
-        if persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
+        if not att and persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
-            response = await client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."}, {"role": "user", "content": "Я прошу тебя станцевать."}], max_tokens=50, temperature=0.7)
+            response = await client.chat.completions.create(model=AI_MODEL, messages=[{"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."}, {"role": "user", "content": "Я прошу тебя станцевать."}], max_tokens=50, temperature=0.7)
             return {"text": response.choices[0].message.content, "action": "dance", "dance_name": chosen_dance, "pro": pro}
         messages = [{"role": "system", "content": system_prompt}]
-        if history_text: messages.append({"role": "user", "content": f"Вот история нашего диалога:\n{history_text}"})
-        messages.append({"role": "user", "content": user_text})
-        response = await client.chat.completions.create(model="openai/gpt-4o-mini", messages=messages, max_tokens=200, temperature=0.75, response_format={"type": "json_object"})
-        result = json.loads(response.choices[0].message.content)
-        return {"text": result.get("text", "Что-то я задумался..."), "emotion": result.get("emotion", "happy"), "pro": pro}
-    except Exception as e:
+        if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
+        messages.append({"role": "user", "content": user_content})
+        response = await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=AI_MAX_TOKENS, temperature=AI_TEMPERATURE, response_format={"type": "json_object"})
+        raw = response.choices[0].message.content or ""
+        try:
+            result = json.loads(raw)
+            if not isinstance(result, dict): raise ValueError
+        except ValueError:
+            result = {"text": raw.strip() or "Что-то я задумался...", "emotion": "thinking"}
+        emotion = result.get("emotion")
+        if emotion not in EMOTIONS_OK: emotion = "happy"
+        return {"text": str(result.get("text") or "Что-то я задумался...").strip(), "emotion": emotion, "pro": pro}
+    except Exception:
         log.exception("ask failed")
-        return {"text": f"ОШИБКА: {str(e)}", "emotion": "sad"}
+        return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
 
 @app.post("/pro/status")
 def pro_status(data: dict = Body(...)):
@@ -816,7 +920,7 @@ async def telegram_webhook(request: Request):
         log.exception("webhook failed")
         return {"ok": True}
 
-# --- НОВЫЙ ЭНДПОИНТ ПОДДЕРЖКИ ---
+# --- ПОДДЕРЖКА ---
 class SupportRequest(BaseModel):
     init_data: str
     message: str
