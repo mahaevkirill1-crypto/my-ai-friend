@@ -4,3 +4,4 @@ openai
 httpx
 libsql
 pydantic
+pypdf
