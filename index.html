@@ -170,10 +170,11 @@
     .glitch-text { animation: glitch 0.2s infinite; }
     @keyframes glitch { 0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) } }
 
-    #splash { position: fixed; inset: 0; background: var(--ui-bg-0); display: flex; align-items: center; justify-content: center; z-index: 950; transition: opacity .45s ease; }
-    #splash.hide { opacity: 0; pointer-events: none; }
+    /* CSS ФИКС ДЛЯ ЗАСТАВКИ */
+    #splash { position: fixed; inset: 0; background: var(--ui-bg-0); display: flex; align-items: center; justify-content: center; z-index: 950; animation: splashHide 0s ease-in 1s forwards; }
     #splash .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ui-cyan); box-shadow: 0 0 40px 8px rgba(111,227,242,.6); animation: splashPulse 1.2s ease-in-out infinite; }
     @keyframes splashPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.6); opacity: 1; } }
+    @keyframes splashHide { to { opacity: 0; visibility: hidden; display: none; } }
 
     #welcome { position: fixed; inset: 0; background: radial-gradient(1000px 700px at 50% 30%, rgba(111,227,242,.12), transparent 60%), radial-gradient(800px 500px at 80% 90%, rgba(217,179,106,.08), transparent 60%), #05080F; z-index: 900; display: none; align-items: center; justify-content: center; padding: 24px; opacity: 0; transition: opacity .5s ease; }
     #welcome.open { display: flex; opacity: 1; }
@@ -288,7 +289,7 @@
     <div style="font-size: 40px; margin: 20px 0;">ERROR 404</div>
 </div>
 
-<!-- SPLASH -->
+<!-- SPLASH (теперь скрывается через CSS анимацию) -->
 <div id="splash"><div class="dot"></div></div>
 
 <!-- WELCOME -->
@@ -547,9 +548,6 @@ const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt
 const hsl = (h, s, l) => { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; };
 const svg = $('sv');
 const tg = window.Telegram && Telegram.WebApp;
-
-let isFirstLoad = true;
-let appReady = false; // Флаг, что всё загружено и можно убирать сплэш
 
 if (tg) {
     tg.ready();
@@ -1861,7 +1859,9 @@ const q = new URLSearchParams(location.search);
 applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
 setTimeout(() => { Hologram.react('happy', 'wave', 3500); const hour = new Date().getHours(); let greeting = GREET[char]; if (chatHistoryForServer.length === 0) { if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?"; else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?"; else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?"; else greeting = "Ты чего не спишь? Давай поболтаем."; } addToHistory(greeting, 'bot'); }, 500);
 registerReferral();
-loadProgress().finally(() => { refreshRef(); refreshCases().then(() => { if (CASES.pending && !DROP.item) showDrop(CASES.pending.item, CASES.pending.kind, false); }); });
+setTimeout(() => {
+    loadProgress().finally(() => { refreshRef(); refreshCases().then(() => { if (CASES.pending && !DROP.item) showDrop(CASES.pending.item, CASES.pending.kind, false); }); });
+}, 100);
 setTimeout(refreshPro, 1500);
 setInterval(refreshPro, 120000);
 
@@ -1901,25 +1901,11 @@ setInterval(ping, 60000); ping();
 ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 
-/* ============================================================
-   ФИКС ЗАГРУЗКИ И WELCOME
-   ============================================================ */
-// Бронированный таймер для скрытия сплэша
-setTimeout(() => {
-    const s = $('splash');
-    if (s) {
-        s.classList.add('hide');
-        setTimeout(() => s.style.display = 'none', 500); // Полное удаление из DOM
-    }
-    appReady = true;
-}, 600);
-
 (function initWelcome(){
     const KEY = 'welcome_done_v1';
     const el = $('welcome');
     if (!el) return;
 
-    // Если старый юзер или есть баланс/история - Welcome не показываем.
     if (store.get(KEY, false) || chatHistoryForServer.length > 0 || BAL > 0) {
         store.set(KEY, true);
         el.classList.remove('open');
