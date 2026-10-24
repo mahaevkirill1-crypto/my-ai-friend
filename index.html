@@ -329,6 +329,49 @@
     body.light-theme .copy-btn { background: rgba(0,0,0,.04); }
     #user-input { padding-left: 2px; caret-color: #0284C7; }
     body:not(.light-theme) #user-input { caret-color: var(--ui-cyan); }
+    /* ИЛЛЮСТРАЦИИ */
+    .msg-row.has-vis { max-width: 100%; }
+    .message.has-vis { padding: 8px; }
+    .message.has-vis .vis { margin-top: 8px; }
+    .message.has-vis.has-copy { padding-top: 40px; }
+    .vis { width: min(300px, calc(100vw - 100px)); }
+    .vis-frame { position: relative; width: 100%; aspect-ratio: 800 / 520; background: #fff; border: 1px solid var(--ui-line-hi); border-radius: 12px; overflow: hidden; cursor: zoom-in; }
+    .vis-frame iframe { position: absolute; top: 0; left: 0; width: 800px; height: 520px; border: 0; background: #fff; transform-origin: 0 0; pointer-events: none; }
+    .vis-bar { display: flex; gap: 6px; margin-top: 8px; }
+    .vis-bar .txtbtn { flex: 1; padding: 8px 10px; font-size: 12px; }
+    #visview { position: fixed; inset: 0; z-index: 1100; background: #0B1120; display: none; }
+    #visview.open { display: block; }
+    #vv-bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; color: #EAF0FA; font: 600 15px 'Manrope', system-ui, sans-serif; }
+    #vv-close { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.18); color: #fff; font-size: 18px; cursor: pointer; }
+    #vv-frame { position: absolute; left: 0; right: 0; bottom: 0; top: calc(60px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 60px - env(safe-area-inset-top)); border: 0; background: #fff; }
+    /* PRO: новый вид окна */
+    .pro-card { max-width: 350px; max-height: 92vh; overflow-y: auto; padding: 0; text-align: center; border-radius: 26px; }
+    .pro-hero { position: relative; padding: 26px 20px 8px; overflow: hidden; }
+    .pro-glow { position: absolute; top: -90px; left: 50%; width: 320px; height: 320px; transform: translateX(-50%); background: radial-gradient(circle, rgba(240,215,154,.5), transparent 65%); filter: blur(20px); pointer-events: none; animation: welcomePulse 4s ease-in-out infinite; }
+    .pro-hero > *:not(.pro-glow) { position: relative; }
+    .pro-badge { display: inline-block; margin: 8px 0 2px; padding: 3px 14px; border-radius: 999px; font: 800 11px 'Manrope', system-ui, sans-serif; letter-spacing: .22em; color: #1A1206; background: linear-gradient(180deg, #F0D79A, #D9B36A); box-shadow: 0 6px 18px -6px rgba(217,179,106,.7); }
+    .pro-hero h3 { font-size: 20px; margin: 6px 0 4px; }
+    .pro-body { padding: 0 18px 18px; }
+    .pro-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 12px; }
+    .pc { border: 1px solid var(--ui-line); border-radius: 16px; padding: 10px 6px; display: flex; flex-direction: column; gap: 2px; background: rgba(255,255,255,.03); }
+    .pc span { font: 700 11px 'Manrope', system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--ui-tx-lo); }
+    .pc b { font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--ui-tx-hi); }
+    .pc i { font-style: normal; font-size: 11px; color: var(--ui-tx-lo); }
+    .pc.pro { border-color: var(--ui-gold); background: linear-gradient(180deg, rgba(217,179,106,.18), rgba(217,179,106,.05)); box-shadow: 0 0 26px -8px rgba(217,179,106,.65); }
+    .pc.pro span, .pc.pro b { color: var(--ui-gold-hi); }
+    .pro-list { gap: 8px; margin-bottom: 14px; }
+    .pro-list li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid var(--ui-line); }
+    .pro-list li::before { content: none; }
+    .pro-list em { font-style: normal; font-size: 20px; line-height: 1.2; }
+    .pro-list b { display: block; font-size: 13px; color: var(--ui-tx-hi); margin-bottom: 2px; }
+    .pro-list span { display: block; font-size: 11px; color: var(--ui-tx-lo); line-height: 1.45; }
+    #pro-buy { width: 100%; padding: 14px; font-size: 15px; border-radius: 16px; position: relative; overflow: hidden; }
+    #pro-buy::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.6), transparent); transform: skewX(-20deg); animation: proShine 3.2s ease-in-out infinite; pointer-events: none; }
+    @keyframes proShine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+    .pro-note { font-size: 11px; color: var(--ui-tx-lo); margin: 8px 0 10px; }
+    body.light-theme .pc, body.light-theme .pro-list li { background: #F8FAFC; border-color: #E2E8F0; }
+    body.light-theme .pc.pro { background: linear-gradient(180deg, #FFF3D6, #FFFAEE); border-color: #D9B36A; }
+    body.light-theme .pc.pro span, body.light-theme .pc.pro b { color: #B7791F; }
 </style>
 </head>
 <body>
@@ -523,23 +566,34 @@
 </div>
 <div id="pro" class="overlay" style="align-items:center; justify-content:center; padding:16px;">
   <div class="dialog pro-card">
-    <div class="pro-crown">👑</div>
-    <h3 style="color:var(--ui-gold-hi);margin:8px 0 6px">Holo Friend Pro</h3>
-    <p id="pro-sub" style="margin:0 0 8px;font-size:13px;color:var(--ui-tx-mid);line-height:1.5"></p>
-    <div class="pro-prev" id="pro-prev"></div>
-    <ul class="pro-list">
-      <li>500 запросов к ИИ-другу на 30 дней</li>
-      <li>Без дневных лимитов</li>
-      <li>Золотой скин «Аурум Pro»</li>
-      <li>Королевский плащ, только для Pro</li>
-    </ul>
-    <div id="pro-bar-wrap" style="display:none;margin-bottom:12px">
-      <div class="bar" style="height:8px"><i id="pro-bar" style="width:0%"></i></div>
-      <div id="pro-left" style="font-size:11px;color:var(--ui-tx-lo);margin-top:4px"></div>
+    <div class="pro-hero">
+      <div class="pro-glow"></div>
+      <div class="pro-crown">👑</div>
+      <div class="pro-badge">PRO</div>
+      <h3>Holo Friend Pro</h3>
+      <p id="pro-sub"></p>
     </div>
-    <button class="txtbtn on" id="pro-buy" style="width:100%;margin-bottom:8px">Оформить за ⭐ 499</button>
-    <button class="txtbtn" id="pro-close" style="width:100%">Позже</button>
-    <div id="pro-msg" style="font-size:12px;color:#FF9E9E;margin-top:8px;min-height:16px"></div>
+    <div class="pro-body">
+      <div class="pro-prev" id="pro-prev"></div>
+      <div class="pro-cmp">
+        <div class="pc"><span>Free</span><b id="pro-free">20</b><i>единиц в день</i></div>
+        <div class="pc pro"><span>Pro</span><b id="pro-n">1500</b><i>единиц на 30 дней</i></div>
+      </div>
+      <ul class="pro-list">
+        <li><em>🚀</em><div><b>Без дневных лимитов</b><span>Пиши когда хочешь — тратится общий запас на месяц</span></div></li>
+        <li><em>🖼</em><div><b>Подробный разбор фото</b><span>Мелкий текст на скриншотах читается точнее</span></div></li>
+        <li><em>🎨</em><div><b>Иллюстрации и макеты</b><span>Сайты, схемы и логотипы прямо в чате</span></div></li>
+        <li><em>🧥</em><div><b>Золотой скин и плащ</b><span>«Аурум Pro» и королевский плащ — только для Pro</span></div></li>
+      </ul>
+      <div id="pro-bar-wrap" style="display:none;margin-bottom:12px">
+        <div class="bar" style="height:8px"><i id="pro-bar" style="width:0%"></i></div>
+        <div id="pro-left" style="font-size:11px;color:var(--ui-tx-lo);margin-top:4px"></div>
+      </div>
+      <button class="txtbtn on" id="pro-buy">Оформить за ⭐ 399</button>
+      <div class="pro-note">Оплата Telegram Stars · на 30 дней · продление вручную</div>
+      <button class="txtbtn" id="pro-close" style="width:100%">Позже</button>
+      <div id="pro-msg" style="font-size:12px;color:#FF9E9E;margin-top:8px;min-height:16px"></div>
+    </div>
   </div>
 </div>
 
@@ -575,6 +629,7 @@
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
+<div id="visview"><div id="vv-bar"><span>Предпросмотр</span><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
 <div id="lightbox"><button id="lb-close" type="button" aria-label="Закрыть">✕</button><div id="lb-box"><img id="lb-img" alt=""></div></div>
 <div id="toast"></div>
 <script>
@@ -846,7 +901,7 @@ const input = $('user-input'); const sendBtn = $('send-btn'); const chatHistory 
 const BOT_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V4M9 13h.01M15 13h.01"/></svg>';
 const USER_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3-6 7-6s7 2 7 6"/></svg>';
 const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
-function addToHistory(text, sender, time, img) {
+function addToHistory(text, sender, time, img, visual) {
     const row = document.createElement('div'); row.className = `msg-row ${sender}`;
     const avatar = document.createElement('div'); avatar.className = 'avatar';
     avatar.innerHTML = sender === 'user' ? USER_ICON : (char === 'astro' ? '🧑‍🚀' : BOT_ICON);
@@ -863,6 +918,18 @@ function addToHistory(text, sender, time, img) {
         msg.classList.add('has-copy');
         const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = body; msg.appendChild(cb);
     }
+    if (visual && typeof visual.code === 'string' && (visual.type === 'html' || visual.type === 'svg')){
+        row.classList.add('has-vis'); msg.classList.add('has-vis');
+        const vis = document.createElement('div'); vis.className = 'vis'; vis._v = visual;
+        const fr = document.createElement('div'); fr.className = 'vis-frame';
+        const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = visDoc(visual);
+        fr.appendChild(ifr);
+        const bar = document.createElement('div'); bar.className = 'vis-bar';
+        bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button>';
+        vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis);
+        const fit = () => { const w = fr.clientWidth; if (w) ifr.style.transform = 'scale(' + (w / 800) + ')'; };
+        requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(fr);
+    }
     const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = time === undefined ? nowTime() : time;
     col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
     row.appendChild(avatar); row.appendChild(col);
@@ -874,6 +941,21 @@ function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
 let stick = true;
 chatHistory.addEventListener('scroll', () => { stick = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 40; }, { passive: true });
 if (window.ResizeObserver) new ResizeObserver(() => { if (stick) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe(chatHistory);
+const VIS_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'";
+function visDoc(v){
+    const head = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style>';
+    if (v.type === 'svg') return head + '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>' + v.code;
+    return head + v.code;
+}
+function openVis(v){ $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+function closeVis(){ $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; }
+$('vv-close').addEventListener('click', closeVis);
+chatHistory.addEventListener('click', e => {
+    const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
+    const b = e.target.closest('button[data-vis]');
+    if (b && b.dataset.vis === 'copy'){ copyText(vis._v.code, b); return; }
+    if (b || e.target.closest('.vis-frame')) openVis(vis._v);
+});
 const COPY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
 async function copyText(t, btn){
@@ -904,7 +986,7 @@ async function tgPost(path, extra){
     return r.json();
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 500, price: 499, loaded: false };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 399, free: 20, loaded: false };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -935,17 +1017,18 @@ function grantProItems(){ if (!PRO.active) return; let ch = false; PRO_ITEMS.for
 
 function renderPro(){
     grantProItems();
+    $('pro-n').textContent = PRO.limit; $('pro-free').textContent = PRO.free;
     $('pro-buy').disabled = !refOk();
     if (PRO.active){
-        $('pro-sub').innerHTML = `Pro активен до <b>${new Date(PRO.expires_at*1000).toLocaleDateString('ru-RU')}</b>.<br>Осталось запросов: <b>${PRO.left}</b> из ${PRO.limit}.`;
+        $('pro-sub').innerHTML = `Pro активен до <b>${new Date(PRO.expires_at*1000).toLocaleDateString('ru-RU')}</b>.<br>Осталось: <b>${PRO.left}</b> из ${PRO.limit}.`;
         $('pro-bar-wrap').style.display = '';
         const pct = Math.round((PRO.left / PRO.limit) * 100);
         $('pro-bar').style.width = pct + '%';
-        $('pro-left').textContent = `${PRO.left} / ${PRO.limit} запросов`;
+        $('pro-left').textContent = `${PRO.left} / ${PRO.limit} единиц`;
         $('pro-buy').textContent = `Продлить за ⭐ ${PRO.price}`;
         $('pro-btn').style.color = 'var(--ui-gold-hi)';
     } else {
-        $('pro-sub').innerHTML = `500 запросов к ИИ-другу на 30 дней.<br>Без дневных лимитов.`;
+        $('pro-sub').innerHTML = `${PRO.limit} запросов на 30 дней.<br>Без дневных лимитов.`;
         $('pro-bar-wrap').style.display = 'none';
         $('pro-buy').textContent = `Оформить за ⭐ ${PRO.price}`;
         $('pro-btn').style.color = '';
@@ -954,7 +1037,7 @@ function renderPro(){
 }
 function updateProDot(){
     const b = $('pro-btn');
-    const low = PRO.active && PRO.left <= 50;
+    const low = PRO.active && PRO.left <= 150;
     const expiring = PRO.active && PRO.left > 0 && (PRO.expires_at - Date.now()/1000) < 3*86400;
     b.classList.toggle('has', low || expiring);
 }
@@ -970,7 +1053,7 @@ async function refreshPro(){
     try {
         const res = await tgPost('pro/status');
         if (res && res.status === 'ok'){
-            PRO = Object.assign(PRO, res.pro || {}, { price: res.price || 499, loaded: true });
+            PRO = Object.assign(PRO, res.pro || {}, { price: res.price || 399, free: res.free_limit || PRO.free, loaded: true });
             checkProExpired();
             renderPro();
         }
@@ -1035,7 +1118,7 @@ function applyServerState(res, withEquip){
         EQUIP = res.equip; 
         store.set('equip', EQUIP);
     }
-    if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, loaded: true }); renderPro(); }
+    if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, free: res.free_limit || PRO.free, loaded: true }); renderPro(); }
 }
 function syncToServer(){
     if (!refOk()) return Promise.resolve();
@@ -1072,9 +1155,10 @@ async function loadProgress() {
 }
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
-if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '', m.img)); }
+if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '', m.img, m.vis)); }
 function saveHistory(){
     if (chatHistoryForServer.length > 200) chatHistoryForServer = chatHistoryForServer.slice(-200);
+    let nv = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && ++nv > 5) delete chatHistoryForServer[i].vis; }
     let imgs = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].img && ++imgs > 15) delete chatHistoryForServer[i].img; }
     localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
 }
@@ -1386,7 +1470,8 @@ async function sendMessage(text) {
     if (char === 'astro') say('Listening to the stars...', 20000);
     else Hologram.react('thinking', 'think');
 
-    const historyText = chatHistoryForServer.slice(-40).map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
+    const hs = chatHistoryForServer.slice(-40); let lastVis = -1; hs.forEach((m, i) => { if (m.vis) lastVis = i; });
+    const historyText = hs.map((m, i) => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}` + (i === lastVis ? `\n[Твоя последняя иллюстрация (${m.vis.type}):\n${String(m.vis.code).slice(0, 8000)}\n]` : '')).join('\n');
 
     try {
         showTyping();
@@ -1445,9 +1530,10 @@ async function sendMessage(text) {
             Hologram.react(data.emotion, pose, 4000);
         }
 
-        addToHistory(data.text, 'bot');
+        const vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
+        addToHistory(data.text, 'bot', undefined, null, vis);
         chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined });
-        chatHistoryForServer.push({ sender: 'bot', text: data.text });
+        chatHistoryForServer.push({ sender: 'bot', text: data.text, vis: vis || undefined });
         saveHistory();
 
     } catch (error) {
