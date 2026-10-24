@@ -157,7 +157,7 @@
     @keyframes tp { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
 
     /* HUD */
-    #hud-panel { padding: 12px 16px; width: 100%; max-width: 450px; background: rgba(7,11,20,.82); backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%); display: flex; flex-direction: column; z-index: 20; padding-top: 10px; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid var(--ui-line); position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); transition: background .3s, border-color .3s; }
+    #hud-panel { padding: 12px 16px; width: 100%; max-width: 450px; background: rgba(7,11,20,.82); backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%); display: flex; flex-direction: column; z-index: 20; padding-top: 10px; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid var(--ui-line); position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; transition: background .3s, border-color .3s; }
     #chips { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
     #chips::-webkit-scrollbar { display: none; }
     .chip { flex: none; font: 600 12px 'Manrope', system-ui, sans-serif; color: var(--ui-tx-mid); background: rgba(255,255,255,.04); border: 1px solid var(--ui-line); border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: all .2s; }
@@ -315,6 +315,20 @@
     #lb-box.zoom { display: block; }
     #lb-box.zoom #lb-img { max-width: none; max-height: none; width: 250%; cursor: zoom-out; }
     #lb-close { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; z-index: 2; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255,255,255,.2); color: #fff; font-size: 20px; cursor: pointer; }
+    /* ПОЛЕ ВВОДА: каретка и текст видны в обеих темах */
+    #user-input { caret-color: var(--ui-cyan); -webkit-text-fill-color: var(--ui-tx-hi); }
+    #user-input::placeholder { -webkit-text-fill-color: var(--ui-tx-lo); }
+    body.light-theme #user-input { caret-color: #0284C7; -webkit-text-fill-color: #0F172A; }
+    body.light-theme #user-input::placeholder { -webkit-text-fill-color: #64748B; }
+    /* КОПИРОВАНИЕ */
+    .message { position: relative; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+    .message.has-copy { padding-top: 38px; }
+    .copy-btn { position: absolute; top: 6px; right: 8px; width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--ui-line-hi); background: rgba(255,255,255,.07); color: var(--ui-tx-mid); cursor: pointer; transition: color .2s, background .2s; }
+    .copy-btn:active { transform: scale(.92); }
+    .copy-btn.ok { color: #5BD17A; }
+    body.light-theme .copy-btn { background: rgba(0,0,0,.04); }
+    #user-input { padding-left: 2px; caret-color: #0284C7; }
+    body:not(.light-theme) #user-input { caret-color: var(--ui-cyan); }
 </style>
 </head>
 <body>
@@ -844,6 +858,11 @@ function addToHistory(text, sender, time, img) {
         const cap = String(text || '').replace(/^🖼 Фото\n?/, '');
         if (cap){ const sp = document.createElement('div'); sp.className = 'cap'; sp.textContent = cap; msg.appendChild(sp); }
     } else msg.textContent = text;
+    const body = (img && img.thumb) ? String(text || '').replace(/^🖼 Фото\n?/, '') : String(text || '');
+    if (body && (body.length > 150 || body.split('\n').length > 4)){
+        msg.classList.add('has-copy');
+        const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = body; msg.appendChild(cb);
+    }
     const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = time === undefined ? nowTime() : time;
     col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
     row.appendChild(avatar); row.appendChild(col);
@@ -855,6 +874,21 @@ function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
 let stick = true;
 chatHistory.addEventListener('scroll', () => { stick = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 40; }, { passive: true });
 if (window.ResizeObserver) new ResizeObserver(() => { if (stick) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe(chatHistory);
+const COPY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
+async function copyText(t, btn){
+    let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; }
+    catch(e){
+        const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+        document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length);
+        try { ok = document.execCommand('copy'); } catch(e2) {}
+        ta.remove();
+    }
+    toast(ok ? 'Скопировано' : 'Не удалось скопировать');
+    if (ok){ btn.classList.add('ok'); btn.innerHTML = CHECK_ICON; if (tg && tg.HapticFeedback) try { tg.HapticFeedback.notificationOccurred('success'); } catch(e) {} setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = COPY_ICON; }, 1400); }
+}
+chatHistory.addEventListener('click', e => { const cb = e.target.closest('.copy-btn'); if (cb) copyText(cb._text, cb); });
 let userScrolled = false;
 chatHistory.addEventListener('touchstart', () => { userScrolled = true; }, { passive: true });
 chatHistory.addEventListener('wheel', () => { userScrolled = true; }, { passive: true });
