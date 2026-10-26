@@ -74,13 +74,31 @@ EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
 # --- ИЛЛЮСТРАЦИИ (сайт, схема, рисунок рендерятся на клиенте в песочнице) ---
 AI_MAX_TOKENS_VISUAL = 3500
 MAX_VISUAL_LEN = 20000
+
+# --- РЕЖИМ СТУДИИ: сайты и приложения (только Pro, сильная модель) ---
+BUILD_MODEL = os.getenv("BUILD_MODEL", "openai/gpt-4o")   # поставь модель сильнее, если есть у ProxyAPI
+BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "9000"))
+BUILD_TIMEOUT = 170
+BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))      # цена одной сборки в «единицах» запроса
+MAX_BUILD_LEN = 70000
+BUILD_THING_RE = re.compile(r"сайт|лендинг|landing|веб-?страниц|страниц[ауы] |приложени|игр[ауы]\b|мини-?игр|калькулятор|визитк|портфолио|дашборд|интерфейс|тетрис|змейк|сапёр|сапер|секундомер|таймер|тудулист|to-?do|конвертер|генератор", re.I)
+BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|напиш[иу]|разработ|собер[иу]|запил|сгенер|сверста|набросай|нарису|покаж|мне нужен|мне нужна|мне нужно|нужен мне|нужна мне", re.I)
+BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
+BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|переделай|перепиши|обнови|улучши|цвет|шрифт|анимаци|кнопк|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше", re.I)
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
 
 # --- ПОДПИСКА PRO ---
-PRO_PRICE = 399
-PRO_PERIOD = 30 * 24 * 3600
-PRO_REQUESTS = 1500
+# Тарифы. units — «единицы» запросов (текст = 1, фото/файл = 3, иллюстрация = 10, сборка сайта = BUILD_WEIGHT).
+# Цены в Telegram Stars. Расчёт: 1 ⭐ ≈ 1,1 ₽ на руки (≈ $0.013 по условиям Telegram), себестоимость сборки ≈ 21,5 ₽.
+PLANS = {
+    "start":    {"title": "Старт",  "price": 650,  "units": 700,  "days": 30},   # 7 сборок
+    "pro":      {"title": "Про",    "price": 1200, "units": 1500, "days": 30},   # 15 сборок
+    "business": {"title": "Бизнес", "price": 2750, "units": 4000, "days": 30},   # 40 сборок
+}
 PRO_WARN_LEFT = 100
+
+def plans_public():
+    return [{"id": k, "title": v["title"], "price": v["price"], "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT} for k, v in PLANS.items()]
 
 # --- НАСТРОЙКИ КЕЙСОВ ---
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
@@ -170,6 +188,12 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS user_seen (user_id INTEGER PRIMARY KEY, last_seen INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS rate_state (user_id INTEGER PRIMARY KEY, last_ask INTEGER DEFAULT 0, day TEXT DEFAULT '', ask_count INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
+    for col in ("plan TEXT DEFAULT ''", "units_total INTEGER DEFAULT 0"):
+        try:
+            conn.execute(f"ALTER TABLE pro_state ADD COLUMN {col}")
+        except Exception:
+            pass
     conn.commit()
 
 @app.on_event("startup")
@@ -218,14 +242,103 @@ VISUAL_RULES = """
 Формат ответа в этом режиме: {"text": "...", "emotion": "...", "visual": null или {"type": "...", "code": "..."}}.
 """
 
-def clean_visual(v):
+def clean_visual(v, max_len=MAX_VISUAL_LEN):
     if not isinstance(v, dict): return None
     kind = v.get("type"); code = v.get("code")
     if kind not in ("html", "svg") or not isinstance(code, str): return None
     code = code.strip()
     code = re.sub(r"^```[a-zA-Z]*\s*", "", code); code = re.sub(r"\s*```$", "", code)
-    if not code or len(code) > MAX_VISUAL_LEN: return None
+    if not code or len(code) > max_len: return None
     return {"type": kind, "code": code}
+
+BUILD_SYSTEM = """
+Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик уровня топовой студии. Пользователь просит сайт, лендинг, веб-приложение, игру или интерфейс — ты выдаёшь законченную работу, от которой хочется сказать «вау». Один HTML-файл.
+
+ВИЗУАЛ (самое важное):
+- Сначала придумай концепцию: настроение, 2–3 акцентных цвета + нейтрали, одну сильную идею первого экрана. Затем реализуй её.
+- Цвета и размеры — через CSS-переменные (:root). Используй современные приёмы: градиентные меши и размытые блобы, стекломорфизм (backdrop-filter), мягкие тени и свечение, тонкие границы rgba, скругления 16–28px, крупную типографику с clamp().
+- Типографика: 1–2 шрифта Google Fonts через <link> (Manrope, Inter, Unbounded, Space Grotesk, Playfair Display, Onest и т.п.) + fallback system-ui. Чёткая иерархия: заголовки 700–800 с отрицательным letter-spacing, основной текст 16–18px, line-height 1.5–1.7.
+- Сетка: CSS grid/flex, отступы по шкале 8px, контейнер max-width ~1120px, много воздуха.
+- «Картинки» и иллюстрации рисуй сам: inline SVG, CSS-градиенты, canvas, паттерны. Внешние изображения запрещены (ссылки не загрузятся). Иконки — inline SVG.
+- Движение: плавные hover/active-состояния, появление блоков при прокрутке (IntersectionObserver), 1–2 фирменные анимации (параллакс, плавающие элементы, бегущая строка, счётчики, анимированный градиент). Учитывай prefers-reduced-motion.
+- Тёмная или светлая тема — по смыслу; контраст текста не ниже AA.
+- Адаптивность mobile-first: отлично выглядит от 320px до 1440px, viewport meta, без горизонтального скролла.
+
+СОДЕРЖАНИЕ:
+- Настоящие тексты на языке пользователя (по умолчанию русский), без lorem ipsum и заглушек: конкретные заголовки, выгоды, цифры, отзывы, цены, FAQ — придумай правдоподобно.
+- Сайт: навигация, первый экран с призывом к действию, 3–6 содержательных секций по теме, финальный призыв, подвал. Лишних секций не добавляй.
+- Приложение, игра, инструмент: полностью рабочая логика на JS: состояния (пустое, загрузка, ошибка), клавиатура и тач, анимации, для игр — счёт, пауза и перезапуск, проверка ввода. Состояние держи в переменных. localStorage, sessionStorage и cookies в песочнице недоступны — не полагайся на них (если используешь, оборачивай в try/catch).
+
+ТЕХНИКА:
+- Один самодостаточный файл: <!doctype html>, весь CSS в <style>, JS в <script> перед </body>. Без сборщиков и фреймворков; библиотеки только если реально нужны, с https://cdnjs.cloudflare.com и точной версией. Запросы к сети (fetch, XHR), отправка форм, alert/confirm/prompt, window.open и переходы по внешним ссылкам не работают: используй <button type="button">, ссылки href="#".
+- Чистый код без ошибок в консоли: мысленно проверь все обработчики, id и селекторы. Никаких TODO и «здесь будет…».
+- Объём: до ~22 000 символов. Лучше меньше секций, но отполированных и законченных.
+- Если дана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА» и просят изменить — внеси именно запрошенные правки, сохрани остальное и верни ПОЛНЫЙ обновлённый файл.
+
+ФОРМАТ ОТВЕТА — строго так, без лишнего текста вокруг:
+[[TEXT]]
+1–2 коротких дружелюбных предложения для чата: что сделано и что можно поправить (например, «Хочешь другую палитру?»). Без markdown и без кода.
+[[EMOTION]]
+happy
+[[HTML]]
+<!doctype html>
+...полный файл...
+[[END]]
+"""
+
+BUILD_PARSE_RE = re.compile(r"\[\[TEXT\]\](.*?)\[\[EMOTION\]\](.*?)\[\[HTML\]\](.*?)(?:\[\[END\]\]|$)", re.S)
+
+def parse_build(raw):
+    m = BUILD_PARSE_RE.search(raw or "")
+    if not m: return None
+    text = m.group(1).strip()
+    emotion = m.group(2).strip().split()[0] if m.group(2).strip() else "happy"
+    html = m.group(3).strip()
+    html = re.sub(r"^```[a-zA-Z]*\s*", "", html); html = re.sub(r"\s*```$", "", html)
+    return text, emotion, html
+
+def refund_units(conn, uid, units):
+    try:
+        conn.execute("UPDATE pro_state SET requests_left = requests_left + ? WHERE user_id = ?", (units, uid))
+        conn.commit()
+    except Exception:
+        log.exception("refund failed")
+
+def trial_available(conn, uid):
+    return scalar(conn, "SELECT COUNT(*) FROM trial_build WHERE user_id = ?", (uid,)) == 0
+
+def wants_build(user_text, has_project):
+    if BUILD_NEG_RE.search(user_text): return False
+    if BUILD_THING_RE.search(user_text) and BUILD_ACTION_RE.search(user_text): return True
+    return bool(has_project and BUILD_EDIT_RE.search(user_text))
+
+async def run_build(conn, uid, user_content, history_text, current_code, weight):
+    messages = [{"role": "system", "content": BUILD_SYSTEM}]
+    if history_text: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога (для справки):\n{history_text[-4000:]}"})
+    if current_code: messages.append({"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code})
+    messages.append({"role": "user", "content": user_content})
+    fail = {"text": "Не получилось собрать проект целиком, запрос я вернул. Попробуй описать проще или разбить на части.", "emotion": "sad"}
+    try:
+        resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(model=BUILD_MODEL, messages=messages, max_tokens=BUILD_MAX_TOKENS, temperature=0.7)
+        choice = resp.choices[0]
+        raw = choice.message.content or ""
+    except Exception:
+        log.exception("build failed")
+        refund_units(conn, uid, weight)
+        return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
+    parsed = parse_build(raw)
+    visual = None
+    if parsed:
+        text, emotion, html = parsed
+        if choice.finish_reason == "length" and "</html>" not in html.lower():
+            parsed = None
+        else:
+            visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
+    if not parsed or not visual:
+        refund_units(conn, uid, weight)
+        return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
+    if emotion not in EMOTIONS_OK: emotion = "happy"
+    return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
 
 def validate_init_data(init_data: str):
     if not init_data or not BOT_TOKEN: return None
@@ -262,7 +375,10 @@ def mark_seen(conn, uid, now):
 
 def stars_price(item):
     if not isinstance(item, str): return None
-    if item == "pro": return PRO_PRICE
+    if item == "pro": return PLANS["pro"]["price"]
+    if item.startswith("plan_"):
+        p = PLANS.get(item[5:])
+        return p["price"] if p else None
     return CASE_ALL_PRICE if item == "case_all" else SHOP_PRICES.get(item)
 
 def make_link(user_id):
@@ -330,21 +446,27 @@ def daily_info(conn, uid, now):
     return {"wait": max(0, last + DAILY_COOLDOWN - now), "streak": streak if last and now - last < DAILY_STREAK_KEEP else 0}
 
 def pro_info(conn, uid, now):
-    row = conn.execute("SELECT expires_at, requests_left, auto_renew FROM pro_state WHERE user_id = ?", (uid,)).fetchone()
-    if not row: return {"active": False, "expires_at": 0, "left": 0, "auto_renew": 0, "limit": PRO_REQUESTS}
-    expires_at, left, auto = row
+    row = conn.execute("SELECT expires_at, requests_left, auto_renew, plan, units_total FROM pro_state WHERE user_id = ?", (uid,)).fetchone()
+    default_limit = PLANS["pro"]["units"]
+    if not row: return {"active": False, "expires_at": 0, "left": 0, "auto_renew": 0, "limit": default_limit, "plan": "", "plan_id": ""}
+    expires_at, left, auto, plan, total = row
     active = expires_at > now and left > 0
-    return {"active": active, "expires_at": expires_at, "left": max(0, left) if active else 0, "auto_renew": auto, "limit": PRO_REQUESTS}
+    title = PLANS[plan]["title"] if plan in PLANS else "Pro"
+    limit = max(total or 0, left if active else 0) or default_limit
+    return {"active": active, "expires_at": expires_at, "left": max(0, left) if active else 0, "auto_renew": auto, "limit": limit, "plan": title, "plan_id": plan or ""}
 
-def pro_grant(conn, uid, now, charge_id=""):
+def pro_grant(conn, uid, now, charge_id="", plan_id="pro"):
+    plan = PLANS.get(plan_id) or PLANS["pro"]
+    plan_id = plan_id if plan_id in PLANS else "pro"
+    period = plan["days"] * 24 * 3600
     row = conn.execute("SELECT expires_at, requests_left FROM pro_state WHERE user_id = ?", (uid,)).fetchone()
     if row and row[0] > now:
-        expires_at = row[0] + PRO_PERIOD
-        left = row[1] + PRO_REQUESTS
+        expires_at = row[0] + period
+        left = max(0, row[1]) + plan["units"]
     else:
-        expires_at = now + PRO_PERIOD
-        left = PRO_REQUESTS
-    conn.execute("INSERT INTO pro_state (user_id, expires_at, requests_left, last_charge_id, auto_renew) VALUES (?, ?, ?, ?, 0) ON CONFLICT(user_id) DO UPDATE SET expires_at = excluded.expires_at, requests_left = excluded.requests_left, last_charge_id = excluded.last_charge_id", (uid, expires_at, left, charge_id or ""))
+        expires_at = now + period
+        left = plan["units"]
+    conn.execute("INSERT INTO pro_state (user_id, expires_at, requests_left, last_charge_id, auto_renew, plan, units_total) VALUES (?, ?, ?, ?, 0, ?, ?) ON CONFLICT(user_id) DO UPDATE SET expires_at = excluded.expires_at, requests_left = excluded.requests_left, last_charge_id = excluded.last_charge_id, plan = excluded.plan, units_total = excluded.units_total", (uid, expires_at, left, charge_id or "", plan_id, left))
     return {"expires_at": expires_at, "left": left}
 
 @app.post("/load_progress")
@@ -360,7 +482,7 @@ def load_progress(data: dict = Body(...)):
     try: equip = json.loads(row[1]) if row[1] else {}
     except ValueError: equip = {}
     conn.commit()
-    return {"status": "ok", "bal": row[0], "owned": owned, "equip": clean_equip(equip, owned), "daily": daily_info(conn, uid, now), "pro": pro_info(conn, uid, now), "pro_price": PRO_PRICE, "free_limit": ASK_DAY_LIMIT}
+    return {"status": "ok", "bal": row[0], "owned": owned, "equip": clean_equip(equip, owned), "daily": daily_info(conn, uid, now), "pro": pro_info(conn, uid, now), "pro_price": PLANS["pro"]["price"], "free_limit": ASK_DAY_LIMIT, "plans": plans_public(), "build_weight": BUILD_WEIGHT, "trial_build": trial_available(conn, uid)}
 
 @app.post("/ping")
 def ping(data: dict = Body(...)):
@@ -780,6 +902,20 @@ async def ask(request: Request):
         pro_pre = pro_info(conn, uid, now)
         visual_mode = bool(VISUAL_RE.search(user_text))
         weight = ask_weight(att, visual_mode)
+        lv = data.get("last_visual")
+        current_code = lv.get("code") if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str) and 3000 < len(lv["code"]) <= MAX_BUILD_LEN else None
+        build_mode = wants_build(user_text, bool(current_code))
+        trial = False
+        if build_mode:
+            weight = BUILD_WEIGHT
+            if not pro_pre["active"]:
+                if trial_available(conn, uid):
+                    trial = True
+                    weight = 0
+                else:
+                    return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Дальше студия сайтов и приложений доступна на тарифах — выбери подходящий!", "emotion": "happy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+            elif pro_pre["left"] < BUILD_WEIGHT:
+                return JSONResponse({"text": f"На сборку проекта нужно минимум {BUILD_WEIGHT} единиц, а осталось {pro_pre['left']}. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
         if att:
             user_content, att_err = await asyncio.to_thread(build_user_content, raw_text, att, pro_pre["active"])
             if att_err:
@@ -802,15 +938,29 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Лимит Pro закончился. Продли подписку.", "emotion": "sleepy", "pro": pro_info(conn, uid, now)}, status_code=402)
                 pro = pro_info(conn, uid, now)
             else:
-                if cnt >= ASK_DAY_LIMIT:
+                if cnt >= ASK_DAY_LIMIT and not trial:
                     conn.commit()
-                    return JSONResponse({"text": f"Бесплатный лимит на сегодня закончился. С Pro — {PRO_REQUESTS} запросов на 30 дней, без дневных ограничений.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
+                    return JSONResponse({"text": "Бесплатный лимит на сегодня закончился. Выбери тариф — и пиши без дневных ограничений.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
                 cnt += weight
             conn.execute("INSERT INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_ask = excluded.last_ask, day = excluded.day, ask_count = excluded.ask_count", (uid, now, today, cnt))
             conn.commit()
         finally:
             pass
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
+        if build_mode:
+            if trial:
+                if not trial_available(conn, uid):
+                    return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
+                conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
+                conn.commit()
+            res = await run_build(conn, uid, user_content, history_text, current_code, weight)
+            if trial:
+                if res.get("visual"):
+                    res["text"] = ((res.get("text") or "Готово!") + " Это была бесплатная пробная сборка — дальше студия доступна на тарифах.").strip()
+                else:
+                    conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,))
+                    conn.commit()
+            return res
         system_prompt = BASE_PROMPT
         if persona == "astronaut": system_prompt = ASTRO_PROMPT
         if visual_mode: system_prompt = system_prompt + VISUAL_RULES
@@ -855,7 +1005,7 @@ def pro_status(data: dict = Body(...)):
     if not info: return {"status": "error", "reason": "auth"}
     uid = info["user"]["id"]; now = int(time.time())
     conn = get_db_connection()
-    return {"status": "ok", "pro": pro_info(conn, uid, now), "price": PRO_PRICE, "limit": PRO_REQUESTS, "free_limit": ASK_DAY_LIMIT}
+    return {"status": "ok", "pro": pro_info(conn, uid, now), "price": PLANS["pro"]["price"], "limit": PLANS["pro"]["units"], "free_limit": ASK_DAY_LIMIT, "plans": plans_public(), "build_weight": BUILD_WEIGHT, "trial_build": trial_available(conn, uid)}
 
 @app.post("/pro/invoice")
 async def pro_invoice(data: dict = Body(...)):
@@ -863,7 +1013,10 @@ async def pro_invoice(data: dict = Body(...)):
     if not info: return {"error": "auth"}
     uid = info["user"]["id"]
     if not WEBHOOK_SECRET: return {"error": "payments_disabled"}
-    payload = {"title": "Holo Friend Pro — 30 дней", "description": f"{PRO_REQUESTS} запросов к ИИ-другу на 30 дней, без дневных лимитов", "payload": f"{uid}|pro", "currency": "XTR", "provider_token": "", "prices": [{"label": "Pro на 30 дней", "amount": PRO_PRICE}]}
+    plan_id = data.get("plan") or "pro"
+    plan = PLANS.get(plan_id)
+    if not plan: return {"error": "bad_plan"}
+    payload = {"title": f"Holo Friend «{plan['title']}» — {plan['days']} дней", "description": f"{plan['units']} единиц запросов ({plan['units'] // BUILD_WEIGHT} сборок сайтов и приложений), без дневных лимитов", "payload": f"{uid}|plan_{plan_id}", "currency": "XTR", "provider_token": "", "prices": [{"label": f"Тариф «{plan['title']}»", "amount": plan["price"]}]}
     r = await tg_call("createInvoiceLink", payload)
     res = r.json()
     if res.get("ok"): return {"link": res["result"]}
@@ -877,7 +1030,7 @@ def check_payment(from_id, payload, currency, amount):
     try: p_uid, item = str(payload).split("|", 1); p_uid = int(p_uid)
     except (ValueError, TypeError): return False, "Неверные данные платежа"
     if p_uid != from_id or currency != "XTR": return False, "Платёж не прошёл проверку"
-    if item == "pro": return (amount == PRO_PRICE), ""
+    if item == "pro" or item.startswith("plan_"): return (stars_price(item) == amount), ""
     if stars_price(item) != amount: return False, "Платёж не прошёл проверку"
     return True, ""
 
@@ -886,7 +1039,7 @@ async def tg_call(method, payload):
     return await _http.post(url, json=payload, timeout=10)
 
 def _invoice_blocked(uid, item_id):
-    if item_id == "pro": return None
+    if item_id == "pro" or item_id.startswith("plan_"): return None
     conn = get_db_connection()
     if item_id == "case_all":
         row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
@@ -911,7 +1064,7 @@ async def create_invoice(data: dict = Body(...)):
     return {"error": "Не удалось создать счет", "details": res}
 
 def _precheck_db(uid, item):
-    if item == "pro": return True, ""
+    if item == "pro" or item.startswith("plan_"): return True, ""
     conn = get_db_connection()
     if item == "case_all":
         row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
@@ -923,9 +1076,9 @@ def _apply_payment(from_id, item, charge):
     conn = get_db_connection()
     if charge and not conn.execute("SELECT 1 FROM payments WHERE charge_id = ?", (charge,)).fetchone():
         conn.execute("INSERT INTO payments (charge_id, user_id, item, created_at) VALUES (?, ?, ?, ?)", (charge, from_id, item, int(time.time())))
-        if item == "pro":
+        if item == "pro" or item.startswith("plan_"):
             conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
-            pro_grant(conn, from_id, int(time.time()), charge)
+            pro_grant(conn, from_id, int(time.time()), charge, "pro" if item == "pro" else item[5:])
         elif item == "case_all":
             row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (from_id,)).fetchone()
             conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
