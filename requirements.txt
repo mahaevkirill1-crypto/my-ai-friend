@@ -5,3 +5,4 @@ httpx
 libsql
 pydantic
 pypdf
+python-docx
