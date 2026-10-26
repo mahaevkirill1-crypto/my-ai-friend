@@ -528,6 +528,64 @@
     .pl-main:disabled { opacity: .5; }
     .pl-note { text-align: center; font-size: 13px; line-height: 1.4; color: #8D8A82; padding: 2px 10px; }
     #pro .ps-msg { margin: 0; text-align: center; }
+
+    /* ДУМАЕТ: ровный индикатор действий и живая иконка бота */
+    .msg-row.thk { align-items: center; gap: 10px; }
+    .msg-row.thk .col { display: flex; align-items: center; }
+    .message.think { padding: 0 2px !important; min-height: 30px; display: flex; align-items: center; }
+    .shimmer { font-size: 14px; line-height: 30px; font-weight: 600; letter-spacing: -.005em; }
+    .shimmer.stg { animation: shim 1.6s linear infinite, stgIn .35s cubic-bezier(.2,.8,.2,1); }
+    @keyframes stgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .avatar.thinking { position: relative; overflow: hidden; border: none; animation: avBreath 2.2s ease-in-out infinite; }
+    .avatar.thinking::before { content: ''; position: absolute; inset: -60%; background: conic-gradient(from 0deg, transparent 0deg, transparent 190deg, var(--ui-cyan) 300deg, #fff 346deg, transparent 360deg); animation: avSpin 1.3s linear infinite; }
+    .avatar.thinking::after { content: ''; position: absolute; inset: 1.5px; border-radius: 8.5px; background: linear-gradient(180deg, #2A3550, #1A2236); }
+    .avatar.thinking > svg, .avatar.thinking > span { position: relative; z-index: 2; }
+    body.light-theme .avatar.thinking::after { background: linear-gradient(180deg, #F1F5F9, #E2E8F0); }
+    @keyframes avSpin { to { transform: rotate(360deg); } }
+    @keyframes avBreath { 0%,100% { box-shadow: 0 0 10px -2px rgba(111,227,242,.3); transform: translateY(0); } 50% { box-shadow: 0 0 0 4px rgba(111,227,242,.08), 0 0 18px 0 rgba(111,227,242,.55); transform: translateY(-1.5px); } }
+    .bot-think .b-ant { transform-box: fill-box; transform-origin: center; animation: antP 1s ease-in-out infinite; }
+    .bot-think .b-eye { transform-box: fill-box; transform-origin: center; animation: eyeLook 2.6s ease-in-out infinite; }
+    @keyframes antP { 0%,100% { opacity: .4; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.35); } }
+    @keyframes eyeLook { 0%,12%,100% { transform: translateX(0) scaleY(1); } 18% { transform: translateX(0) scaleY(.1); } 26%,45% { transform: translateX(-1.1px) scaleY(1); } 55%,75% { transform: translateX(1.1px) scaleY(1); } 85% { transform: translateX(0) scaleY(1); } }
+    @media (prefers-reduced-motion: reduce) { .avatar.thinking, .avatar.thinking::before, .bot-think .b-ant, .bot-think .b-eye, .shimmer.stg { animation: none !important; } }
+
+    /* КОД: сероватые блоки и вставки */
+    .msg-row.has-codeblk { max-width: 100%; }
+    .msg-row.has-codeblk .col { flex: 1; min-width: 0; }
+    .code-blk { margin: 8px 0; border-radius: 12px; overflow: hidden; background: rgba(128,128,128,.16); border: 1px solid rgba(128,128,128,.28); white-space: normal; }
+    .code-hd { display: flex; align-items: center; justify-content: space-between; padding: 5px 6px 5px 12px; background: rgba(128,128,128,.14); border-bottom: 1px solid rgba(128,128,128,.22); }
+    .code-lang { font: 600 11px 'Manrope', system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-tx-lo); }
+    .code-copy { width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--ui-line-hi); background: rgba(128,128,128,.14); color: var(--ui-tx-mid); cursor: pointer; }
+    .code-copy:active { transform: scale(.92); }
+    .code-copy.ok { color: #5BD17A; }
+    .code-blk pre { margin: 0; padding: 12px 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: pre; font: 13px/1.55 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--ui-tx-hi); tab-size: 2; -webkit-user-select: text; user-select: text; }
+    .code-blk code { font: inherit; }
+    code.ic { padding: 1px 6px; border-radius: 6px; background: rgba(128,128,128,.22); border: 1px solid rgba(128,128,128,.18); font: .88em ui-monospace, 'SF Mono', Menlo, monospace; color: var(--ui-tx-hi); white-space: pre-wrap; word-break: break-word; }
+
+    /* ПРИВЕТСТВИЕ: сдержанный минимализм */
+    #welcome { flex-direction: column; align-items: stretch; justify-content: space-between; padding: calc(env(safe-area-inset-top) + 16px) 24px calc(env(safe-area-inset-bottom) + 22px); background: radial-gradient(520px 380px at 50% 40%, rgba(240,215,154,.08), transparent 70%), linear-gradient(180deg, #0D0D0E 0%, #121110 58%, #261B17 100%); }
+    .wl-top { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
+    .wl-brand { display: inline-flex; align-items: center; gap: 9px; font: 700 12px 'Manrope', system-ui, sans-serif; letter-spacing: .32em; color: #A9A69D; }
+    .wl-brand i { width: 6px; height: 6px; border-radius: 50%; background: #E3B65E; box-shadow: 0 0 12px 2px rgba(227,182,94,.55); }
+    #welcome .welcome-skip { margin: 0; padding: 8px 4px; color: #8D8A82; font: 600 14px 'Manrope', system-ui, sans-serif; }
+    #welcome .welcome-skip:hover { color: #D6D3CA; }
+    .wl-stage { flex: 1; display: flex; align-items: center; justify-content: center; }
+    #welcome .welcome-slide { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 330px; }
+    #welcome .welcome-slide[hidden] { display: none; }
+    .wl-ico { position: relative; width: 96px; height: 96px; margin-bottom: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #E3B65E; background: rgba(255,255,255,.03); border: 1px solid rgba(240,215,154,.28); }
+    .wl-ico::before, .wl-ico::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1px solid rgba(240,215,154,.4); animation: wlRing 3.6s ease-out infinite; }
+    .wl-ico::after { animation-delay: 1.8s; }
+    @keyframes wlRing { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.9); opacity: 0; } }
+    .wl-step { font: 700 12px 'Manrope', system-ui, sans-serif; letter-spacing: .24em; color: #6F6C64; margin-bottom: 14px; }
+    #welcome h1 { margin: 0 0 14px; font: 500 36px/1.12 ui-serif, Georgia, 'Times New Roman', serif; letter-spacing: -.01em; color: #F5F3EC; }
+    #welcome h1 em { font-style: italic; color: #E3B65E; }
+    #welcome p { margin: 0; max-width: 300px; font: 500 16px/1.6 'Manrope', system-ui, sans-serif; color: #8D8A82; text-wrap: balance; }
+    .wl-bottom { display: flex; flex-direction: column; }
+    #welcome .welcome-dots { gap: 6px; margin-bottom: 22px; }
+    #welcome .welcome-dots span { width: 18px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.14); box-shadow: none; }
+    #welcome .welcome-dots span.on { width: 34px; border-radius: 2px; background: #F5F3EC; box-shadow: none; }
+    #welcome .wl-btn { width: 100%; height: 58px; padding: 0; border: none; border-radius: 999px; background: #F9F9F7; color: #161615; font: 700 17px 'Manrope', system-ui, sans-serif; box-shadow: none; cursor: pointer; }
+    @media (prefers-reduced-motion: reduce) { .wl-ico::before, .wl-ico::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
@@ -536,27 +594,34 @@
 <div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
 
 <div id="welcome">
-  <div class="welcome-card">
-    <div class="welcome-glow"></div>
+  <div class="wl-top">
+    <span class="wl-brand"><i></i>HOLO FRIEND</span>
+    <button class="welcome-skip" id="welcome-skip" type="button">Пропустить</button>
+  </div>
+  <div class="wl-stage">
     <div class="welcome-slide" data-slide="1">
-      <div class="welcome-icon"><svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/><circle cx="6.5" cy="6.5" r=".6"/><circle cx="9" cy="6.5" r=".6"/><path d="M7 14h6M7 17h10"/></svg></div>
-      <h1>Сайты за минуту</h1>
-      <p>Опиши идею в чате, и я соберу<br>готовый сайт или приложение.<br>Без кода и без дизайнера.</p>
+      <div class="wl-ico"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/><circle cx="6.5" cy="6.5" r=".6"/><circle cx="9" cy="6.5" r=".6"/><path d="M7 14h6M7 17h10"/></svg></div>
+      <div class="wl-step">01 / 03</div>
+      <h1>Сайты за <em>минуту</em></h1>
+      <p>Опиши идею в чате, и я соберу готовый сайт или приложение. Без кода и без дизайнера.</p>
     </div>
     <div class="welcome-slide" data-slide="2" hidden>
-      <div class="welcome-icon"><svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></div>
-      <h1>Что можно собрать</h1>
-      <p>Лендинги, визитки, портфолио,<br>калькуляторы и мини-игры.<br>Правь результат обычными словами:<br>«сделай темнее», «добавь кнопку».</p>
+      <div class="wl-ico"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></div>
+      <div class="wl-step">02 / 03</div>
+      <h1>Что можно <em>собрать</em></h1>
+      <p>Лендинги, визитки, портфолио, калькуляторы и мини-игры. Правь результат обычными словами: «сделай темнее», «добавь кнопку».</p>
     </div>
     <div class="welcome-slide" data-slide="3" hidden>
-      <div class="welcome-icon"><svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z"/></svg></div>
-      <h1>Первая сборка бесплатно</h1>
-      <p>Нажми «Попробовать», и я подставлю<br>пример запроса. Останется отправить.<br>Ещё я отвечаю на вопросы<br>и разбираю фото и файлы.</p>
+      <div class="wl-ico"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z"/></svg></div>
+      <div class="wl-step">03 / 03</div>
+      <h1>Первая сборка <em>бесплатно</em></h1>
+      <p>Нажми «Попробовать», и я подставлю пример запроса. Ещё я отвечаю на вопросы и разбираю фото и файлы.</p>
     </div>
+  </div>
+  <div class="wl-bottom">
     <div class="welcome-dots"><span class="on"></span><span></span><span></span></div>
-    <button class="welcome-btn" id="welcome-next">Далее</button>
-    <button class="welcome-btn" id="welcome-try" style="display:none">Попробовать</button>
-    <button class="welcome-skip" id="welcome-skip">Пропустить</button>
+    <button class="welcome-btn wl-btn" id="welcome-next" type="button">Далее</button>
+    <button class="welcome-btn wl-btn" id="welcome-try" type="button" style="display:none">Попробовать</button>
   </div>
 </div>
 
@@ -1049,6 +1114,87 @@ const BOT_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" st
 const USER_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3-6 7-6s7 2 7 6"/></svg>';
 const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const THINK_ICON = '<svg class="bot-think" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="9" width="14" height="10" rx="3"/><path d="M12 9V6"/><circle class="b-ant" cx="12" cy="4.4" r="1.4" fill="currentColor" stroke="none"/><circle class="b-eye" cx="9" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle class="b-eye" cx="15" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg>';
+// --- оформление кода: ```блоки```, `вставки`, имена файлов и функции ---
+const CODE_START = /^\s*(def\s|class\s|import\s|from\s+\S+\s+import\s|async\s+def\s|await\s|return\b|elif\b|else:|try:|except\b|finally:|with\s.+:\s*$|const\s|let\s|var\s|function\b|export\s|if\s*\(|for\s*\(|while\s*\(|(?:if|elif|while|for)\s.+:\s*$|@\w+|#include\b|print\(|<\/?[a-zA-Z!][^>]*>|\}|\{)/;
+const strongLine = l => /\S/.test(l) && (CODE_START.test(l)
+    || (/^\s{2,}\S/.test(l) && /[A-Za-z]/.test(l) && /[(){}\[\]=;<>_"'.:#@]/.test(l))
+    || (/[A-Za-z]/.test(l) && /[;{}]\s*$/.test(l))
+    || /^\s*[A-Za-z_][\w.\[\]]*\s*[+\-*\/]?=\s*\S/.test(l)
+    || /^\s*[A-Za-z_][\w.]*\(.*\)\s*$/.test(l));
+const weakLine = l => /^\s*(#|\/\/)/.test(l);
+function guessLang(c){
+    if (/<\/?[a-z!][^>]*>/i.test(c)) return 'html';
+    if ((/\b(def|elif|async def|self)\b|^\s*(from \S+ import|import \w+)/m.test(c)) && !/;\s*$/m.test(c)) return 'python';
+    if (/\b(const|let|var|function)\b|=>|;\s*$/m.test(c)) return 'js';
+    return 'code';
+}
+function parseFences(t){
+    const out = [], re = /```([\w+#.-]*)[ \t]*\n?([\s\S]*?)(?:```|$)/g; let last = 0, m;
+    while ((m = re.exec(t))){
+        if (m.index > last) out.push({ t: 'text', s: t.slice(last, m.index) });
+        const body = m[2].replace(/\n+$/, '');
+        if (body.trim()) out.push({ t: 'code', s: body, lang: m[1] || guessLang(body) });
+        last = re.lastIndex;
+        if (m[0].length === 0) re.lastIndex++;
+    }
+    if (last < t.length) out.push({ t: 'text', s: t.slice(last) });
+    return out;
+}
+function splitCode(s){
+    const lines = s.split('\n'), out = []; let buf = [], i = 0;
+    const flush = () => { if (buf.length){ out.push({ t: 'text', s: buf.join('\n') }); buf = []; } };
+    while (i < lines.length){
+        if (strongLine(lines[i])){
+            let j = i, last = i, n = 0;
+            while (j < lines.length){
+                if (strongLine(lines[j])){ last = j; n++; j++; }
+                else if (!/\S/.test(lines[j]) || weakLine(lines[j])) j++;
+                else break;
+            }
+            if (n >= 3){ flush(); const c = lines.slice(i, last + 1).join('\n'); out.push({ t: 'code', s: c, lang: guessLang(c) }); i = last + 1; continue; }
+        }
+        buf.push(lines[i]); i++;
+    }
+    flush();
+    return out;
+}
+const INL_RE = /`([^`\n]+)`|\b((?:[\w-]+\/)*[\w-]+\.(?:html?|css|jsx?|tsx?|py|json|txt|md|xml|ya?ml|png|jpe?g|svg|csv|docx|xlsx|pdf|env|sh|sql)\b)|\b([A-Za-z_]\w+(?:\.[A-Za-z_]\w+)+(?:\([^()\s]*\))?)|\b([A-Za-z_]\w+\([^()\s]*\))|\b([A-Za-z]+(?:_[A-Za-z0-9]+)+)\b/g;
+function inlineFrag(s){
+    const frag = document.createDocumentFragment(), re = new RegExp(INL_RE.source, 'g'); let last = 0, m, any = false;
+    while ((m = re.exec(s))){
+        const prev = s[m.index - 1];
+        if (m[1] === undefined && prev && /[\/@.\-]/.test(prev)) continue;
+        if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+        const c = document.createElement('code'); c.className = 'ic'; c.textContent = m[1] !== undefined ? m[1] : m[0];
+        frag.appendChild(c); any = true; last = re.lastIndex;
+    }
+    if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+    return { frag, any };
+}
+function codeBlock(code, lang){
+    const d = document.createElement('div'); d.className = 'code-blk';
+    const hd = document.createElement('div'); hd.className = 'code-hd';
+    const l = document.createElement('span'); l.className = 'code-lang'; l.textContent = (lang && lang !== 'code') ? lang : 'код';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'code-copy'; b.setAttribute('aria-label', 'Копировать код'); b.innerHTML = COPY_ICON; b._text = code;
+    hd.appendChild(l); hd.appendChild(b);
+    const pre = document.createElement('pre'), c = document.createElement('code'); c.textContent = code; pre.appendChild(c);
+    d.appendChild(hd); d.appendChild(pre);
+    return d;
+}
+function renderRich(text){
+    const frag = document.createDocumentFragment(), parts = []; let any = false, blocks = 0;
+    parseFences(text).forEach(p => { if (p.t === 'code') parts.push(p); else splitCode(p.s).forEach(q => parts.push(q)); });
+    parts.forEach((p, i) => {
+        if (p.t === 'code'){ any = true; blocks++; frag.appendChild(codeBlock(p.s, p.lang)); return; }
+        let s = p.s;
+        if (parts[i - 1] && parts[i - 1].t === 'code') s = s.replace(/^\n+/, '');
+        if (parts[i + 1] && parts[i + 1].t === 'code') s = s.replace(/\n+$/, '');
+        if (!s) return;
+        const r = inlineFrag(s); if (r.any) any = true; frag.appendChild(r.frag);
+    });
+    return { frag, any, blocks };
+}
 function addToHistory(text, sender, time, img, visual, animate, file) {
     const row = document.createElement('div'); row.className = `msg-row ${sender}`;
     const avatar = document.createElement('div'); avatar.className = 'avatar';
@@ -1056,15 +1202,18 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
     const col = document.createElement('div'); col.className = 'col';
     const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = sender === 'user' ? 'You' : (char === 'astro' ? 'Astronaut' : 'Holo-friend');
     const msg = document.createElement('div'); msg.className = 'message'; let tn = null;
+    let rich = null;
+    if (!(img && img.thumb) && text && !/^(📎|🖼)/.test(String(text))){ try { rich = renderRich(String(text)); } catch(e){ rich = null; } }
     if (img && img.thumb){
         const im = document.createElement('img'); im.className = 'chat-img'; im.src = img.thumb; im.alt = 'Фото'; im.dataset.img = img.id; msg.appendChild(im); msg.classList.add('has-img');
         const cap = String(text || '').replace(/^🖼 Фото\n?/, '');
         if (cap){ const sp = document.createElement('div'); sp.className = 'cap'; sp.textContent = cap; msg.appendChild(sp); }
-    } else if (animate && sender === 'bot' && text && !REDUCED) { tn = document.createTextNode(''); msg.appendChild(tn); }
+    } else if (rich && rich.any) { msg.appendChild(rich.frag); if (rich.blocks) row.classList.add('has-codeblk'); }
+    else if (animate && sender === 'bot' && text && !REDUCED) { tn = document.createTextNode(''); msg.appendChild(tn); }
     else msg.textContent = text;
     if (file && file.id){ msg.classList.add('has-file'); msg._file = file; }
     const body = (img && img.thumb) ? String(text || '').replace(/^🖼 Фото\n?/, '') : String(text || '');
-    if (body && (body.length > 150 || body.split('\n').length > 4)){
+    if (body && !(rich && rich.blocks) && (body.length > 150 || body.split('\n').length > 4)){
         msg.classList.add('has-copy');
         const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = body; msg.appendChild(cb);
     }
@@ -1177,6 +1326,7 @@ async function copyText(t, btn){
     if (ok){ btn.classList.add('ok'); btn.innerHTML = CHECK_ICON; if (tg && tg.HapticFeedback) try { tg.HapticFeedback.notificationOccurred('success'); } catch(e) {} setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = COPY_ICON; }, 1400); }
 }
 chatHistory.addEventListener('click', e => { const cb = e.target.closest('.copy-btn'); if (cb) copyText(cb._text, cb); });
+chatHistory.addEventListener('click', e => { const cb = e.target.closest('.code-copy'); if (cb) copyText(cb._text, cb); });
 let userScrolled = false;
 chatHistory.addEventListener('touchstart', () => { userScrolled = true; }, { passive: true });
 chatHistory.addEventListener('wheel', () => { userScrolled = true; }, { passive: true });
@@ -1191,10 +1341,10 @@ let typingRow = null, typingT = 0;
 function showTyping(stages, ms){
     hideTyping();
     const list = stages && stages.length ? stages : ['Анализирую...', 'Думаю над ответом...', 'Формулирую...'];
-    const row = document.createElement('div'); row.className = 'msg-row bot';
-    row.innerHTML = '<div class="avatar">' + (char === 'astro' ? '🧑‍🚀' : BOT_ICON) + '</div><div class="col"><div class="message think"><span class="shimmer"></span></div></div>';
+    const row = document.createElement('div'); row.className = 'msg-row bot thk';
+    row.innerHTML = '<div class="avatar thinking">' + (char === 'astro' ? '<span>🧑‍🚀</span>' : THINK_ICON) + '</div><div class="col"><div class="message think"><span class="shimmer stg"></span></div></div>';
     const sp = row.querySelector('.shimmer'); let n = 0; sp.textContent = list[0];
-    typingT = setInterval(() => { if (n < list.length - 1){ n++; sp.textContent = list[n]; } }, ms || 2500);
+    typingT = setInterval(() => { if (n < list.length - 1){ n++; sp.textContent = list[n]; sp.classList.remove('stg'); void sp.offsetWidth; sp.classList.add('stg'); } }, ms || 2500);
     chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row;
 }
 function hideTyping(){ clearInterval(typingT); if (typingRow){ typingRow.remove(); typingRow = null; } }
