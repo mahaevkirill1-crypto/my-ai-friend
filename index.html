@@ -492,6 +492,42 @@
     #down-btn{position:fixed;left:50%;bottom:calc(var(--hud-h,170px) + 6px);transform:translate(-50%,10px);z-index:36;width:40px;height:40px;border-radius:50%;border:1px solid var(--ui-line-hi);background:rgba(19,26,43,.92);backdrop-filter:blur(12px);color:var(--ui-tx-hi);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 8px 20px -6px rgba(0,0,0,.6);cursor:pointer;padding:0}
     #down-btn.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
     body.light-theme #down-btn{background:rgba(255,255,255,.95)}
+
+    /* ПЛАНЫ: экран выбора как в приложении Claude */
+    #pro { align-items: stretch; justify-content: flex-start; flex-direction: column; padding: 0; z-index: 90; background: linear-gradient(180deg, #121212 0%, #141312 55%, #2c1f1b 100%); backdrop-filter: none; -webkit-backdrop-filter: none; color: #EDEBE4; }
+    .pl-x { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.1); color: #EDEBE4; font-size: 16px; cursor: pointer; z-index: 2; }
+    .pl-head { flex: none; text-align: center; padding: calc(52px + env(safe-area-inset-top)) 16px 0; }
+    .pl-title { margin: 0 0 20px; font: 500 32px/1.15 ui-serif, Georgia, 'Times New Roman', serif; letter-spacing: -.01em; color: #F5F3EC; }
+    .pl-seg { display: inline-flex; gap: 2px; padding: 5px; border-radius: 999px; background: #1f1f1e; border: 1px solid rgba(255,255,255,.05); max-width: 100%; }
+    .pl-seg button { border: none; background: none; color: #A9A69D; font: 600 15px 'Manrope', system-ui, sans-serif; padding: 10px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+    .pl-seg button.on { background: #4a4a47; color: #ECE9DD; }
+    .pl-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 16px 12px; }
+    .pl-status { margin: 0 0 14px; padding: 14px 16px; border-radius: 20px; background: #1f1f1e; border: 1px solid rgba(255,255,255,.07); }
+    .pl-status .row { display: flex; justify-content: space-between; gap: 10px; font: 600 15px 'Manrope', system-ui, sans-serif; color: #F5F3EC; }
+    .pl-status .row.sm { font-weight: 500; font-size: 13px; color: #A9A69D; }
+    .pl-status .bar { background: rgba(255,255,255,.08); }
+    .pl-card { background: #1f1f1e; border: 1px solid rgba(255,255,255,.07); border-radius: 28px; padding: 26px 22px 22px; min-height: 340px; animation: plIn .25s ease; }
+    @keyframes plIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .pl-name { margin: 0 0 6px; font: 500 34px/1.1 ui-serif, Georgia, 'Times New Roman', serif; color: #F5F3EC; }
+    .pl-sub { margin: 0 0 22px; font-size: 16px; color: #8D8A82; }
+    .pl-feat { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+    .pl-feat li { display: flex; gap: 16px; align-items: flex-start; font-size: 16px; line-height: 1.35; color: #EDEBE4; }
+    .pl-feat svg { flex: none; width: 22px; height: 22px; margin-top: 1px; fill: none; stroke: #B9B6AD; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .pl-price { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px 18px; border-radius: 22px; background: #232d3b; border: 1px solid #4A7FD0; }
+    .pl-prow { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; min-height: 30px; }
+    .pl-radio { width: 30px; height: 30px; border-radius: 50%; background: #5B9BF0; display: flex; align-items: center; justify-content: center; }
+    .pl-radio::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: #D0D4DA; }
+    .pl-badge { padding: 5px 12px; border-radius: 10px; background: #1F2B3D; color: #8FB8F5; font-size: 15px; font-weight: 500; }
+    .pl-price b { font-size: 24px; font-weight: 700; color: #F5F3EC; font-variant-numeric: tabular-nums; }
+    .pl-price span { font-size: 15px; color: #D6D3CA; }
+    .pl-foot { flex: none; display: flex; flex-direction: column; gap: 10px; padding: 8px 16px calc(14px + env(safe-area-inset-bottom)); }
+    .pl-main, .pl-alt { height: 60px; border-radius: 999px; font: 700 18px 'Manrope', system-ui, sans-serif; cursor: pointer; transition: transform .15s; }
+    .pl-main { border: none; background: #F9F9F7; color: #161615; }
+    .pl-alt { background: #121212; border: 1px solid rgba(255,255,255,.12); color: #F5F3EC; }
+    .pl-main:active, .pl-alt:active { transform: scale(.98); }
+    .pl-main:disabled { opacity: .5; }
+    .pl-note { text-align: center; font-size: 13px; line-height: 1.4; color: #8D8A82; padding: 2px 10px; }
+    #pro .ps-msg { margin: 0; text-align: center; }
 </style>
 </head>
 <body>
@@ -687,27 +723,20 @@
   </div>
 </div>
 <div id="pro" class="overlay">
-  <div class="pro-sheet">
-    <button class="ps-x" id="pro-close" type="button" aria-label="Закрыть">✕</button>
-    <div class="ps-hero">
-      <div class="ps-glow"></div>
-      <svg class="ps-crown" viewBox="0 0 64 50" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF3C9"/><stop offset=".55" stop-color="#E8BE63"/><stop offset="1" stop-color="#A97A2B"/></linearGradient></defs><path d="M6 38 L9 12 L22 27 L32 6 L42 27 L55 12 L58 38 Z" fill="url(#cg)" stroke="#FFE9A8" stroke-width="1.2" stroke-linejoin="round"/><rect x="7" y="40" width="50" height="6" rx="2" fill="url(#cg)" stroke="#FFE9A8" stroke-width="1"/><circle cx="32" cy="30" r="3" fill="#FF5A6E"/><circle cx="19" cy="34" r="2" fill="#7FE5F5"/><circle cx="45" cy="34" r="2" fill="#7FE5F5"/></svg>
-      <div class="ps-eyebrow">HOLO FRIEND</div>
-      <h2 class="ps-title">Premium</h2>
-      <p class="ps-sub" id="pro-sub"></p>
-    </div>
-    <div class="ps-status" id="pro-status" style="display:none"></div>
-    <div class="ps-prev" id="pro-prev"></div>
-    <div class="ps-plans" id="pro-plans"></div>
-    <div class="ps-perks">
-      <div><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg><span>Студия сайтов<br>и приложений</span></div>
-      <div><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg><span>Разбор фото<br>и файлов</span></div>
-      <div><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.7 0 2-1 1.5-2-.6-1.2.1-2.5 1.6-2.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/></svg><span>Иллюстрации<br>и макеты</span></div>
-      <div><svg viewBox="0 0 24 24"><path d="M3 18h18M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span>Золотой скин<br>и королевский плащ</span></div>
-    </div>
-    <div class="ps-note">Оплата в Telegram Stars. При пополнении единицы и срок суммируются.</div>
-    <button class="ps-later" id="pro-later" type="button">Закрыть</button>
+  <button class="pl-x" id="pro-close" type="button" aria-label="Закрыть">✕</button>
+  <div class="pl-head">
+    <h2 class="pl-title">Выбор плана</h2>
+    <div class="pl-seg" id="pl-seg"></div>
+  </div>
+  <div class="pl-scroll" id="pl-scroll">
+    <div class="pl-status" id="pro-status" style="display:none"></div>
+    <div id="pl-card"></div>
+  </div>
+  <div class="pl-foot">
     <div id="pro-msg" class="ps-msg"></div>
+    <button class="pl-main" id="pl-buy" type="button"></button>
+    <button class="pl-alt" id="pro-later" type="button">Остаться на Free</button>
+    <div class="pl-note">*Оплата в Telegram Stars. При пополнении единицы и срок суммируются.</div>
   </div>
 </div>
 
@@ -1208,24 +1237,47 @@ function grantProItems(){ if (!PRO.active) return; let ch = false; PRO_ITEMS.for
 const PLAN_STYLE = { start: { cls: 'p-start', tier: 'STARTER' }, pro: { cls: 'p-pro', tier: 'PREMIUM', badge: 'Популярный' }, business: { cls: 'p-biz', tier: 'BUSINESS', badge: 'Максимум' } };
 const fmtN = n => Number(n).toLocaleString('ru-RU');
 function setProMsg(t, k){ const m = $('pro-msg'); m.textContent = t || ''; m.dataset.k = k || ''; }
+const PL_TABS = [['free', 'Free'], ['start', 'Старт'], ['pro', 'Про'], ['business', 'Бизнес']];
+const PL_SUB = { start: 'Для первых проектов', pro: 'Для повседневной работы', business: 'Для студии и бизнеса' };
+const PL_CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+let plTab = null;
+function curPlanId(){ if (!PRO.active) return ''; const p = (PRO.plans || []).find(x => x.id === PRO.plan || x.title === PRO.plan); return p ? p.id : ''; }
 function renderPro(){
     grantProItems();
     const w = PRO.build_weight || 100;
-    $('pro-plans').innerHTML = (PRO.plans || []).map(p => {
-        const st = PLAN_STYLE[p.id] || { cls: '', tier: '' };
+    if (!plTab) plTab = curPlanId() || 'pro';
+    $('pl-seg').innerHTML = PL_TABS.map(t => `<button type="button" data-pt="${t[0]}" class="${t[0] === plTab ? 'on' : ''}">${t[1]}</button>`).join('');
+    const feat = a => '<ul class="pl-feat">' + a.map(x => `<li>${PL_CHECK}<span>${x}</span></li>`).join('') + '</ul>';
+    const buy = $('pl-buy');
+    let card;
+    if (plTab === 'free'){
+        const items = ['Общение с голо-другом', 'Разбор фото и файлов', (PRO.free || 20) + ' единиц запросов в день'];
+        if (PRO.trial) items.push('Одна бесплатная сборка сайта или приложения');
+        card = `<div class="pl-card"><h3 class="pl-name">Free</h3><p class="pl-sub">Для знакомства с голо-другом</p>${feat(items)}</div>`;
+        buy.style.display = 'none';
+    } else {
+        const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, units: 0, days: 30, builds: 0 };
         const per = p.builds ? Math.round(p.price / p.builds) : 0;
-        return `<div class="plan ${st.cls}">${st.badge ? `<div class="plan-badge">${st.badge}</div>` : ''}<div class="plan-top"><span class="plan-title">${p.title}</span><span class="plan-tier">${st.tier}</span></div><div class="plan-price"><b>${fmtN(p.price)}</b><i>⭐</i><span>за ${p.days} дней</span></div><ul class="plan-feat"><li><span><b>${p.builds}</b> сборок сайтов и приложений</span></li><li><span><b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации</span></li><li><span>≈ ${per} ⭐ за сборку</span></li></ul><button type="button" class="plan-btn" data-plan="${p.id}" ${refOk() && !PRO.busy ? '' : 'disabled'}>${PRO.active ? 'Пополнить' : 'Оформить'} «${p.title}»</button></div>`;
-    }).join('');
+        const mine = PRO.active && curPlanId() === p.id;
+        const badge = mine ? 'Ваш план' : ((PLAN_STYLE[p.id] || {}).badge || '');
+        card = `<div class="pl-card"><h3 class="pl-name">${p.title}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p>` +
+            feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Золотой скин и королевский плащ', 'Без дневных лимитов на срок плана']) +
+            `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>≈ ${per} ⭐ за сборку</span><span>Оплата в Telegram Stars</span></div></div>`;
+        buy.style.display = '';
+        buy.dataset.plan = p.id;
+        buy.disabled = !refOk() || !!PRO.busy;
+        buy.textContent = (PRO.active ? 'Пополнить план ' : 'Оформить план ') + p.title;
+    }
+    $('pl-card').innerHTML = card;
+    $('pro-later').textContent = PRO.active ? 'Закрыть' : 'Остаться на Free';
     const st = $('pro-status');
     if (PRO.active){
         const pct = Math.max(2, Math.min(100, Math.round(PRO.left / (PRO.limit || 1) * 100)));
         st.style.display = '';
         st.innerHTML = `<div class="row"><span>Тариф «${PRO.plan || 'Pro'}»</span><span>до ${new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU')}</span></div><div class="bar" style="height:8px;margin:10px 0 8px"><i style="width:${pct}%"></i></div><div class="row sm"><span>Осталось ${fmtN(PRO.left)} из ${fmtN(PRO.limit)}</span><span>≈ ${Math.floor(PRO.left / w)} сборок</span></div>`;
-        $('pro-sub').textContent = 'Пополняй тариф в любой момент: единицы и срок суммируются.';
         $('pro-btn').style.color = 'var(--ui-gold-hi)';
     } else {
         st.style.display = 'none'; st.innerHTML = '';
-        $('pro-sub').textContent = PRO.trial ? 'Подарок: одна бесплатная сборка сайта или приложения — просто напиши в чате «сделай сайт…». Дальше — тарифы.' : 'Студия сайтов и приложений, никаких дневных лимитов, золотой скин и королевский плащ.';
         $('pro-btn').style.color = '';
     }
     updateProDot();
@@ -1237,10 +1289,10 @@ function updateProDot(){
     b.classList.toggle('has', low || expiring);
 }
 function openPro(){ 
+    plTab = null;
     proBox.classList.add('open'); 
     renderPro(); 
     refreshPro(); 
-    $('pro-prev').innerHTML = figSvg({ color: 'c_aurum', back: 'b_pro_cape' }, 96); 
 }
 function closePro(){ proBox.classList.remove('open'); }
 async function refreshPro(){
@@ -1286,7 +1338,18 @@ async function waitProPaid(){
     }
     PRO.busy = false; setProMsg('Оплата в обработке. Загляни сюда через минуту.', 'bad'); renderPro();
 }
-$('pro-plans').addEventListener('click', e => { const b = e.target.closest('button[data-plan]'); if (b && !b.disabled) buyPro(b.dataset.plan); });
+$('pl-seg').addEventListener('click', e => { const b = e.target.closest('button[data-pt]'); if (b){ plTab = b.dataset.pt; renderPro(); } });
+$('pl-buy').addEventListener('click', e => { const b = e.currentTarget; if (!b.disabled && b.dataset.plan) buyPro(b.dataset.plan); });
+(function(){
+    let sx = 0, sy = 0; const el = $('pl-scroll');
+    el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+    el.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+        if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        const ids = PL_TABS.map(t => t[0]), i = ids.indexOf(plTab) + (dx < 0 ? 1 : -1);
+        if (i >= 0 && i < ids.length){ plTab = ids[i]; renderPro(); }
+    }, { passive: true });
+})();
 $('pro-close').addEventListener('click', closePro);
 $('pro-later').addEventListener('click', closePro);
 $('pro').addEventListener('click', e => { if (e.target === $('pro')) closePro(); });
@@ -1734,7 +1797,7 @@ async function sendMessage(text) {
 
     const hs = chatHistoryForServer.slice(-40);
     const historyText = hs.map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
-    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis){ lastVisual = chatHistoryForServer[i].vis; break; } }
+    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } }
 
     try {
         const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
@@ -1800,7 +1863,7 @@ async function sendMessage(text) {
         const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
         let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
         let outText = data.text;
-        if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; outText = ex.rest; } }
+        if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
         addToHistory(outText, 'bot', undefined, null, vis, true);
         chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
         chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
