@@ -290,6 +290,7 @@ BUILD_SYSTEM = """
 - Сайт: навигация, первый экран с призывом к действию, 3–6 секций, финальный призыв, подвал.
 - Приложение, игра: полностью рабочая логика на JS: состояния, клавиатура и тач, анимации, счёт, пауза.
 - Если пользователь просит очень сложный сайт (интернет-магазин, соцсеть), сделай только ГЛАВНУЮ СТРАНИЦУ с красивым дизайном. Не пытайся написать весь сайт целиком — сделай идеальную обложку.
+- ПРЕЗЕНТАЦИИ: Если просят презентацию, используй чистый CSS для переключения слайдов (например, :target или скрытые чекбоксы), чтобы не раздувать код JavaScript. Максимум 3-5 слайдов.
 
 РЕЖИМ ПРАВОК (если дана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА»):
 - Если пользователь пишет неточно («не ровно», «криво», «сделай красиво», «сделай вау», «добавь неон»), ты должен сам проанализировать текущий HTML-код и внести правки.
@@ -322,9 +323,13 @@ def parse_build(raw):
     html = m.group(3).strip()
     html = re.sub(r"^```[a-zA-Z]*\s*", "", html); html = re.sub(r"\s*```$", "", html)
     
+    # МЯГКАЯ ПРОВЕРКА: если нет </html>, но есть </body>, просто дописываем
     if "</html>" not in html.lower():
-        log.warning("Build generated but cut off (no </html>)")
-        return None
+        if "</body>" in html.lower() or "<script" in html.lower():
+            html = html + "\n</html>"
+        else:
+            log.warning("Build generated but cut off (no </html>)")
+            return None
     return text, emotion, html
 
 def refund_units(conn, uid, units):
@@ -434,9 +439,16 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
             )
             raw = raw + (resp2.choices[0].message.content or "")
             
-    except Exception:
+    except Exception as e:
         log.exception("build request failed")
         refund_units(conn, uid, weight)
+        
+        err_text = str(e).lower()
+        if "429" in err_text or "quota" in err_text or "overloaded" in err_text:
+            return {"text": "Сейчас огромный спрос, сервера перегружены. Я вернул тебе сборку, попробуй через пару минут.", "emotion": "sleepy", "pro": pro_info(conn, uid, int(time.time()))}
+        if "402" in err_text or "insufficient" in err_text or "balance" in err_text:
+            return {"text": "У бота закончились ресурсы на генерацию. Я вернул тебе сборку, попробуй чуть позже.", "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+        
         return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
         
     parsed = parse_build(raw)
