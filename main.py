@@ -87,7 +87,7 @@ MAX_VISUAL_LEN = 20000
 
 # --- РЕЖИМ СТУДИИ: сайты и приложения ---
 BUILD_MODEL = os.getenv("BUILD_MODEL", "anthropic/claude-sonnet-5-5")
-BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "12000")) 
+BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "16000")) 
 BUILD_TIMEOUT = 170
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
 MAX_BUILD_LEN = 70000
