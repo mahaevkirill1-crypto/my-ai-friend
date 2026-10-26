@@ -60,7 +60,7 @@ VISUAL_EXTRA = 7            # доплата, если иллюстрация р
 
 # --- ИИ И ВЛОЖЕНИЯ ---
 AI_MODEL = "anthropic/claude-haiku-5-5"
-AI_MAX_TOKENS = 700
+AI_MAX_TOKENS = 1000
 AI_TEMPERATURE = 0.5
 MAX_TEXT_LEN = 4000
 MAX_BODY_BYTES = 7 * 1024 * 1024
@@ -209,7 +209,7 @@ RULES = """
 
 ПРАВИЛА:
 1. Сразу отвечай по существу. Без вступлений («конечно», «отличный вопрос»), без пересказа вопроса, воды, морали и лишних предупреждений.
-2. Длина: простой вопрос — 1–3 предложения. Сложный — до 8 предложений, либо короткий список шагов или фрагмент кода. Если пользователь просит подробнее — тогда подробнее.
+2. Длина: простой вопрос — 1–3 предложения. Сложный — до 8 предложений, либо короткий список шагов или фрагмент кода. Если пользователь просит подробнее — тогда подробнее. Жёсткий потолок обычного ответа — около 900 символов: на большую тему дай суть и предложи продолжить («Расписать подробнее?»).
 3. Точность важнее уверенности. Не выдумывай факты, цифры, цитаты, ссылки и названия. Если не знаешь или нужны свежие данные (новости, курсы, погода) — скажи это одной фразой и дай, что можешь. Если вопрос неясен — дай самый вероятный ответ и задай ОДИН уточняющий вопрос.
 4. Вычисления и логику проверяй по шагам про себя, в ответе давай итог и ключевой ход решения.
 5. Код: минимальный рабочий фрагмент, затем 1–2 строки пояснения. Если нужен весь файл — напиши только то, что меняется, и укажи, куда вставить.
@@ -230,6 +230,14 @@ BASE_PROMPT = RULES
 ASTRO_PROMPT = RULES + """
 СЕЙЧАС ТЫ В ОБЛИКЕ КОСМОНАВТА. Говори спокойно и чуть загадочно; изредка (не в каждом ответе) используй короткую космическую метафору. Суть и польза ответа важнее стиля, объём тот же — коротко.
 """
+
+_emo_guide = RULES[RULES.index("emotion: happy"):]
+RULES_BODY = RULES[:RULES.index("ФОРМАТ ОТВЕТА — ТОЛЬКО JSON")]
+PLAIN_FORMAT = "ФОРМАТ ОТВЕТА: первая строка — только одно слово-эмоция (happy, sad, surprised, angry, thinking или sleepy), без знаков препинания. Со второй строки — сам ответ пользователю обычным текстом, без JSON.\n" + _emo_guide
+BASE_PLAIN = RULES_BODY + PLAIN_FORMAT
+ASTRO_PLAIN = RULES_BODY + """СЕЙЧАС ТЫ В ОБЛИКЕ КОСМОНАВТА. Говори спокойно и чуть загадочно; изредка (не в каждом ответе) используй короткую космическую метафору. Суть и польза ответа важнее стиля, объём тот же — коротко.
+
+""" + PLAIN_FORMAT
 
 VISUAL_RULES = """
 РЕЖИМ ИЛЛЮСТРАЦИИ. Если пользователь просит показать, нарисовать или «как это выглядит» (сайт, страница, интерфейс, дизайн, схема, диаграмма, график, картинка, логотип, сцена, код, который ты писал ранее) — добавь поле "visual": {"type": "html" или "svg", "code": "..."}. В "text" напиши 1–2 фразы о том, что нарисовано, без кода.
@@ -322,6 +330,36 @@ async def chat_json(messages, max_tokens):
     except Exception:
         log.warning("json_object mode failed, retrying without response_format", exc_info=True)
         return await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE)
+
+def salvage_json(raw):
+    """Достаём текст из оборванного JSON (если модель упёрлась в лимит токенов)."""
+    t = raw or ""
+    m = re.search(r'"text"\s*:\s*"((?:[^"\\]|\\.)*)', t, re.S)
+    if not m: return None
+    chunk = m.group(1)
+    try: txt = json.loads('"' + chunk + '"')
+    except ValueError: txt = chunk.replace("\\n", "\n").replace('\\"', '"').rstrip("\\")
+    txt = txt.strip()
+    if not txt: return None
+    em = re.search(r'"emotion"\s*:\s*"(\w+)"', t)
+    return {"text": txt, "emotion": em.group(1) if em else "happy"}
+
+PLAIN_EMO_RE = re.compile(r"^\W*(happy|sad|surprised|angry|thinking|sleepy)\b\W*?(?:\n+|[:\-—]\s*)(.*)$", re.S | re.I)
+
+def parse_plain(raw):
+    t = (raw or "").strip()
+    if not t: return "", "happy"
+    if re.match(r"^\s*(```(?:json)?)?\s*\{", t):
+        try:
+            o = extract_json(t)
+            return str(o.get("text") or "").strip(), (o.get("emotion") if o.get("emotion") in EMOTIONS_OK else "happy")
+        except ValueError:
+            sv = salvage_json(t)
+            if sv: return sv["text"], (sv["emotion"] if sv["emotion"] in EMOTIONS_OK else "happy")
+    if t.lower() in EMOTIONS_OK: return "", t.lower()
+    m = PLAIN_EMO_RE.match(t)
+    if m: return m.group(2).strip(), m.group(1).lower()
+    return t, "happy"
 
 def wants_build(user_text, has_project):
     if BUILD_NEG_RE.search(user_text): return False
@@ -977,9 +1015,10 @@ async def ask(request: Request):
                     conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,))
                     conn.commit()
             return res
-        system_prompt = BASE_PROMPT
-        if persona == "astronaut": system_prompt = ASTRO_PROMPT
-        if visual_mode: system_prompt = system_prompt + VISUAL_RULES
+        if visual_mode:
+            system_prompt = (ASTRO_PROMPT if persona == "astronaut" else BASE_PROMPT) + VISUAL_RULES
+        else:
+            system_prompt = ASTRO_PLAIN if persona == "astronaut" else BASE_PLAIN
         if not att and persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             response = await client.chat.completions.create(model=AI_MODEL, messages=[{"role": "system", "content": "Придумай короткую веселую фразу (1 предложение), чтобы начать танец."}, {"role": "user", "content": "Я прошу тебя станцевать."}], max_tokens=50, temperature=0.7)
@@ -987,15 +1026,21 @@ async def ask(request: Request):
         messages = [{"role": "system", "content": system_prompt}]
         if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
         messages.append({"role": "user", "content": user_content})
-        response = await chat_json(messages, AI_MAX_TOKENS_VISUAL if visual_mode else AI_MAX_TOKENS)
-        raw = response.choices[0].message.content or ""
-        try:
-            result = extract_json(raw)
-        except ValueError:
-            if raw.lstrip().startswith("{"):
-                result = {"text": "Не получилось собрать ответ целиком. Попробуй попросить проще или короче.", "emotion": "sad"}
-            else:
-                result = {"text": raw.strip() or "Что-то я задумался...", "emotion": "thinking"}
+        if visual_mode:
+            response = await chat_json(messages, AI_MAX_TOKENS_VISUAL)
+            raw = response.choices[0].message.content or ""
+            try:
+                result = extract_json(raw)
+            except ValueError:
+                result = salvage_json(raw) or {"text": "Не получилось собрать ответ целиком. Попробуй попросить проще или короче.", "emotion": "sad"}
+        else:
+            response = await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=AI_MAX_TOKENS, temperature=AI_TEMPERATURE)
+            raw = response.choices[0].message.content or ""
+            plain_text, plain_emo = parse_plain(raw)
+            result = {"text": plain_text, "emotion": plain_emo}
+        if not str(result.get("text") or "").strip():
+            log.warning("empty reply from model, finish_reason=%s, raw=%r", getattr(response.choices[0], "finish_reason", None), raw[:200])
+            result["text"] = "Не получилось ответить, попробуй ещё раз."
         emotion = result.get("emotion")
         if emotion not in EMOTIONS_OK: emotion = "happy"
         visual = clean_visual(result.get("visual")) if visual_mode else None
