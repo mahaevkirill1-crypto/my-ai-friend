@@ -440,6 +440,19 @@
     .message { font-size: 16.5px; line-height: 1.55; }
     .msg-row.bot .message { font-size: 17px; padding-left: 2px; padding-right: 2px; }
     .lbl { font-size: 11px; }
+    /* Просмотр вложений */
+    .message.has-file { cursor: pointer; }
+    .message.has-file::after { content: 'Нажми, чтобы открыть'; display: block; margin-top: 4px; font-size: 11px; color: var(--ui-cyan); opacity: .85; }
+    body.light-theme .message.has-file::after { color: #0284C7; }
+    #fileview { position: fixed; inset: 0; z-index: 1100; background: var(--ui-bg-0); display: none; }
+    #fileview.open { display: block; }
+    #fv-bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; color: var(--ui-tx-hi); font: 600 15px 'Manrope', system-ui, sans-serif; border-bottom: 1px solid var(--ui-line); background: var(--ui-bg-1); }
+    #fv-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #fv-bar button { width: 40px; height: 40px; flex: none; border-radius: 50%; border: none; background: rgba(127,127,127,.25); color: var(--ui-tx-hi); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    #fv-body { position: absolute; left: 0; right: 0; bottom: 0; top: calc(61px + env(safe-area-inset-top)); overflow: auto; -webkit-overflow-scrolling: touch; }
+    .fv-pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 ui-monospace, Menlo, monospace; color: var(--ui-tx-hi); -webkit-user-select: text; user-select: text; }
+    .fv-note { padding: 24px; font-size: 14px; line-height: 1.6; color: var(--ui-tx-mid); }
+    #fv-body iframe { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
     body.bot-hidden #sv, body.bot-hidden #bub { display: none !important; }
 
     /* Стадии размышления + переливающийся текст */
@@ -724,6 +737,7 @@
 </div>
 <div id="visview"><div id="vv-bar"><span>Предпросмотр</span><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
 <div id="lightbox"><button id="lb-close" type="button" aria-label="Закрыть">✕</button><div id="lb-box"><img id="lb-img" alt=""></div></div>
+<div id="fileview"><div id="fv-bar"><span id="fv-title"></span><button id="fv-copy" type="button" aria-label="Копировать" style="display:none"></button><button id="fv-close" type="button" aria-label="Закрыть">✕</button></div><div id="fv-body"></div></div>
 <div id="toast"></div>
 <script>
 const $ = id => document.getElementById(id);
@@ -998,7 +1012,7 @@ const BOT_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" st
 const USER_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3-6 7-6s7 2 7 6"/></svg>';
 const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-function addToHistory(text, sender, time, img, visual, animate) {
+function addToHistory(text, sender, time, img, visual, animate, file) {
     const row = document.createElement('div'); row.className = `msg-row ${sender}`;
     const avatar = document.createElement('div'); avatar.className = 'avatar';
     avatar.innerHTML = sender === 'user' ? USER_ICON : (char === 'astro' ? '🧑‍🚀' : BOT_ICON);
@@ -1011,6 +1025,7 @@ function addToHistory(text, sender, time, img, visual, animate) {
         if (cap){ const sp = document.createElement('div'); sp.className = 'cap'; sp.textContent = cap; msg.appendChild(sp); }
     } else if (animate && sender === 'bot' && text && !REDUCED) { tn = document.createTextNode(''); msg.appendChild(tn); }
     else msg.textContent = text;
+    if (file && file.id){ msg.classList.add('has-file'); msg._file = file; }
     const body = (img && img.thumb) ? String(text || '').replace(/^🖼 Фото\n?/, '') : String(text || '');
     if (body && (body.length > 150 || body.split('\n').length > 4)){
         msg.classList.add('has-copy');
@@ -1283,11 +1298,12 @@ async function loadProgress() {
 }
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
-if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '', m.img, m.vis)); }
+if (chatHistoryForServer.length > 0) { chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '', m.img, m.vis, false, m.file)); }
 function saveHistory(){
     if (chatHistoryForServer.length > 200) chatHistoryForServer = chatHistoryForServer.slice(-200);
     let nv = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && ++nv > 5) delete chatHistoryForServer[i].vis; }
     let imgs = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].img && ++imgs > 15) delete chatHistoryForServer[i].img; }
+    let fls = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].file && ++fls > 10) delete chatHistoryForServer[i].file; }
     localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
 }
 
@@ -1329,7 +1345,7 @@ const IMGDB = (() => {
         prune: keep => run('readwrite', s => { const c = s.openKeyCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return; if (!keep.has(cur.key)) s.delete(cur.key); cur.continue(); }; return c; }).catch(() => {})
     };
 })();
-IMGDB.prune(new Set(chatHistoryForServer.filter(m => m.img).map(m => m.img.id)));
+IMGDB.prune(new Set(chatHistoryForServer.filter(m => m.img || m.file).map(m => (m.img || m.file).id)));
 
 let lbUrl = null;
 const lb = $('lightbox'), lbBox = $('lb-box'), lbImg = $('lb-img');
@@ -1343,6 +1359,57 @@ chatHistory.addEventListener('click', e => { const im = e.target.closest('img.ch
 lbBox.addEventListener('click', e => { if (e.target === lbImg) lbBox.classList.toggle('zoom'); else closeLightbox(); });
 $('lb-close').addEventListener('click', closeLightbox);
 addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ПРОСМОТР ВЛОЖЕНИЙ
+const MAMMOTH_URL = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const _scr = {};
+function loadScript(url){ return _scr[url] || (_scr[url] = new Promise((res, rej) => { const el = document.createElement('script'); el.src = url; el.onload = res; el.onerror = () => { delete _scr[url]; rej(new Error('load')); }; document.head.appendChild(el); })); }
+const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const FV_CSS = '<meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:16px;line-height:1.5;color:#111;background:#fff}img{max-width:100%}table{border-collapse:collapse;margin-bottom:16px}td,th{border:1px solid #ccc;padding:4px 8px;font-size:13px}h3{margin:16px 0 8px}</style>';
+function attToBlob(a){
+    if (a.kind === 'text') return new Blob([a.text], { type: 'text/plain;charset=utf-8' });
+    const bin = atob(a.data), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    const type = a.kind === 'pdf' ? 'application/pdf' : a.kind === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    return new Blob([u], { type });
+}
+let fvUrl = null, fvText = '';
+$('fv-copy').innerHTML = COPY_ICON;
+function closeFile(){ $('fileview').classList.remove('open'); $('fv-body').innerHTML = ''; if (fvUrl){ URL.revokeObjectURL(fvUrl); fvUrl = null; } }
+function fvFrame(html){ const f = document.createElement('iframe'); f.setAttribute('sandbox', ''); f.srcdoc = FV_CSS + html; $('fv-body').innerHTML = ''; $('fv-body').appendChild(f); }
+async function openFile(f){
+    const body = $('fv-body'); body.innerHTML = ''; fvText = '';
+    $('fv-title').textContent = f.name || 'Файл'; $('fv-copy').style.display = 'none';
+    $('fileview').classList.add('open');
+    const note = t => { body.innerHTML = '<div class="fv-note"></div>'; body.firstChild.textContent = t; };
+    const blob = await IMGDB.get(f.id);
+    if (!blob){ note('Файл больше недоступен: вложения хранятся только на этом устройстве и могли быть удалены.'); return; }
+    try {
+        if (f.kind === 'text'){
+            fvText = await blob.text();
+            const p = document.createElement('pre'); p.className = 'fv-pre'; p.textContent = fvText; body.appendChild(p);
+            $('fv-copy').style.display = '';
+        } else if (f.kind === 'pdf'){
+            fvUrl = URL.createObjectURL(blob);
+            const fr = document.createElement('iframe'); fr.src = fvUrl; body.appendChild(fr);
+        } else if (f.kind === 'docx'){
+            note('Загружаю просмотр…');
+            await loadScript(MAMMOTH_URL);
+            const r = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
+            fvFrame(r.value || '<p>В документе нет текста.</p>');
+        } else if (f.kind === 'xlsx'){
+            note('Загружаю просмотр…');
+            await loadScript(XLSX_URL);
+            const wb = XLSX.read(await blob.arrayBuffer(), { type: 'array' });
+            fvFrame(wb.SheetNames.slice(0, 5).map(n => '<h3>' + escH(n) + '</h3>' + XLSX.utils.sheet_to_html(wb.Sheets[n], { header: '', footer: '' })).join(''));
+        } else note('Предпросмотр для этого типа недоступен.');
+    } catch(e){ note('Не удалось открыть файл. Проверь соединение и попробуй ещё раз.'); }
+}
+chatHistory.addEventListener('click', e => { const m = e.target.closest('.message.has-file'); if (m && m._file && !e.target.closest('.copy-btn')) openFile(m._file); });
+$('fv-close').addEventListener('click', closeFile);
+$('fv-copy').addEventListener('click', () => copyText(fvText, $('fv-copy')));
+addEventListener('keydown', e => { if (e.key === 'Escape') closeFile(); });
 
 let ATT = null;
 const TEXT_EXT = ['txt','md','csv','json','xml','yml','yaml','log','py','js','ts','html','css','java','c','cpp','cs','go','php','sql','ini','toml','sh'];
@@ -1409,7 +1476,9 @@ async function sendMessage(text) {
     isSending = true;
     const imgInfo = att && att.kind === 'image' ? { id: att.id, thumb: att.thumb } : null;
     if (imgInfo) IMGDB.put(att.id, att.view);
-    addToHistory(shown, 'user', undefined, imgInfo);
+    const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind } : null;
+    if (fileInfo) IMGDB.put(fileInfo.id, attToBlob(att));
+    addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo);
     input.value = ''; $('cnt').textContent = '0 / 500';
     input.readOnly = true;
     sendBtn.disabled = true;
@@ -1671,7 +1740,7 @@ async function sendMessage(text) {
         const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
         const vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
         addToHistory(data.text, 'bot', undefined, null, vis, true);
-        chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined });
+        chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
         chatHistoryForServer.push({ sender: 'bot', text: data.text, vis: vis || undefined });
         saveHistory();
 
