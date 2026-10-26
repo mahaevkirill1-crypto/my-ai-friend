@@ -17,6 +17,7 @@ import libsql
 import logging
 from urllib.parse import parse_qsl
 from pydantic import BaseModel
+from extras import wants_search, search_context, docx_to_text, xlsx_to_text, SEARCH_WEIGHT
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("holo")
@@ -937,6 +938,13 @@ def build_user_content(text, att, hi=False):
         if err: return None, err
         q = text or "Кратко перескажи, о чём этот документ."
         return f"{q}\n\n[PDF «{name}»]\n{body}", ""
+    if kind in ("docx", "xlsx"):
+        data = att.get("data")
+        if not isinstance(data, str) or len(data) > MAX_PDF_B64: return None, "Файл слишком большой (максимум 4 МБ)."
+        body, err = (docx_to_text if kind == "docx" else xlsx_to_text)(data, MAX_FILE_TEXT)
+        if err: return None, err
+        q = text or "Кратко опиши, что в этом файле."
+        return f"{q}\n\n[Файл «{name}»]\n{body}", ""
     return None, "Этот тип вложения не поддерживается."
 
 @app.post("/ask")
@@ -968,6 +976,8 @@ async def ask(request: Request):
         lv = data.get("last_visual")
         current_code = lv.get("code") if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str) and 3000 < len(lv["code"]) <= MAX_BUILD_LEN else None
         build_mode = wants_build(user_text, bool(current_code))
+        search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
+        if search_mode: weight = max(weight, SEARCH_WEIGHT)
         trial = False
         if build_mode:
             weight = BUILD_WEIGHT
@@ -1042,6 +1052,9 @@ async def ask(request: Request):
             return {"text": phrase, "action": "dance", "dance_name": chosen_dance, "pro": pro}
         messages = [{"role": "system", "content": system_prompt}]
         if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
+        if search_mode:
+            ctx = await search_context(_http, raw_text)
+            if ctx: messages.append({"role": "user", "content": ctx})
         messages.append({"role": "user", "content": user_content})
         if visual_mode:
             response = await chat_json(messages, AI_MAX_TOKENS_VISUAL)
