@@ -991,7 +991,9 @@ async def ask(request: Request):
             r = conn.execute("SELECT last_ask, day, ask_count FROM rate_state WHERE user_id = ?", (uid,)).fetchone()
             last_ask, day, cnt = (r[0], r[1], r[2]) if r else (0, "", 0)
             today = time.strftime("%Y-%m-%d", time.gmtime(now))
-            if today != day: cnt = 0            if now - last_ask < ASK_MIN_GAP:
+            if today != day: 
+                cnt = 0
+            if now - last_ask < ASK_MIN_GAP:
                 return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
             if pro["active"]:
                 cur = conn.execute("UPDATE pro_state SET requests_left = MAX(requests_left - ?, 0) WHERE user_id = ? AND requests_left > 0 AND expires_at > ?", (weight, uid, now))
