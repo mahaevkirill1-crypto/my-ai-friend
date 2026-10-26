@@ -95,7 +95,7 @@ BUILD_THING_RE = re.compile(r"сайт|лендинг|landing|веб-?стран
 BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|напиш[иу]|разработ|собер[иу]|запил|сгенер|сверста|набросай|нарису|покаж|мне нужен|мне нужна|мне нужно|нужен мне|нужна мне", re.I)
 BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
 # ДОБАВЛЕНЫ СЛОВА: не ровн, крив, съехал, поправь
-BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|цвет|шрифт|анимаци|кнопк|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал", re.I)
+BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает", re.I)
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
 
 # --- ПОДПИСКА PRO ---
@@ -986,7 +986,7 @@ async def ask(request: Request):
         visual_mode = bool(VISUAL_RE.search(user_text))
         weight = ask_weight(att, visual_mode)
         lv = data.get("last_visual")
-        current_code = lv.get("code") if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str) and 3000 < len(lv["code"]) <= MAX_BUILD_LEN else None
+        current_code = lv.get("code") if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str) and 400 <= len(lv["code"]) <= MAX_BUILD_LEN else None
         build_mode = wants_build(user_text, bool(current_code))
         search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
         if search_mode: weight = max(weight, SEARCH_WEIGHT)
