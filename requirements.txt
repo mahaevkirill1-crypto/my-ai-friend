@@ -6,3 +6,4 @@ libsql
 pydantic
 pypdf
 python-docx
+openpyxl
