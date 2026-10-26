@@ -433,6 +433,13 @@
     /* СООБЩЕНИЯ БОТА: просто текст на фоне приложения */
     .msg-row.bot .message, body.light-theme .msg-row.bot .message { background: none; border: none; border-radius: 0; box-shadow: none; padding-left: 4px; padding-right: 4px; }
     .msg-row.bot .message.typing { padding-left: 4px; }
+    /* ЧАТ: ближе к краям, крупнее текст */
+    #chat-history { padding-left: 8px; padding-right: 8px; }
+    .msg-row { max-width: 97%; gap: 6px; }
+    .msg-row.user { max-width: 92%; }
+    .message { font-size: 16.5px; line-height: 1.55; }
+    .msg-row.bot .message { font-size: 17px; padding-left: 2px; padding-right: 2px; }
+    .lbl { font-size: 11px; }
 </style>
 </head>
 <body>
