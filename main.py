@@ -17,7 +17,15 @@ import libsql
 import logging
 from urllib.parse import parse_qsl
 from pydantic import BaseModel
-from extras import wants_search, search_context, docx_to_text, xlsx_to_text, SEARCH_WEIGHT
+try:
+    from extras import wants_search, search_context, docx_to_text, xlsx_to_text, SEARCH_WEIGHT
+except ImportError:
+    logging.getLogger("holo").warning("extras.py не найден: поиск и Word/Excel отключены")
+    SEARCH_WEIGHT = 2
+    def wants_search(text): return False
+    async def search_context(http, query, max_results=4): return None
+    def docx_to_text(b64, limit): return None, "Чтение Word сейчас недоступно на сервере."
+    def xlsx_to_text(b64, limit): return None, "Чтение Excel сейчас недоступно на сервере."
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("holo")
@@ -227,7 +235,11 @@ RULES = """
 """
 
 BASE_PLAIN = RULES
+BASE_PROMPT = RULES.split("ФОРМАТ ОТВЕТА")[0]
 ASTRO_PLAIN = RULES + """
+СЕЙЧАС ТЫ В ОБЛИКЕ КОСМОНАВТА. Говори спокойно и чуть загадочно; изредка (не в каждом ответе) используй короткую космическую метафору. Суть и польза ответа важнее стиля.
+"""
+ASTRO_PROMPT = BASE_PROMPT + """
 СЕЙЧАС ТЫ В ОБЛИКЕ КОСМОНАВТА. Говори спокойно и чуть загадочно; изредка (не в каждом ответе) используй короткую космическую метафору. Суть и польза ответа важнее стиля.
 """
 
