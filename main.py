@@ -59,7 +59,7 @@ ASK_DAY_LIMIT = 20          # бесплатных единиц запросов
 VISUAL_EXTRA = 7            # доплата, если иллюстрация реально нарисована (3 + 7 = 10)
 
 # --- ИИ И ВЛОЖЕНИЯ ---
-AI_MODEL = "openai/gpt-4o-mini"
+AI_MODEL = "anthropic/claude-haiku-5-5"
 AI_MAX_TOKENS = 700
 AI_TEMPERATURE = 0.5
 MAX_TEXT_LEN = 4000
@@ -306,6 +306,22 @@ def refund_units(conn, uid, units):
 
 def trial_available(conn, uid):
     return scalar(conn, "SELECT COUNT(*) FROM trial_build WHERE user_id = ?", (uid,)) == 0
+
+def extract_json(raw):
+    t = (raw or "").strip()
+    t = re.sub(r"^```[a-zA-Z]*\s*", "", t); t = re.sub(r"\s*```$", "", t)
+    a, b = t.find("{"), t.rfind("}")
+    if a == -1 or b <= a: raise ValueError("no json")
+    obj = json.loads(t[a:b + 1])
+    if not isinstance(obj, dict): raise ValueError("not dict")
+    return obj
+
+async def chat_json(messages, max_tokens):
+    try:
+        return await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE, response_format={"type": "json_object"})
+    except Exception:
+        log.warning("json_object mode failed, retrying without response_format", exc_info=True)
+        return await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE)
 
 def wants_build(user_text, has_project):
     if BUILD_NEG_RE.search(user_text): return False
@@ -971,11 +987,10 @@ async def ask(request: Request):
         messages = [{"role": "system", "content": system_prompt}]
         if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
         messages.append({"role": "user", "content": user_content})
-        response = await client.chat.completions.create(model=AI_MODEL, messages=messages, max_tokens=(AI_MAX_TOKENS_VISUAL if visual_mode else AI_MAX_TOKENS), temperature=AI_TEMPERATURE, response_format={"type": "json_object"})
+        response = await chat_json(messages, AI_MAX_TOKENS_VISUAL if visual_mode else AI_MAX_TOKENS)
         raw = response.choices[0].message.content or ""
         try:
-            result = json.loads(raw)
-            if not isinstance(result, dict): raise ValueError
+            result = extract_json(raw)
         except ValueError:
             if raw.lstrip().startswith("{"):
                 result = {"text": "Не получилось собрать ответ целиком. Попробуй попросить проще или короче.", "emotion": "sad"}
