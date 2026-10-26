@@ -64,8 +64,8 @@ INIT_DATA_MAX_AGE = 86400
 
 # --- RATE LIMIT ДЛЯ /ask ---
 ASK_MIN_GAP = 3
-ASK_DAY_LIMIT = 20          # бесплатных единиц запросов в сутки (текст = 1, фото/файл = 3, иллюстрация = 10)
-VISUAL_EXTRA = 7            # доплата, если иллюстрация реально нарисована (3 + 7 = 10)
+ASK_DAY_LIMIT = 20          # бесплатных единиц запросов в сутки
+VISUAL_EXTRA = 7            # доплата, если иллюстрация реально нарисована
 
 # --- ИИ И ВЛОЖЕНИЯ ---
 AI_MODEL = "anthropic/claude-haiku-5-5" 
@@ -81,21 +81,23 @@ IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"GIF8")
 EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
 
-# --- ИЛЛЮСТРАЦИИ (сайт, схема, рисунок рендерятся на клиенте в песочнице) ---
+# --- ИЛЛЮСТРАЦИИ ---
 AI_MAX_TOKENS_VISUAL = 3500
 MAX_VISUAL_LEN = 20000
 
-# --- РЕЖИМ СТУДИИ: сайты и приложения (только Pro, сильная модель) ---
+# --- РЕЖИМ СТУДИИ: сайты и приложения ---
 BUILD_MODEL = os.getenv("BUILD_MODEL", "openai/gpt-4o")
-BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "15000")) # УВЕЛИЧЕНО: чтобы хватало на длинный красивый код
+# Ограничиваем до 8000 токенов, чтобы модель не пыталась писать бесконечный код
+BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "8000")) 
 BUILD_TIMEOUT = 170
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
 MAX_BUILD_LEN = 70000
+
+# Регулярки для определения намерения (ДОБАВЛЕНЫ "вау", "неон", "перелив" и др.)
 BUILD_THING_RE = re.compile(r"сайт|лендинг|landing|веб-?страниц|страниц[ауы] |приложени|игр[ауы]\b|мини-?игр|калькулятор|визитк|портфолио|дашборд|интерфейс|тетрис|змейк|сапёр|сапер|секундомер|таймер|тудулист|to-?do|конвертер|генератор", re.I)
 BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|напиш[иу]|разработ|собер[иу]|запил|сгенер|сверста|набросай|нарису|покаж|мне нужен|мне нужна|мне нужно|нужен мне|нужна мне", re.I)
 BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
-# ДОБАВЛЕНЫ СЛОВА: не ровн, крив, съехал, поправь
-BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает", re.I)
+BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает|вау|перелив|свет|неон|пульс|мерцан|градиент|стильн|современн|сделай так|хочу чтобы", re.I)
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
 
 # --- ПОДПИСКА PRO ---
@@ -285,18 +287,14 @@ BUILD_SYSTEM = """
 - Приложение, игра: полностью рабочая логика на JS: состояния, клавиатура и тач, анимации, счёт, пауза.
 
 РЕЖИМ ПРАВОК (если дана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА»):
-Если пользователь пишет неточно («не ровно», «криво», «сделай красиво»), ты должен сам проанализировать текущий HTML-код и найти вероятную проблему:
-- Если жалуются на верх — проверь навигацию (display: flex, justify-content, отступы).
-- Если жалуются на «криво» — проверь отступы (padding/margin) у карточек и текста.
-- Если жалуются на «не красиво» — проверь цветовую палитру и шрифты.
-Внеси правки в код, чтобы исправить эту проблему, и верни полный обновленный файл.
+- Если пользователь пишет неточно («не ровно», «криво», «сделай красиво», «сделай вау», «добавь неон»), ты должен сам проанализировать текущий HTML-код и внести правки.
+- КРИТИЧЕСКИ ВАЖНО: Если передана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА», ты ОБЯЗАН вернуть полную копию файла от <!doctype html> до </html> с внесенными правками. Нельзя возвращать только фрагмент CSS или HTML. Если ты вернешь неполный код, пользователь увидит белый экран.
 
 ТЕХНИКА:
 - Один самодостаточный файл: <!doctype html>, весь CSS в <style>, JS в <script> перед </body>.
 - Запросы к сети (fetch, XHR), отправка форм, alert/confirm/prompt, window.open и переходы по внешним ссылкам не работают: используй <button type="button">, ссылки href="#".
 - Чистый код без ошибок в консоли.
-- Объём: до ~22 000 символов.
-- Если дана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА» и просят изменить — внеси правки и верни ПОЛНЫЙ файл.
+- КРИТИЧЕСКОЕ ОГРАНИЧЕНИЕ: Код должен быть ОЧЕНЬ компактным. Не делай огромных отступов, не дублируй стили, не пиши длинные комментарии. Максимальный размер кода — 2000 строк. Если нужно написать больше, пиши более эффективно, используя классы и общие стили.
 
 ФОРМАТ ОТВЕТА — строго так, без лишнего текста вокруг:
 [[TEXT]]
@@ -318,12 +316,18 @@ def parse_build(raw):
     emotion = m.group(2).strip().split()[0] if m.group(2).strip() else "happy"
     html = m.group(3).strip()
     html = re.sub(r"^```[a-zA-Z]*\s*", "", html); html = re.sub(r"\s*```$", "", html)
+    
+    # Проверка на обрезку (если модель не закрыла тег html)
+    if "</html>" not in html.lower():
+        log.warning("Build generated but cut off (no </html>)")
+        return None
     return text, emotion, html
 
 def refund_units(conn, uid, units):
     try:
-        conn.execute("UPDATE pro_state SET requests_left = requests_left + ? WHERE user_id = ?", (units, uid))
-        conn.commit()
+        if units > 0:
+            conn.execute("UPDATE pro_state SET requests_left = requests_left + ? WHERE user_id = ?", (units, uid))
+            conn.commit()
     except Exception:
         log.exception("refund failed")
 
@@ -392,28 +396,60 @@ def wants_build(user_text, has_project):
 async def run_build(conn, uid, user_content, history_text, current_code, weight):
     messages = [{"role": "system", "content": BUILD_SYSTEM}]
     if history_text: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
-    if current_code: messages.append({"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code})
-    messages.append({"role": "user", "content": user_content})
-    fail = {"text": "Не получилось собрать проект целиком, запрос я вернул. Попробуй описать проще.", "emotion": "sad"}
+    
+    if current_code: 
+        messages.append({"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code})
+    else:
+        messages.append({"role": "user", "content": "Проект создается с нуля."})
+        
+    messages.append({"role": "user", "content": f"ЗАДАЧА: {user_content}"})
+    
+    fail = {"text": "Не получилось собрать проект. Попробуй написать задачу чуть проще или покороче.", "emotion": "sad"}
+    
     try:
-        resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(model=BUILD_MODEL, messages=messages, max_tokens=BUILD_MAX_TOKENS, temperature=0.7)
-        choice = resp.choices[0]
-        raw = choice.message.content or ""
+        # Первый запрос
+        resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+            model=BUILD_MODEL, 
+            messages=messages, 
+            max_tokens=BUILD_MAX_TOKENS, 
+            temperature=0.7
+        )
+        raw = resp.choices[0].message.content or ""
+        
+        # АВТО-ДОКРУТКА: если код оборвался, просим модель продолжить
+        if "</html>" not in raw.lower() and len(raw) > 100:
+            log.warning("Код оборвался, запускаю авто-докрутку...")
+            tail = raw[-500:] # Берем последние 500 символов, чтобы модель поняла контекст
+            
+            # Второй запрос на продолжение
+            resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+                model=BUILD_MODEL,
+                messages=messages + [
+                    {"role": "assistant", "content": raw},
+                    {"role": "user", "content": f"Ты оборвался на полуслове: ...{tail}\nПродолжи генерацию ровно с этого места и закончи код тегом </html>. Не пиши ничего лишнего, только продолжение кода."}
+                ],
+                max_tokens=BUILD_MAX_TOKENS,
+                temperature=0.7
+            )
+            raw = raw + (resp2.choices[0].message.content or "")
+            
     except Exception:
-        log.exception("build failed")
+        log.exception("build request failed")
         refund_units(conn, uid, weight)
         return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
+        
     parsed = parse_build(raw)
     visual = None
+    
     if parsed:
         text, emotion, html = parsed
-        if choice.finish_reason == "length" and "</html>" not in html.lower():
-            parsed = None
-        else:
-            visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
+        visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
+        
     if not parsed or not visual:
         refund_units(conn, uid, weight)
+        log.error(f"Build failed to parse. Raw: {raw[:200]}")
         return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
+        
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
 
