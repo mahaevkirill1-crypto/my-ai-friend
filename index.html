@@ -440,6 +440,14 @@
     .message { font-size: 16.5px; line-height: 1.55; }
     .msg-row.bot .message { font-size: 17px; padding-left: 2px; padding-right: 2px; }
     .lbl { font-size: 11px; }
+    /* Редактор кода в просмотре */
+    #vv-bar { gap: 8px; }
+    #vv-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #vv-bar .pill { height: 36px; padding: 0 12px; border: none; border-radius: 18px; background: rgba(255,255,255,.18); color: #fff; font: 600 13px 'Manrope', system-ui, sans-serif; cursor: pointer; flex: none; }
+    #vv-bar .pill:active { transform: scale(.96); }
+    #vv-bar #vv-apply { background: linear-gradient(180deg, var(--ui-gold-hi), var(--ui-gold)); color: #1A1206; }
+    #vv-close { flex: none; }
+    #vv-edit { display: none; position: absolute; left: 0; right: 0; bottom: 0; top: calc(60px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 60px - env(safe-area-inset-top)); box-sizing: border-box; padding: 12px; border: 0; outline: none; resize: none; background: #0B1120; color: #EAF0FA; font: 12px/1.5 ui-monospace, Menlo, monospace; tab-size: 2; -webkit-text-fill-color: #EAF0FA; caret-color: var(--ui-cyan); }
     /* Просмотр вложений */
     .message.has-file { cursor: pointer; }
     .message.has-file::after { content: 'Нажми, чтобы открыть'; display: block; margin-top: 4px; font-size: 11px; color: var(--ui-cyan); opacity: .85; }
@@ -735,7 +743,7 @@
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
-<div id="visview"><div id="vv-bar"><span>Предпросмотр</span><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
+<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-code" type="button">Код</button><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><button class="pill" id="vv-dl" type="button">Скачать</button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
 <div id="lightbox"><button id="lb-close" type="button" aria-label="Закрыть">✕</button><div id="lb-box"><img id="lb-img" alt=""></div></div>
 <div id="fileview"><div id="fv-bar"><span id="fv-title"></span><button id="fv-copy" type="button" aria-label="Копировать" style="display:none"></button><button id="fv-close" type="button" aria-label="Закрыть">✕</button></div><div id="fv-body"></div></div>
 <div id="toast"></div>
@@ -1036,7 +1044,7 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
         const vis = document.createElement('div'); vis.className = 'vis'; vis._v = visual;
         const fr = document.createElement('div'); fr.className = 'vis-frame';
         const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = visDoc(visual);
-        fr.appendChild(ifr);
+        fr.appendChild(ifr); vis._ifr = ifr;
         const bar = document.createElement('div'); bar.className = 'vis-bar';
         bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button>';
         vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis);
@@ -1078,14 +1086,52 @@ function visDoc(v){
     if (v.type === 'svg') return head + '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>' + v.code;
     return head + v.code;
 }
-function openVis(v){ $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
-function closeVis(){ $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; }
+let curVis = null, vvEditing = false;
+function vvMode(edit){
+    vvEditing = !!edit;
+    $('vv-edit').style.display = edit ? 'block' : 'none';
+    $('vv-frame').style.display = edit ? 'none' : '';
+    $('vv-apply').style.display = edit ? '' : 'none';
+    $('vv-code').textContent = edit ? 'Просмотр' : 'Код';
+    $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
+}
+function openVis(v, el){ curVis = { v, el }; vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+function closeVis(){ $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); }
+$('vv-code').addEventListener('click', () => { if (!curVis) return; if (vvEditing) vvMode(false); else { $('vv-edit').value = curVis.v.code; vvMode(true); } });
+$('vv-apply').addEventListener('click', () => {
+    if (!curVis) return;
+    const code = $('vv-edit').value.slice(0, 70000);
+    if (!code.trim()){ toast('Код пустой'); return; }
+    curVis.v.code = code;
+    $('vv-frame').srcdoc = visDoc(curVis.v);
+    if (curVis.el && curVis.el._ifr) curVis.el._ifr.srcdoc = visDoc(curVis.v);
+    saveHistory(); vvMode(false); toast('Изменения применены');
+});
+async function dlVis(){
+    if (!curVis) return;
+    const v = curVis.v, isSvg = v.type === 'svg', name = isSvg ? 'holo-image.svg' : 'holo-site.html';
+    let full = v.code;
+    if (!isSvg){
+        if (!/<!doctype/i.test(full)) full = '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">' + full;
+        if (!/charset\s*=/i.test(full)) full = full.replace(/<!doctype html>/i, '<!doctype html><meta charset="utf-8">');
+    }
+    const file = new File([full], name, { type: isSvg ? 'image/svg+xml' : 'text/html' });
+    try { if (navigator.canShare && navigator.canShare({ files: [file] })){ await navigator.share({ files: [file], title: name }); return; } }
+    catch(e){ if (e && e.name === 'AbortError') return; }
+    try {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+        toast('Если файл не скачался, используй «Копировать код» в чате');
+    } catch(e){ toast('Не удалось скачать'); }
+}
+$('vv-dl').addEventListener('click', dlVis);
 $('vv-close').addEventListener('click', closeVis);
 chatHistory.addEventListener('click', e => {
     const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
     const b = e.target.closest('button[data-vis]');
     if (b && b.dataset.vis === 'copy'){ copyText(vis._v.code, b); return; }
-    if (b || e.target.closest('.vis-frame')) openVis(vis._v);
+    if (b || e.target.closest('.vis-frame')) openVis(vis._v, vis);
 });
 const COPY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
@@ -1410,6 +1456,20 @@ chatHistory.addEventListener('click', e => { const m = e.target.closest('.messag
 $('fv-close').addEventListener('click', closeFile);
 $('fv-copy').addEventListener('click', () => copyText(fvText, $('fv-copy')));
 addEventListener('keydown', e => { if (e.key === 'Escape') closeFile(); });
+
+function extractVis(t){
+    t = String(t || '');
+    let code = null, rest = t;
+    const m = t.match(/```(?:html|svg|xml)?[ \t]*\n?([\s\S]*?)```/i);
+    if (m && /<(html|body|div|svg|canvas|style|script|section|main)[\s>]/i.test(m[1])){ code = m[1]; rest = t.replace(m[0], '').trim(); }
+    else {
+        const i = t.search(/<!doctype html|<html[\s>]/i);
+        if (i >= 0){ const j = t.toLowerCase().lastIndexOf('</html>'); const end = j > i ? j + 7 : t.length; code = t.slice(i, end); rest = (t.slice(0, i) + t.slice(end)).trim(); }
+    }
+    if (!code || code.trim().length < 150) return null;
+    code = code.trim();
+    return { vis: { type: /^<svg[\s>]/i.test(code) ? 'svg' : 'html', code: code.slice(0, 70000) }, rest: rest || 'Собрал предпросмотр. Нажми «Открыть», чтобы посмотреть, поправить код или скачать.' };
+}
 
 let ATT = null;
 const TEXT_EXT = ['txt','md','csv','json','xml','yml','yaml','log','py','js','ts','html','css','java','c','cpp','cs','go','php','sql','ini','toml','sh'];
@@ -1738,10 +1798,12 @@ async function sendMessage(text) {
         }
 
         const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
-        const vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
-        addToHistory(data.text, 'bot', undefined, null, vis, true);
+        let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
+        let outText = data.text;
+        if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; outText = ex.rest; } }
+        addToHistory(outText, 'bot', undefined, null, vis, true);
         chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
-        chatHistoryForServer.push({ sender: 'bot', text: data.text, vis: vis || undefined });
+        chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
         saveHistory();
 
     } catch (error) {
