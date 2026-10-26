@@ -59,16 +59,9 @@ ASK_DAY_LIMIT = 20          # бесплатных единиц запросов
 VISUAL_EXTRA = 7            # доплата, если иллюстрация реально нарисована (3 + 7 = 10)
 
 # --- ИИ И ВЛОЖЕНИЯ ---
-AI_MODEL = "anthropic/claude-haiku-5-5"
+AI_MODEL = "openai/gpt-4o"  # СМЕНЕНО: убрали Haiku, чтобы не было "мыслей вслух"
 AI_MAX_TOKENS = 1000
 AI_TEMPERATURE = 0.5
-# Модели с «рассуждениями» (Claude Haiku 5.5 и т.п.) могут писать ход мыслей прямо в ответ и тратить на него токены.
-# Параметр ниже просит отключить рассуждения. Если твой шлюз понимает другой параметр — задай JSON в переменной AI_EXTRA_BODY.
-try:
-    AI_EXTRA_BODY = json.loads(os.getenv("AI_EXTRA_BODY", "") or '{"thinking": {"type": "disabled"}}')
-except ValueError:
-    AI_EXTRA_BODY = {}
-_extra_ok = True
 ANSWER_MARK = "[[ANSWER]]"
 MAX_TEXT_LEN = 4000
 MAX_BODY_BYTES = 7 * 1024 * 1024
@@ -84,10 +77,10 @@ AI_MAX_TOKENS_VISUAL = 3500
 MAX_VISUAL_LEN = 20000
 
 # --- РЕЖИМ СТУДИИ: сайты и приложения (только Pro, сильная модель) ---
-BUILD_MODEL = os.getenv("BUILD_MODEL", "openai/gpt-4o")   # поставь модель сильнее, если есть у ProxyAPI
+BUILD_MODEL = os.getenv("BUILD_MODEL", "openai/gpt-4o")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "9000"))
 BUILD_TIMEOUT = 170
-BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))      # цена одной сборки в «единицах» запроса
+BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
 MAX_BUILD_LEN = 70000
 BUILD_THING_RE = re.compile(r"сайт|лендинг|landing|веб-?страниц|страниц[ауы] |приложени|игр[ауы]\b|мини-?игр|калькулятор|визитк|портфолио|дашборд|интерфейс|тетрис|змейк|сапёр|сапер|секундомер|таймер|тудулист|to-?do|конвертер|генератор", re.I)
 BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|напиш[иу]|разработ|собер[иу]|запил|сгенер|сверста|набросай|нарису|покаж|мне нужен|мне нужна|мне нужно|нужен мне|нужна мне", re.I)
@@ -96,12 +89,10 @@ BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добав
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
 
 # --- ПОДПИСКА PRO ---
-# Тарифы. units — «единицы» запросов (текст = 1, фото/файл = 3, иллюстрация = 10, сборка сайта = BUILD_WEIGHT).
-# Цены в Telegram Stars. Расчёт: 1 ⭐ ≈ 1,1 ₽ на руки (≈ $0.013 по условиям Telegram), себестоимость сборки ≈ 21,5 ₽.
 PLANS = {
-    "start":    {"title": "Старт",  "price": 650,  "units": 700,  "days": 30},   # 7 сборок
-    "pro":      {"title": "Про",    "price": 1200, "units": 1500, "days": 30},   # 15 сборок
-    "business": {"title": "Бизнес", "price": 2750, "units": 4000, "days": 30},   # 40 сборок
+    "start":    {"title": "Старт",  "price": 650,  "units": 700,  "days": 30},
+    "pro":      {"title": "Про",    "price": 1200, "units": 1500, "days": 30},
+    "business": {"title": "Бизнес", "price": 2750, "units": 4000, "days": 30},
 }
 PRO_WARN_LEFT = 100
 
@@ -333,16 +324,9 @@ def extract_json(raw):
     return obj
 
 async def llm(messages, max_tokens, json_mode=False, temperature=None):
-    """Вызов обычной модели: просим отключить рассуждения, при ошибке параметров повторяем проще."""
-    global _extra_ok
+    """Вызов обычной модели."""
     base = dict(model=AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE if temperature is None else temperature)
     if json_mode: base["response_format"] = {"type": "json_object"}
-    if AI_EXTRA_BODY and _extra_ok:
-        try:
-            return await client.chat.completions.create(**base, extra_body=AI_EXTRA_BODY)
-        except Exception:
-            log.warning("extra_body rejected, disabling it", exc_info=True)
-            _extra_ok = False
     try:
         return await client.chat.completions.create(**base)
     except Exception:
@@ -355,7 +339,6 @@ async def chat_json(messages, max_tokens):
     return await llm(messages, max_tokens, json_mode=True)
 
 def salvage_json(raw):
-    """Достаём текст из оборванного JSON (если модель упёрлась в лимит токенов)."""
     t = raw or ""
     m = re.search(r'"text"\s*:\s*"((?:[^"\\]|\\.)*)', t, re.S)
     if not m: return None
