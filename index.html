@@ -373,6 +373,63 @@
     body.light-theme .pc, body.light-theme .pro-list li { background: #F8FAFC; border-color: #E2E8F0; }
     body.light-theme .pc.pro { background: linear-gradient(180deg, #FFF3D6, #FFFAEE); border-color: #D9B36A; }
     body.light-theme .pc.pro span, body.light-theme .pc.pro b { color: #B7791F; }
+    /* PREMIUM: окно тарифов */
+    #pro { align-items: flex-end; justify-content: center; padding: 0; background: rgba(2,3,8,.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 90; }
+    .pro-sheet { --ui-tx-hi: #F6EFDC; --ui-tx-mid: #BDB6A3; --ui-tx-lo: #837C6E; --ui-line: rgba(240,215,154,.14); --ui-line-hi: rgba(240,215,154,.3);
+      position: relative; width: 100%; max-width: 440px; max-height: 94vh; overflow-y: auto; -webkit-overflow-scrolling: touch; text-align: center; color: var(--ui-tx-hi);
+      padding-bottom: calc(18px + env(safe-area-inset-bottom)); border-radius: 30px 30px 0 0; border: 1px solid rgba(240,215,154,.3); border-bottom: none;
+      background: radial-gradient(560px 340px at 50% -70px, rgba(240,215,154,.3), transparent 70%), linear-gradient(180deg, #17120A 0%, #0B0A0E 50%, #07080C 100%);
+      box-shadow: 0 -30px 80px -20px rgba(0,0,0,.9), 0 0 90px -30px rgba(217,179,106,.5); }
+    #pro.open .pro-sheet { animation: sheetUp .45s cubic-bezier(.2,.8,.2,1); }
+    @keyframes sheetUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+    .ps-x { position: absolute; top: 14px; right: 14px; z-index: 3; width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(240,215,154,.3); background: rgba(255,255,255,.06); color: #F0D79A; font-size: 16px; cursor: pointer; }
+    .ps-hero { position: relative; padding: 30px 20px 6px; overflow: hidden; }
+    .ps-glow { position: absolute; top: -110px; left: 50%; width: 340px; height: 340px; transform: translateX(-50%); background: radial-gradient(circle, rgba(240,215,154,.45), transparent 65%); filter: blur(22px); pointer-events: none; animation: welcomePulse 4.5s ease-in-out infinite; }
+    .ps-hero > *:not(.ps-glow) { position: relative; }
+    .ps-crown { width: 64px; height: 50px; filter: drop-shadow(0 6px 18px rgba(240,215,154,.6)); animation: welcomeFloat 5s ease-in-out infinite; }
+    .ps-eyebrow { margin-top: 8px; font: 700 11px 'Manrope', system-ui, sans-serif; letter-spacing: .42em; color: #D9B36A; padding-left: .42em; }
+    .ps-title { margin: 2px 0 6px; font: 800 38px/1.1 'Manrope', system-ui, sans-serif; letter-spacing: -.02em; background: linear-gradient(180deg, #FFF6D6 10%, #E9C167 55%, #B8873A 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #E9C167; }
+    .ps-sub { margin: 0 auto; max-width: 300px; font-size: 13px; line-height: 1.55; color: var(--ui-tx-mid); }
+    .ps-status { margin: 14px 16px 0; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--ui-line-hi); background: linear-gradient(180deg, rgba(240,215,154,.12), rgba(240,215,154,.02)); text-align: left; }
+    .ps-status .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 700 14px 'Manrope', system-ui, sans-serif; color: #F6EFDC; }
+    .ps-status .row.sm { font-weight: 500; font-size: 12px; color: var(--ui-tx-mid); }
+    .ps-status .bar { background: rgba(255,255,255,.08); }
+    .ps-status .bar i { background: linear-gradient(90deg, #C9923A, #FFF1C2); }
+    .ps-prev { display: flex; justify-content: center; height: 138px; margin: 8px 0 4px; }
+    .ps-prev svg { height: 100%; width: auto; filter: drop-shadow(0 10px 24px rgba(240,215,154,.35)); }
+    .ps-plans { display: flex; flex-direction: column; gap: 16px; padding: 8px 16px 6px; }
+    .plan { position: relative; border-radius: 24px; padding: 20px 18px 16px; border: 1px solid transparent; text-align: left; overflow: hidden; }
+    .p-start { background: linear-gradient(180deg, #12151D, #0B0D13) padding-box, linear-gradient(135deg, #EEF3FF, #6B7790 45%, #C9D3E5) border-box; }
+    .p-pro { background: linear-gradient(180deg, #211909, #100C05) padding-box, linear-gradient(135deg, #FFF1C2, #C9923A 45%, #F5D98B) border-box; box-shadow: 0 20px 56px -18px rgba(217,179,106,.6); }
+    .p-biz { background: linear-gradient(180deg, #10152A, #080A14) padding-box, linear-gradient(135deg, #8EE7F5, #8A7CFF 50%, #E6A8FF) border-box; box-shadow: 0 20px 56px -22px rgba(138,124,255,.55); }
+    .p-pro::after { content: ''; position: absolute; top: 0; left: -70%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.10), transparent); transform: skewX(-18deg); animation: proShine 4.5s ease-in-out infinite; pointer-events: none; }
+    .plan-badge { position: absolute; top: 0; right: 18px; padding: 6px 12px; border-radius: 0 0 11px 11px; font: 800 10px 'Manrope', system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #1A1206; background: linear-gradient(180deg, #F8E3AE, #D9B36A); }
+    .p-biz .plan-badge { background: linear-gradient(180deg, #BDF2FB, #A094FF); color: #0B1020; }
+    .plan-top { display: flex; align-items: baseline; gap: 10px; }
+    .plan-title { font: 800 24px 'Manrope', system-ui, sans-serif; color: #F6EFDC; }
+    .plan-tier { font: 700 10px 'Manrope', system-ui, sans-serif; letter-spacing: .22em; color: #9AA3B5; }
+    .p-pro .plan-tier { color: #D9B36A; } .p-biz .plan-tier { color: #A9A0FF; }
+    .plan-price { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 14px; }
+    .plan-price b { font: 800 42px/1 'Manrope', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: #F6EFDC; }
+    .p-pro .plan-price b { background: linear-gradient(180deg, #FFF6D6, #E3B65E); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .plan-price i { font-style: normal; font-size: 24px; }
+    .plan-price span { font-size: 12px; color: var(--ui-tx-lo); }
+    .plan-feat { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; padding: 0; font-size: 13px; line-height: 1.4; color: var(--ui-tx-mid); }
+    .plan-feat li { display: flex; gap: 10px; align-items: flex-start; }
+    .plan-feat li::before { content: '✓'; flex: none; color: #F0D79A; font-weight: 800; }
+    .p-biz .plan-feat li::before { color: #A9A0FF; } .p-start .plan-feat li::before { color: #C9D3E5; }
+    .plan-feat b { color: #F6EFDC; }
+    .plan-btn { width: 100%; padding: 14px; border-radius: 15px; font: 800 14px 'Manrope', system-ui, sans-serif; cursor: pointer; border: 1px solid rgba(201,211,229,.5); background: transparent; color: #DCE4F2; transition: transform .15s; }
+    .p-pro .plan-btn { border: none; color: #1A1206; background: linear-gradient(180deg, #FBE9B4, #D9B36A); box-shadow: 0 10px 26px -8px rgba(217,179,106,.7), inset 0 1px 0 rgba(255,255,255,.6); }
+    .p-biz .plan-btn { border: none; color: #0B1020; background: linear-gradient(135deg, #8EE7F5, #A094FF); box-shadow: 0 10px 26px -8px rgba(138,124,255,.65), inset 0 1px 0 rgba(255,255,255,.5); }
+    .plan-btn:active { transform: scale(.97); } .plan-btn:disabled { opacity: .45; }
+    .ps-perks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px 4px; }
+    .ps-perks div { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 16px; border: 1px solid var(--ui-line); background: rgba(255,255,255,.03); text-align: left; font-size: 11.5px; line-height: 1.35; color: var(--ui-tx-mid); }
+    .ps-perks svg { width: 22px; height: 22px; flex: none; fill: none; stroke: #E3B65E; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .ps-note { margin: 12px 18px 8px; font-size: 11px; line-height: 1.5; color: var(--ui-tx-lo); }
+    .ps-later { background: none; border: none; color: var(--ui-tx-mid); font: 600 13px 'Manrope', system-ui, sans-serif; padding: 10px 20px; cursor: pointer; }
+    .ps-msg { min-height: 16px; margin: 2px 18px 0; font-size: 12px; color: #9AA3B5; }
+    .ps-msg[data-k="bad"] { color: #FF9E9E; } .ps-msg[data-k="ok"] { color: #5BD17A; } .ps-msg[data-k="info"] { color: #8EE7F5; }
 </style>
 </head>
 <body>
@@ -412,7 +469,7 @@
   <div class="tabs" id="dr-tabs"><button class="txtbtn on" data-dt="menu">Меню</button><button class="txtbtn" data-dt="prof">Профиль</button></div>
   <div class="dr-pane on" id="dr-menu">
     <div class="drow"><button class="ibtn" id="shop-btn" aria-label="Магазин"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></button><span>Магазин и бонусы</span></div>
-    <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Pro</span></div>
+    <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Premium</span></div>
     <div class="drow" data-keep="1"><button class="ibtn" id="snd-btn"></button><span>Звуки</span></div>
     <div class="drow"><button class="ibtn" id="theme-btn" aria-label="Тема"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button><span>Сменить тему</span></div>
     <div class="drow"><button class="ibtn" id="share-btn" aria-label="Поделиться"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><span>Поделиться</span></div>
@@ -565,36 +622,28 @@
     </div>
   </div>
 </div>
-<div id="pro" class="overlay" style="align-items:center; justify-content:center; padding:16px;">
-  <div class="dialog pro-card">
-    <div class="pro-hero">
-      <div class="pro-glow"></div>
-      <div class="pro-crown">👑</div>
-      <div class="pro-badge">PRO</div>
-      <h3>Holo Friend Pro</h3>
-      <p id="pro-sub"></p>
+<div id="pro" class="overlay">
+  <div class="pro-sheet">
+    <button class="ps-x" id="pro-close" type="button" aria-label="Закрыть">✕</button>
+    <div class="ps-hero">
+      <div class="ps-glow"></div>
+      <svg class="ps-crown" viewBox="0 0 64 50" aria-hidden="true"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF3C9"/><stop offset=".55" stop-color="#E8BE63"/><stop offset="1" stop-color="#A97A2B"/></linearGradient></defs><path d="M6 38 L9 12 L22 27 L32 6 L42 27 L55 12 L58 38 Z" fill="url(#cg)" stroke="#FFE9A8" stroke-width="1.2" stroke-linejoin="round"/><rect x="7" y="40" width="50" height="6" rx="2" fill="url(#cg)" stroke="#FFE9A8" stroke-width="1"/><circle cx="32" cy="30" r="3" fill="#FF5A6E"/><circle cx="19" cy="34" r="2" fill="#7FE5F5"/><circle cx="45" cy="34" r="2" fill="#7FE5F5"/></svg>
+      <div class="ps-eyebrow">HOLO FRIEND</div>
+      <h2 class="ps-title">Premium</h2>
+      <p class="ps-sub" id="pro-sub"></p>
     </div>
-    <div class="pro-body">
-      <div class="pro-prev" id="pro-prev"></div>
-      <div class="pro-cmp">
-        <div class="pc"><span>Free</span><b id="pro-free">20</b><i>единиц в день</i></div>
-        <div class="pc pro"><span>Pro</span><b id="pro-n">1500</b><i>единиц на 30 дней</i></div>
-      </div>
-      <ul class="pro-list">
-        <li><em>🚀</em><div><b>Без дневных лимитов</b><span>Пиши когда хочешь — тратится общий запас на месяц</span></div></li>
-        <li><em>🖼</em><div><b>Подробный разбор фото</b><span>Мелкий текст на скриншотах читается точнее</span></div></li>
-        <li><em>🎨</em><div><b>Студия сайтов и приложений</b><span>Лендинги, игры и инструменты с живым превью прямо в чате</span></div></li>
-        <li><em>🧥</em><div><b>Золотой скин и плащ</b><span>«Аурум Pro» и королевский плащ — только для Pro</span></div></li>
-      </ul>
-      <div id="pro-bar-wrap" style="display:none;margin-bottom:12px">
-        <div class="bar" style="height:8px"><i id="pro-bar" style="width:0%"></i></div>
-        <div id="pro-left" style="font-size:11px;color:var(--ui-tx-lo);margin-top:4px"></div>
-      </div>
-      <button class="txtbtn on" id="pro-buy">Оформить за ⭐ 399</button>
-      <div class="pro-note">Оплата Telegram Stars · на 30 дней · продление вручную</div>
-      <button class="txtbtn" id="pro-close" style="width:100%">Позже</button>
-      <div id="pro-msg" style="font-size:12px;color:#FF9E9E;margin-top:8px;min-height:16px"></div>
+    <div class="ps-status" id="pro-status" style="display:none"></div>
+    <div class="ps-prev" id="pro-prev"></div>
+    <div class="ps-plans" id="pro-plans"></div>
+    <div class="ps-perks">
+      <div><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg><span>Студия сайтов<br>и приложений</span></div>
+      <div><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg><span>Разбор фото<br>и файлов</span></div>
+      <div><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.7 0 2-1 1.5-2-.6-1.2.1-2.5 1.6-2.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/></svg><span>Иллюстрации<br>и макеты</span></div>
+      <div><svg viewBox="0 0 24 24"><path d="M3 18h18M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span>Золотой скин<br>и королевский плащ</span></div>
     </div>
+    <div class="ps-note">Оплата в Telegram Stars. При пополнении единицы и срок суммируются.</div>
+    <button class="ps-later" id="pro-later" type="button">Закрыть</button>
+    <div id="pro-msg" class="ps-msg"></div>
   </div>
 </div>
 
@@ -990,7 +1039,7 @@ async function tgPost(path, extra){
     return r.json();
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 399, free: 20, loaded: false };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1200, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 650, units: 700, days: 30, builds: 7 }, { id: 'pro', title: 'Про', price: 1200, units: 1500, days: 30, builds: 15 }, { id: 'business', title: 'Бизнес', price: 2750, units: 4000, days: 30, builds: 40 } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -1019,22 +1068,27 @@ function checkProExpired(){
 const PRO_ITEMS = ['c_aurum', 'b_pro_cape'];
 function grantProItems(){ if (!PRO.active) return; let ch = false; PRO_ITEMS.forEach(id => { if (!OWNED[id]){ OWNED[id] = true; ch = true; } }); if (ch){ store.set('owned', OWNED); renderInv(); } }
 
+const PLAN_STYLE = { start: { cls: 'p-start', tier: 'STARTER' }, pro: { cls: 'p-pro', tier: 'PREMIUM', badge: 'Популярный' }, business: { cls: 'p-biz', tier: 'BUSINESS', badge: 'Максимум' } };
+const fmtN = n => Number(n).toLocaleString('ru-RU');
+function setProMsg(t, k){ const m = $('pro-msg'); m.textContent = t || ''; m.dataset.k = k || ''; }
 function renderPro(){
     grantProItems();
-    $('pro-n').textContent = PRO.limit; $('pro-free').textContent = PRO.free;
-    $('pro-buy').disabled = !refOk();
+    const w = PRO.build_weight || 100;
+    $('pro-plans').innerHTML = (PRO.plans || []).map(p => {
+        const st = PLAN_STYLE[p.id] || { cls: '', tier: '' };
+        const per = p.builds ? Math.round(p.price / p.builds) : 0;
+        return `<div class="plan ${st.cls}">${st.badge ? `<div class="plan-badge">${st.badge}</div>` : ''}<div class="plan-top"><span class="plan-title">${p.title}</span><span class="plan-tier">${st.tier}</span></div><div class="plan-price"><b>${fmtN(p.price)}</b><i>⭐</i><span>за ${p.days} дней</span></div><ul class="plan-feat"><li><span><b>${p.builds}</b> сборок сайтов и приложений</span></li><li><span><b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации</span></li><li><span>≈ ${per} ⭐ за сборку</span></li></ul><button type="button" class="plan-btn" data-plan="${p.id}" ${refOk() && !PRO.busy ? '' : 'disabled'}>${PRO.active ? 'Пополнить' : 'Оформить'} «${p.title}»</button></div>`;
+    }).join('');
+    const st = $('pro-status');
     if (PRO.active){
-        $('pro-sub').innerHTML = `Pro активен до <b>${new Date(PRO.expires_at*1000).toLocaleDateString('ru-RU')}</b>.<br>Осталось: <b>${PRO.left}</b> из ${PRO.limit}.`;
-        $('pro-bar-wrap').style.display = '';
-        const pct = Math.round((PRO.left / PRO.limit) * 100);
-        $('pro-bar').style.width = pct + '%';
-        $('pro-left').textContent = `${PRO.left} / ${PRO.limit} единиц`;
-        $('pro-buy').textContent = `Продлить за ⭐ ${PRO.price}`;
+        const pct = Math.max(2, Math.min(100, Math.round(PRO.left / (PRO.limit || 1) * 100)));
+        st.style.display = '';
+        st.innerHTML = `<div class="row"><span>Тариф «${PRO.plan || 'Pro'}»</span><span>до ${new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU')}</span></div><div class="bar" style="height:8px;margin:10px 0 8px"><i style="width:${pct}%"></i></div><div class="row sm"><span>Осталось ${fmtN(PRO.left)} из ${fmtN(PRO.limit)}</span><span>≈ ${Math.floor(PRO.left / w)} сборок</span></div>`;
+        $('pro-sub').textContent = 'Пополняй тариф в любой момент: единицы и срок суммируются.';
         $('pro-btn').style.color = 'var(--ui-gold-hi)';
     } else {
-        $('pro-sub').innerHTML = `${PRO.limit} запросов на 30 дней.<br>Без дневных лимитов.`;
-        $('pro-bar-wrap').style.display = 'none';
-        $('pro-buy').textContent = `Оформить за ⭐ ${PRO.price}`;
+        st.style.display = 'none'; st.innerHTML = '';
+        $('pro-sub').textContent = PRO.trial ? 'Подарок: одна бесплатная сборка сайта или приложения — просто напиши в чате «сделай сайт…». Дальше — тарифы.' : 'Студия сайтов и приложений, никаких дневных лимитов, золотой скин и королевский плащ.';
         $('pro-btn').style.color = '';
     }
     updateProDot();
@@ -1057,54 +1111,48 @@ async function refreshPro(){
     try {
         const res = await tgPost('pro/status');
         if (res && res.status === 'ok'){
-            PRO = Object.assign(PRO, res.pro || {}, { price: res.price || 399, free: res.free_limit || PRO.free, loaded: true });
+            PRO = Object.assign(PRO, res.pro || {}, { price: res.price || PRO.price, free: res.free_limit || PRO.free, plans: res.plans || PRO.plans, build_weight: res.build_weight || PRO.build_weight, trial: res.trial_build !== undefined ? !!res.trial_build : PRO.trial, loaded: true });
             checkProExpired();
             renderPro();
         }
     } catch(e){}
 }
-async function buyPro(){
-    if (!refOk()){ $('pro-msg').textContent = 'Покупки доступны только в Telegram'; return; }
-    $('pro-msg').textContent = '';
-    $('pro-buy').disabled = true;
+async function buyPro(planId){
+    if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
+    if (PRO.busy) return;
+    PRO.busy = true; setProMsg(''); renderPro();
     try {
-        const data = await tgPost('pro/invoice');
+        const data = await tgPost('pro/invoice', { plan: planId });
         if (!data.link) throw new Error(data.error === 'payments_disabled' ? 'оплата временно недоступна' : 'нет ссылки на оплату');
         tg.openInvoice(data.link, status => {
             if (status === 'paid') waitProPaid();
-            else if (status === 'cancelled' || status === 'failed'){
-                $('pro-msg').textContent = 'Оплата не прошла';
-                $('pro-buy').disabled = false;
-            }
+            else { PRO.busy = false; if (status === 'cancelled' || status === 'failed') setProMsg('Оплата не прошла', 'bad'); renderPro(); }
         });
     } catch(e){
-        $('pro-msg').textContent = 'Не получилось: ' + e.message;
-        $('pro-buy').disabled = false;
+        PRO.busy = false; setProMsg('Не получилось: ' + e.message, 'bad'); renderPro();
     }
 }
 async function waitProPaid(){
-    $('pro-msg').style.color = 'var(--ui-cyan)';
-    $('pro-msg').textContent = 'Оплата прошла, активирую…';
+    const before = PRO.active ? PRO.left : 0;
+    setProMsg('Оплата прошла, активирую…', 'info');
     for (let i = 0; i < 20; i++){
         await refreshPro();
-        if (PRO.active && PRO.left > 0){
-            $('pro-msg').style.color = '#5BD17A';
-            $('pro-msg').textContent = 'Pro активирован!';
+        if (PRO.active && PRO.left > before){
+            setProMsg('Готово! Тариф активирован.', 'ok');
             Snd.fanfare();
-            
             EQUIP.color = 'c_aurum'; EQUIP.back = 'b_pro_cape'; store.set('equip', EQUIP); applyOutfit(); renderWear(); syncToServer();
-            
-            setTimeout(() => { $('pro-msg').textContent = ''; closePro(); }, 1500);
+            PRO.busy = false; renderPro();
+            setTimeout(() => { setProMsg(''); closePro(); }, 1600);
             return;
         }
         await new Promise(r => setTimeout(r, 800));
     }
-    $('pro-msg').style.color = '#FF9E9E';
-    $('pro-msg').textContent = 'Оплата в обработке. Загляни в Pro через минуту.';
-    $('pro-buy').disabled = false;
+    PRO.busy = false; setProMsg('Оплата в обработке. Загляни сюда через минуту.', 'bad'); renderPro();
 }
-$('pro-buy').addEventListener('click', buyPro);
+$('pro-plans').addEventListener('click', e => { const b = e.target.closest('button[data-plan]'); if (b && !b.disabled) buyPro(b.dataset.plan); });
 $('pro-close').addEventListener('click', closePro);
+$('pro-later').addEventListener('click', closePro);
+$('pro').addEventListener('click', e => { if (e.target === $('pro')) closePro(); });
 $('pro-btn').addEventListener('click', openPro);
 
 let BAL = store.get('bal', 0);
@@ -1122,7 +1170,7 @@ function applyServerState(res, withEquip){
         EQUIP = res.equip; 
         store.set('equip', EQUIP);
     }
-    if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, free: res.free_limit || PRO.free, loaded: true }); renderPro(); }
+    if (res.pro){ PRO = Object.assign(PRO, res.pro, { price: res.pro_price || PRO.price, free: res.free_limit || PRO.free, plans: res.plans || PRO.plans, build_weight: res.build_weight || PRO.build_weight, trial: res.trial_build !== undefined ? !!res.trial_build : PRO.trial, loaded: true }); renderPro(); }
 }
 function syncToServer(){
     if (!refOk()) return Promise.resolve();
@@ -1537,6 +1585,7 @@ async function sendMessage(text) {
             Hologram.react(data.emotion, pose, 4000);
         }
 
+        const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
         const vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
         addToHistory(data.text, 'bot', undefined, null, vis);
         chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined });
