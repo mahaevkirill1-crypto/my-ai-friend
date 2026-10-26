@@ -1080,6 +1080,15 @@ async def ask(request: Request):
             raw = response.choices[0].message.content or ""
             plain_text, plain_emo = parse_plain(raw)
             result = {"text": plain_text, "emotion": plain_emo}
+        if not visual_mode and not str(result.get("text") or "").strip():
+            log.warning("empty reply, retrying once; raw=%r", raw[:200])
+            try:
+                retry = await llm(messages + [{"role": "user", "content": "Ответ пустой. Дай полный ответ по существу на моё сообщение выше. Формат: метка [[ANSWER]], слово-эмоция, затем текст."}], AI_MAX_TOKENS + 800, temperature=0.3)
+                t2, e2 = parse_plain(retry.choices[0].message.content or "")
+                if t2.strip():
+                    result = {"text": t2, "emotion": e2}
+            except Exception:
+                log.exception("retry failed")
         if not str(result.get("text") or "").strip():
             log.warning("empty reply from model, finish_reason=%s, raw=%r", getattr(response.choices[0], "finish_reason", None), raw[:200])
             result["text"] = "Не получилось ответить, попробуй ещё раз."
