@@ -89,7 +89,11 @@ MAX_VISUAL_LEN = 20000
 BUILD_MODEL = os.getenv("BUILD_MODEL", "anthropic/claude-sonnet-5-5")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "16000")) 
 BUILD_TIMEOUT = 170
+
+# ВЕСА: 100 за новую сборку, 150 за правку
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
+BUILD_WEIGHT_EDIT = int(os.getenv("BUILD_WEIGHT_EDIT", "150")) 
+
 MAX_BUILD_LEN = 70000
 
 # ДОБАВЛЕНЫ ПРЕЗЕНТАЦИИ И СЛАЙДЫ
@@ -1040,23 +1044,30 @@ async def ask(request: Request):
         build_mode = wants_build(user_text, bool(current_code))
         search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
         if search_mode: weight = max(weight, SEARCH_WEIGHT)
+        
         trial = False
         if build_mode:
-            weight = BUILD_WEIGHT
+            if current_code:
+                weight = BUILD_WEIGHT_EDIT  # 150 за правку
+            else:
+                weight = BUILD_WEIGHT       # 100 за новую сборку
+                
             if not pro_pre["active"]:
                 if trial_available(conn, uid):
                     trial = True
                     weight = 0
                 else:
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Дальше студия сайтов и приложений доступна на тарифах — выбери подходящий!", "emotion": "happy", "pro": pro_pre, "limit_reached": True}, status_code=402)
-            elif pro_pre["left"] < BUILD_WEIGHT:
-                return JSONResponse({"text": f"На сборку проекта нужно минимум {BUILD_WEIGHT} единиц, а осталось {pro_pre['left']}. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
+            elif pro_pre["left"] < weight:
+                return JSONResponse({"text": f"На эту задачу нужно минимум {weight} единиц, а осталось {pro_pre['left']}. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
+                
         if att:
             user_content, att_err = await asyncio.to_thread(build_user_content, raw_text, att, pro_pre["active"])
             if att_err:
                 return {"text": att_err, "emotion": "sad", "pro": pro_info(conn, uid, now)}
         else:
             user_content = raw_text
+            
         pro = None
         try:
             pro = pro_info(conn, uid, now)
@@ -1082,6 +1093,7 @@ async def ask(request: Request):
             conn.commit()
         finally:
             pass
+        
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
             if trial:
@@ -1097,10 +1109,12 @@ async def ask(request: Request):
                     conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,))
                     conn.commit()
             return res
+            
         if visual_mode:
             system_prompt = (ASTRO_PROMPT if persona == "astronaut" else BASE_PROMPT) + VISUAL_RULES
         else:
             system_prompt = ASTRO_PLAIN if persona == "astronaut" else BASE_PLAIN
+            
         if not att and persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
             phrase = ""
@@ -1112,6 +1126,7 @@ async def ask(request: Request):
             if not phrase or len(phrase) > 160:
                 phrase = random.choice(["Музыка, свет — поехали!", "Держись, сейчас будет жарко!", "Смотри и завидуй!", "Включаю режим диско!"])
             return {"text": phrase, "action": "dance", "dance_name": chosen_dance, "pro": pro}
+            
         messages = [{"role": "system", "content": system_prompt}]
         if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
         if search_mode:
@@ -1130,6 +1145,7 @@ async def ask(request: Request):
             raw = response.choices[0].message.content or ""
             plain_text, plain_emo = parse_plain(raw)
             result = {"text": plain_text, "emotion": plain_emo}
+            
         if not visual_mode and not str(result.get("text") or "").strip():
             log.warning("empty reply, retrying once; raw=%r", raw[:200])
             try:
@@ -1139,9 +1155,11 @@ async def ask(request: Request):
                     result = {"text": t2, "emotion": e2}
             except Exception:
                 log.exception("retry failed")
+                
         if not str(result.get("text") or "").strip():
             log.warning("empty reply from model, finish_reason=%s, raw=%r", getattr(response.choices[0], "finish_reason", None), raw[:200])
             result["text"] = "Не получилось ответить, попробуй ещё раз."
+            
         emotion = result.get("emotion")
         if emotion not in EMOTIONS_OK: emotion = "happy"
         visual = clean_visual(result.get("visual")) if visual_mode else None
