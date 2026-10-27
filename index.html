@@ -1355,7 +1355,7 @@ async function tgPost(path, extra){
     return r.json();
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1200, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 650, units: 700, days: 30, builds: 7 }, { id: 'pro', title: 'Про', price: 1200, units: 1500, days: 30, builds: 15 }, { id: 'business', title: 'Бизнес', price: 2750, units: 4000, days: 30, builds: 40 } ] };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, units: 500, days: 30, builds: 5 }, { id: 'pro', title: 'Про', price: 1999, units: 1500, days: 30, builds: 15 }, { id: 'business', title: 'Бизнес', price: 4999, units: 4000, days: 365, builds: 40 } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -1407,12 +1407,11 @@ function renderPro(){
         buy.style.display = 'none';
     } else {
         const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, units: 0, days: 30, builds: 0 };
-        const per = p.builds ? Math.round(p.price / p.builds) : 0;
         const mine = PRO.active && curPlanId() === p.id;
         const badge = mine ? 'Ваш план' : ((PLAN_STYLE[p.id] || {}).badge || '');
         card = `<div class="pl-card"><h3 class="pl-name">${p.title}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p>` +
             feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Золотой скин и королевский плащ', 'Без дневных лимитов на срок плана']) +
-            `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>≈ ${per} ⭐ за сборку</span><span>Оплата в Telegram Stars</span></div></div>`;
+            `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>Оплата в Telegram Stars</span></div></div>`;
         buy.style.display = '';
         buy.dataset.plan = p.id;
         buy.disabled = !refOk() || !!PRO.busy;
