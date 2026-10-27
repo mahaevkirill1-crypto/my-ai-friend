@@ -107,9 +107,9 @@ COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|зме�
 
 # --- ПОДПИСКА PRO (ОБНОВЛЕННЫЕ ЦЕНЫ) ---
 PLANS = {
-    "start":    {"title": "Старт",  "price": 899,  "units": 700,  "days": 30},
+    "start":    {"title": "Старт",  "price": 899,  "units": 500,  "days": 30},
     "pro":      {"title": "Про",    "price": 1999, "units": 1500, "days": 30},
-    "business": {"title": "Бизнес", "price": 4999, "units": 4000, "days": 30},
+    "business": {"title": "Бизнес", "price": 4999, "units": 4000, "days": 365},
 }
 PRO_WARN_LEFT = 100
 
