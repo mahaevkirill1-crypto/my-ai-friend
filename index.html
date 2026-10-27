@@ -130,6 +130,25 @@
     #topbar .ibtn { pointer-events: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
     .ibtn { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); border: 1px solid var(--ui-line); border-radius: 14px; color: var(--ui-tx-mid); cursor: pointer; padding: 0; position: relative; box-shadow: inset 0 1px 0 rgba(255,255,255,.06); transition: all .2s; }
     .ibtn:hover { color: var(--ui-tx-hi); border-color: var(--ui-line-hi); }
+    #hist-btn { position: fixed; top: 12px; left: 16px; z-index: 40; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+    #hist-bg { position: fixed; inset: 0; background: rgba(4,7,14,.6); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 44; }
+    #hist-panel { position: fixed; top: 0; left: 0; bottom: 0; width: min(86vw,340px); z-index: 45; transform: translateX(-105%); transition: transform .32s cubic-bezier(.2,.8,.2,1); background: linear-gradient(180deg,#121A2E,#0A0F1D); border-right: 1px solid var(--ui-line-hi); box-shadow: 30px 0 80px -20px rgba(0,0,0,.9); display: flex; flex-direction: column; gap: 12px; padding: calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px)); }
+    body.hp #hist-panel { transform: none; }
+    body.hp #hist-bg { opacity: 1; pointer-events: auto; }
+    #hist-panel .hp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ui-tx-hi); font: 700 16px 'Manrope',system-ui,sans-serif; }
+    #hist-panel .hp-head .txtbtn { padding: 8px 12px; font-size: 12px; }
+    #hist-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .hi { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: 14px; background: rgba(255,255,255,.03); cursor: pointer; }
+    .hi:active { background: rgba(255,255,255,.07); }
+    .hi-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .hi-date { font-size: 11px; color: var(--ui-tx-lo); }
+    .hi-title { font: 600 14px 'Manrope',system-ui,sans-serif; color: var(--ui-tx-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hi-del { flex: none; padding: 6px 10px; font-size: 12px; border-radius: 10px; border: 1px solid var(--ui-line); background: transparent; color: #FF9E9E; cursor: pointer; font-family: inherit; }
+    .hi-empty { text-align: center; color: var(--ui-tx-lo); font-size: 13px; padding: 24px 8px; }
+    body.light-theme #hist-btn { background: #FFFFFF; border-color: #E2E8F0; color: #0F172A; }
+    body.light-theme #hist-panel { background: #FFFFFF; }
+    body.light-theme #hist-panel .hp-head, body.light-theme .hi-title { color: #0F172A; }
+    body.light-theme .hi { background: #F8FAFC; border-color: #E2E8F0; }
     .ibtn:active { transform: scale(.96); background: rgba(255,255,255,.06); }
 
     /* ЧАТ */
@@ -338,7 +357,9 @@
     .vis { width: min(300px, calc(100vw - 100px)); }
     .vis-frame { position: relative; width: 100%; aspect-ratio: 800 / 520; background: #fff; border: 1px solid var(--ui-line-hi); border-radius: 12px; overflow: hidden; cursor: zoom-in; }
     .vis-frame iframe { position: absolute; top: 0; left: 0; width: 800px; height: 520px; border: 0; background: #fff; transform-origin: 0 0; pointer-events: none; }
-    .vis-bar { display: flex; gap: 6px; margin-top: 8px; }
+    .vis-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .vis-bar .vis-edit { flex-basis: 100%; border-color: var(--ui-line-hi); color: var(--ui-tx-hi); }
+    body.editing #user-input { box-shadow: 0 0 0 1px #FFD166 inset; }
     .vis-bar .txtbtn { flex: 1; padding: 8px 10px; font-size: 12px; }
     #visview { position: fixed; inset: 0; z-index: 1100; background: #0B1120; display: none; }
     #visview.open { display: block; }
@@ -625,6 +646,9 @@
   </div>
 </div>
 
+<button class="ibtn" id="hist-btn" aria-label="История"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+<div id="hist-bg"></div>
+<aside id="hist-panel" aria-label="История чатов"><div class="hp-head"><span>История</span><button type="button" class="txtbtn" id="hist-new">+ Новый чат</button></div><div id="hist-list"></div></aside>
 <div id="topbar">
   <button class="ibtn" id="menu-btn" aria-label="Меню"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div>
@@ -1224,7 +1248,7 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
         const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = visDoc(visual);
         fr.appendChild(ifr); vis._ifr = ifr;
         const bar = document.createElement('div'); bar.className = 'vis-bar';
-        bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button>';
+        bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button><button type="button" class="txtbtn" data-vis="help">Как запустить?</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править проект</button>' : '');
         vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis);
         const fit = () => { const w = fr.clientWidth; if (w) ifr.style.transform = 'scale(' + (w / 800) + ')'; };
         requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(fr);
@@ -1305,10 +1329,21 @@ async function dlVis(){
 }
 $('vv-dl').addEventListener('click', dlVis);
 $('vv-close').addEventListener('click', closeVis);
+let editTarget = null;
+function setEditTarget(v){
+    editTarget = v || null;
+    document.body.classList.toggle('editing', !!v);
+    input.placeholder = v ? 'Опиши, что изменить… (или «отмена»)' : 'Напиши сообщение...';
+}
 chatHistory.addEventListener('click', e => {
     const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
     const b = e.target.closest('button[data-vis]');
     if (b && b.dataset.vis === 'copy'){ copyText(vis._v.code, b); return; }
+    if (b && b.dataset.vis === 'edit'){
+        if (isSending) return;
+        setEditTarget(vis._v); botSay('Что именно изменить?'); input.focus(); return;
+    }
+    if (b && b.dataset.vis === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); return; }
     if (b || e.target.closest('.vis-frame')) openVis(vis._v, vis);
 });
 const COPY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
@@ -1603,7 +1638,8 @@ const IMGDB = (() => {
         prune: keep => run('readwrite', s => { const c = s.openKeyCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return; if (!keep.has(cur.key)) s.delete(cur.key); cur.continue(); }; return c; }).catch(() => {})
     };
 })();
-IMGDB.prune(new Set(chatHistoryForServer.filter(m => m.img || m.file).map(m => (m.img || m.file).id)));
+function keepIds(){ const ids = new Set(); let chats = []; try { chats = JSON.parse(localStorage.getItem('holo_chats') || '[]'); } catch(e) {} const all = chatHistoryForServer.concat(...(Array.isArray(chats) ? chats : []).map(c => (c && c.msgs) || [])); all.forEach(m => { if (m && (m.img || m.file)) ids.add((m.img || m.file).id); }); return ids; }
+IMGDB.prune(keepIds());
 
 let lbUrl = null;
 const lb = $('lightbox'), lbBox = $('lb-box'), lbImg = $('lb-img');
@@ -1760,6 +1796,8 @@ async function sendMessage(text) {
     if (text.length >= 50) Quest.add('long');
 
     const low0 = text.toLowerCase().trim();
+    if (editTarget && /^(отмена|отменить|не надо|не нужно|стоп)[.!]?$/.test(low0)){ setEditTarget(null); botSay('Ок, правку отменил.'); endSend(); return; }
+    const editing = editTarget;
     if (rpsState === 'bet' || rpsState === 'choose') {
         if (/^(стоп|хватит|выход|выйти|отмена)/.test(low0)) {
             rpsState = 'none';
@@ -1946,7 +1984,7 @@ async function sendMessage(text) {
 
     const hs = chatHistoryForServer.slice(-40);
     const historyText = hs.map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
-    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } }
+    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, чтобы обычный чат не считался правкой (150)
 
     try {
         const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
@@ -1958,7 +1996,8 @@ async function sendMessage(text) {
             body: JSON.stringify({
                 text: text,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
-                last_visual: lastVisual,
+                last_visual: editing ? { type: editing.type, code: editing.code } : lastVisual,
+                edit_project: !!editing,
                 attachment: att ? (att.kind === 'image' ? { kind: 'image', mime: att.mime, name: att.name, data: att.data } : (att.kind === 'pdf' || att.kind === 'docx' || att.kind === 'xlsx') ? { kind: att.kind, name: att.name, data: att.data } : { kind: 'text', name: att.name, text: att.text }) : null,
                 history: historyText,
                 init_data: (tg && tg.initData) || ''
@@ -1970,6 +2009,7 @@ async function sendMessage(text) {
         if (response.status === 402){
             hideTyping();
             if (char === 'astro') hideBubble(); else Hologram.react('sleepy', 'idle', 3000);
+            if (editing) setEditTarget(null);
             addToHistory(data.text || 'Лимит запросов исчерпан.', 'bot');
             if (data.pro) Object.assign(PRO, data.pro);
             renderPro();
@@ -1993,6 +2033,7 @@ async function sendMessage(text) {
         if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
 
         if (data.pro){ Object.assign(PRO, data.pro); renderPro(); }
+        if (editing) setEditTarget(null);
 
         hideTyping();
 
@@ -2048,11 +2089,11 @@ $('do-clear').addEventListener('click', async () => {
     confirmBox.classList.remove('open');
     $('forget').checked = false;
     chatHistory.innerHTML = '';
-    rpsState = 'none';
+    rpsState = 'none'; setEditTarget(null);
     if (char === 'holo') Hologram.react('surprised', 'idle', 2000);
     if (forget) {
         localStorage.removeItem('holo_history');
-        IMGDB.prune(new Set());
+        IMGDB.prune(keepIds());
         chatHistoryForServer = [];
         isOffended = false; store.set('isOffended', false);
         addToHistory('Всё стёрто, даже из памяти. Давай знакомиться заново?', 'bot');
@@ -2392,6 +2433,82 @@ $('shop-btn').addEventListener('click', openShop); $('shop-close').addEventListe
 
 // Drawer
 function drTab(t){ $('dr-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.dt === t)); $('dr-menu').classList.toggle('on', t === 'menu'); $('dr-prof').classList.toggle('on', t === 'prof'); if (t === 'prof') renderProfile(); }
+// --- ИСТОРИЯ ЧАТОВ (localStorage: holo_chats = массив архивных чатов) ---
+const CHATS_KEY = 'holo_chats', CHATS_MAX = 30;
+function loadChats(){ try { const a = JSON.parse(localStorage.getItem(CHATS_KEY) || '[]'); return Array.isArray(a) ? a.filter(c => c && Array.isArray(c.msgs)) : []; } catch(e) { return []; } }
+function saveChats(a){
+    a = a.slice(0, CHATS_MAX);
+    for (;;){
+        try { localStorage.setItem(CHATS_KEY, JSON.stringify(a)); return a; }
+        catch(e){
+            if (a.some(c => c.msgs.some(m => m.vis))){ a.forEach(c => c.msgs.forEach(m => { delete m.vis; })); continue; }
+            if (a.length > 1){ a.pop(); continue; }
+            return a;
+        }
+    }
+}
+function chatTitle(c){
+    const m = c.msgs.find(x => x.sender === 'user' && x.text);
+    const t = String((m && m.text) || 'Без названия').replace(/\s+/g, ' ').trim();
+    const ch = Array.from(t);
+    return ch.slice(0, 20).join('') + (ch.length > 20 ? '…' : '');
+}
+function archiveCurrent(chats){
+    if (!chatHistoryForServer.some(m => m.sender === 'user')) return chats;
+    chats.unshift({ id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ts: Date.now(), msgs: JSON.parse(JSON.stringify(chatHistoryForServer)) });
+    return chats;
+}
+function renderHistList(){
+    const box = $('hist-list'), chats = loadChats();
+    box.innerHTML = '';
+    if (!chats.length){ const e = document.createElement('div'); e.className = 'hi-empty'; e.textContent = 'Пока нет сохранённых чатов. Нажми «+ Новый чат», чтобы сохранить текущий.'; box.appendChild(e); return; }
+    chats.forEach(c => {
+        const row = document.createElement('div'); row.className = 'hi'; row.dataset.id = c.id;
+        const main = document.createElement('div'); main.className = 'hi-main';
+        const d = document.createElement('span'); d.className = 'hi-date'; d.textContent = new Date(c.ts).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const t = document.createElement('span'); t.className = 'hi-title'; t.textContent = chatTitle(c);
+        main.appendChild(d); main.appendChild(t);
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'hi-del'; del.dataset.del = c.id; del.textContent = 'Удалить';
+        row.appendChild(main); row.appendChild(del); box.appendChild(row);
+    });
+}
+function openHist(){ renderHistList(); document.body.classList.add('hp'); }
+function closeHist(){ document.body.classList.remove('hp'); }
+function showChat(msgs, greet){
+    chatHistory.innerHTML = '';
+    rpsState = 'none';
+    chatHistoryForServer = msgs;
+    setEditTarget(null);
+    msgs.forEach(m => addToHistory(m.text, m.sender, '', m.img, m.vis, false, m.file));
+    if (greet) addToHistory(greet, 'bot');
+    saveHistory();
+}
+function openChat(id){
+    if (isSending){ toast('Подожди, ответ ещё печатается'); return; }
+    let chats = loadChats();
+    const c = chats.find(x => x.id === id); if (!c) return;
+    chats = chats.filter(x => x.id !== id);
+    chats = archiveCurrent(chats);
+    saveChats(chats);
+    showChat(c.msgs);
+    closeHist();
+}
+function newChat(){
+    if (isSending){ toast('Подожди, ответ ещё печатается'); return; }
+    if (!chatHistoryForServer.some(m => m.sender === 'user')){ closeHist(); return; }
+    saveChats(archiveCurrent(loadChats()));
+    showChat([], 'Новый чат. О чём поговорим?');
+    renderHistList();
+    closeHist();
+}
+$('hist-btn').addEventListener('click', openHist);
+$('hist-bg').addEventListener('click', closeHist);
+$('hist-new').addEventListener('click', newChat);
+$('hist-list').addEventListener('click', e => {
+    const del = e.target.closest('button[data-del]');
+    if (del){ e.stopPropagation(); saveChats(loadChats().filter(c => c.id !== del.dataset.del)); IMGDB.prune(keepIds()); renderHistList(); return; }
+    const row = e.target.closest('.hi'); if (row) openChat(row.dataset.id);
+});
 function openDrawer(){ document.body.classList.add('dr'); drTab('menu'); }
 function closeDrawer(){ document.body.classList.remove('dr'); }
 function renderProfile(){
