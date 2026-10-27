@@ -87,12 +87,17 @@ MAX_VISUAL_LEN = 20000
 
 # --- РЕЖИМ СТУДИИ ---
 BUILD_MODEL = os.getenv("BUILD_MODEL", "anthropic/claude-sonnet-5-5")
-BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "16000")) 
+BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "20000")) 
 BUILD_TIMEOUT = 170
 
 # ВЕСА: 100 за новую сборку, 150 за правку
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
 BUILD_WEIGHT_EDIT = int(os.getenv("BUILD_WEIGHT_EDIT", "150")) 
+BUILD_WEIGHT_SIMPLE = int(os.getenv("BUILD_WEIGHT_SIMPLE", "60"))    # простой сайт / лендинг / визитка
+BUILD_WEIGHT_MEDIUM = int(os.getenv("BUILD_WEIGHT_MEDIUM", "120"))   # приложение, калькулятор, дашборд, бот
+BUILD_WEIGHT_COMPLEX = int(os.getenv("BUILD_WEIGHT_COMPLEX", "180")) # игра, презентация, 3D, анимации
+HISTORY_LONG_CHARS = 20000
+HISTORY_LONG_EXTRA = 10
 
 MAX_BUILD_LEN = 70000
 
@@ -100,7 +105,10 @@ MAX_BUILD_LEN = 70000
 BUILD_THING_RE = re.compile(r"презентаци|слайд|сайт|лендинг|landing|веб-?страниц|страниц[ауы] |приложени|игр[ауы]\b|мини-?игр|калькулятор|визитк|портфолио|дашборд|интерфейс|тетрис|змейк|сапёр|сапер|секундомер|таймер|тудулист|to-?do|конвертер|генератор", re.I)
 BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|напиш[иу]|разработ|собер[иу]|запил|сгенер|сверста|набросай|нарису|покаж|мне нужен|мне нужна|мне нужно|нужен мне|нужна мне", re.I)
 BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
+# (не используется: правка включается кнопкой «Править проект», а не по словам)
 BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает|вау|перелив|свет|неон|пульс|мерцан|градиент|стильн|современн|сделай так|хочу чтобы", re.I)
+SIMPLE_BUILD_RE = re.compile(r"сайт|лендинг|landing|визитк|портфолио|веб-?страниц|страниц[ауы] ", re.I)
+DEPLOY_RE = re.compile(r"запуск|запуст|запущ|хостинг|хостит|render|оплат|юкасс|yookassa|yokassa|опубликов|публикац|выложи|выкладыв|netlify|vercel|github|гитхаб|сервер|деплой|deploy|домен|app ?store|апп ?стор|как открыть|как использовать", re.I)
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
 # Регулярка для сложных проектов (игры, презентации)
 COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|змейк|сапёр|сапер|презентаци|слайд|3d|анимаци", re.I)
@@ -237,6 +245,9 @@ RULES = """
 9. Медицина, право, финансы: дай полезную информацию по делу и одной фразой напомни про специалиста, когда это важно.
 10. Отвечай на языке пользователя. Без мата. Ты — Holo; не называй себя ChatGPT или OpenAI.
 11. Характер: спокойный, уверенный, с лёгкой иронией.
+12. Ты — наставник. Если спрашивают про запуск (Render, хостинг, ЮKassa, App Store) — не вываливай всё сразу. Дай только ОДИН первый шаг. В конце спроси: "Понятно? Делаем дальше?".
+13. Если пишут "не понял" — объясни этот же шаг ещё проще, как для ребёнка.
+14. Учитывай тип проекта из контекста: игра — на Netlify; бот — на GitHub + Render (с файлами main.py, requirements.txt, index.html); сайт — на Netlify (только index.html).
 
 ФОРМАТ ОТВЕТА (строго): никаких рассуждений. Сразу выведи метку [[ANSWER]] отдельной строкой, на следующей строке — одно слово-эмоция (happy, sad, surprised, angry, thinking или sleepy), а со следующей — сам ответ пользователю обычным текстом.
 """
@@ -266,7 +277,7 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
     return {"type": kind, "code": code}
 
 BUILD_SYSTEM = """
-Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик уровня топовой студии. Пользователь просит сайт, лендинг, веб-приложение, игру или интерфейс — ты выдаёшь законченную работу, от которой хочется сказать «вау». Один HTML-файл.
+Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик уровня топовой студии. Пользователь просит сайт, лендинг, веб-приложение, игру или интерфейс — ты выдаёшь законченную работу, от которой хочется сказать «вау». index.html — всегда обязательный файл.
 
 КРИТИЧЕСКИЕ ПРИНЦИПЫ ДИЗАЙНА (КАК В CLAUDE ARTIFACTS):
 - Смелость: Всегда выбирай смелые и неожиданные дизайнерские решения вместо безопасных и скучных. Используй яркие цвета, динамичные сетки, выразительную типографику.
@@ -303,6 +314,11 @@ BUILD_SYSTEM = """
 - Если пользователь пишет неточно («не ровно», «криво», «сделай красиво», «сделай вау», «добавь неон»), ты должен сам проанализировать текущий HTML-код и внести правки.
 - КРИТИЧЕСКИ ВАЖНО: Если передана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА», ты ОБЯЗАН вернуть полную копию файла от <!doctype html> до </html> с внесенными правками. Нельзя возвращать только фрагмент CSS или HTML. Если ты вернешь неполный код, пользователь увидит белый экран.
 
+ФАЙЛЫ ПРОЕКТА:
+- Если просят простой сайт или простую игру (Змейка, 2048) — генерируй ТОЛЬКО index.html.
+- Если просят Telegram-бота или Мини-апп с логикой — генерируй ТРИ файла: main.py, requirements.txt и index.html.
+- Всегда объясняй в чате, какие файлы ты создал.
+
 ТЕХНИКА:
 - Один самодостаточный файл: <!doctype html>, весь CSS в <style>, JS в <script> перед </body>.
 - Запросы к сети (fetch, XHR), отправка форм, alert/confirm/prompt, window.open и переходы по внешним ссылкам не работают: используй <button type="button">, ссылки href="#".
@@ -311,12 +327,16 @@ BUILD_SYSTEM = """
 
 ФОРМАТ ОТВЕТА — строго так, без лишнего текста вокруг:
 [[TEXT]]
-1–2 коротких предложения для чата: что сделано.
+1–3 коротких предложения для чата: что сделано и какие файлы ты создал.
 [[EMOTION]]
 happy
 [[HTML]]
 <!doctype html>
-...полный файл...
+...полный файл index.html...
+[[FILE:main.py]]
+...только если нужен бот или мини-апп с логикой...
+[[FILE:requirements.txt]]
+...только если нужен бот или мини-апп с логикой...
 [[END]]
 """
 
@@ -327,7 +347,14 @@ def parse_build(raw):
     if not m: return None
     text = m.group(1).strip()
     emotion = m.group(2).strip().split()[0] if m.group(2).strip() else "happy"
-    html = m.group(3).strip()
+    html_part = m.group(3)
+    extra = re.split(r"\[\[FILE:([^\]\n]{1,40})\]\]", html_part)
+    html = extra[0].strip()
+    for fname, fcode in zip(extra[1::2], extra[2::2]):
+        fname = fname.strip(); fcode = re.sub(r"^```[a-zA-Z]*\s*", "", fcode.strip()); fcode = re.sub(r"\s*```$", "", fcode)
+        if fcode:
+            lang = "python" if fname.endswith(".py") else ""
+            text += f"\n\n{fname}:\n```{lang}\n{fcode}\n```"
     html = re.sub(r"^```[a-zA-Z]*\s*", "", html); html = re.sub(r"\s*```$", "", html)
     
     if "</html>" not in html.lower():
@@ -403,10 +430,10 @@ def parse_plain(raw):
     if m: return m.group(2).strip(), m.group(1).lower()
     return t, "happy"
 
-def wants_build(user_text, has_project):
+def wants_build(user_text):
+    # только НОВАЯ сборка. Правка включается явно: кнопка «Править проект» -> edit_project=true в /ask
     if BUILD_NEG_RE.search(user_text): return False
-    if BUILD_THING_RE.search(user_text) and BUILD_ACTION_RE.search(user_text): return True
-    return bool(has_project and BUILD_EDIT_RE.search(user_text))
+    return bool(BUILD_THING_RE.search(user_text) and BUILD_ACTION_RE.search(user_text))
 
 async def run_build(conn, uid, user_content, history_text, current_code, weight):
     messages = [{"role": "system", "content": BUILD_SYSTEM}]
@@ -1025,7 +1052,9 @@ async def ask(request: Request):
         data = await request.json()
         raw_text = str(data.get("text", "") or "").strip()[:MAX_TEXT_LEN]
         user_text = raw_text.lower()
-        history_text = str(data.get("history", "") or "")[-12000:]
+        history_raw = str(data.get("history", "") or "")
+        history_len = len(history_raw)
+        history_text = history_raw[-12000:]
         persona = data.get("persona", "hologram")
         att = data.get("attachment")
         ask_info = validate_init_data(data.get("init_data", ""))
@@ -1042,16 +1071,30 @@ async def ask(request: Request):
         weight = ask_weight(att, visual_mode)
         lv = data.get("last_visual")
         current_code = lv.get("code") if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str) and 400 <= len(lv["code"]) <= MAX_BUILD_LEN else None
-        build_mode = wants_build(user_text, bool(current_code))
+        edit_req = bool(data.get("edit_project"))
+        if edit_req and not current_code:
+            return {"text": "Не нашёл проект для правки. Нажми «Править проект» под нужным сайтом ещё раз.", "emotion": "sad", "pro": pro_pre}
+        is_edit = edit_req and bool(current_code)
+        build_mode = is_edit or wants_build(user_text)
         search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
         if search_mode: weight = max(weight, SEARCH_WEIGHT)
         
+        # длинная история (> 20 000 симв.): +10 лимитов к обычному чату.
+        # Считаем по history_len (полная история от клиента): history_text обрезан до 12 000 и не может быть > 20 000.
+        # Сборки Студии не трогаем: у них фиксированные цены 60/120/180/150, а в модель уходит лишь 4000 симв. истории.
+        if not build_mode and history_len > HISTORY_LONG_CHARS:
+            weight += HISTORY_LONG_EXTRA
+
         trial = False
         if build_mode:
-            if current_code:
-                weight = BUILD_WEIGHT_EDIT  # 150 за правку
+            if is_edit:
+                weight = BUILD_WEIGHT_EDIT  # 150 за правку (только по кнопке «Править проект»)
+            elif COMPLEX_RE.search(user_text):
+                weight = BUILD_WEIGHT_COMPLEX  # 180: игра, презентация, 3D
+            elif SIMPLE_BUILD_RE.search(user_text):
+                weight = BUILD_WEIGHT_SIMPLE   # 60: простой сайт, лендинг, визитка
             else:
-                weight = BUILD_WEIGHT       # 100 за новую сборку
+                weight = BUILD_WEIGHT_MEDIUM   # 120: приложение, калькулятор, дашборд, бот
             
             # ЗАЩИТА БЕСПЛАТНИКОВ: если сложный проект, не даем делать его бесплатно
             if not pro_pre["active"]:
@@ -1099,6 +1142,7 @@ async def ask(request: Request):
         finally:
             pass
         
+        log.info("ask uid=%s weight=%s build=%s visual=%s search=%s history_len=%s", uid, weight, build_mode, visual_mode, search_mode, history_len)
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
             if trial:
@@ -1106,7 +1150,7 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
                 conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
                 conn.commit()
-            res = await run_build(conn, uid, user_content, history_text, current_code, weight)
+            res = await run_build(conn, uid, user_content, history_text, current_code if is_edit else None, weight)
             if trial:
                 if res.get("visual"):
                     res["text"] = ((res.get("text") or "Готово!") + " Это была бесплатная пробная сборка — дальше студия доступна на тарифах.").strip()
@@ -1119,6 +1163,9 @@ async def ask(request: Request):
             system_prompt = (ASTRO_PROMPT if persona == "astronaut" else BASE_PROMPT) + VISUAL_RULES
         else:
             system_prompt = ASTRO_PLAIN if persona == "astronaut" else BASE_PLAIN
+        
+        if lv and DEPLOY_RE.search(user_text):
+            system_prompt += "\n\nВАЖНО: Пользователь только что сгенерировал проект в Студии. Если он спрашивает про запуск, оплату или хостинг — давай инструкции именно для этого проекта"
             
         if not att and persona == "hologram" and ("станц" in user_text or "танец" in user_text or "танцуй" in user_text):
             chosen_dance = random.choice(DANCE_LIST)
