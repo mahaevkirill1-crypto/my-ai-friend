@@ -64,8 +64,8 @@ INIT_DATA_MAX_AGE = 86400
 
 # --- RATE LIMIT ДЛЯ /ask ---
 ASK_MIN_GAP = 3
-ASK_DAY_LIMIT = 10          # Бесплатных единиц запросов в сутки
-VISUAL_EXTRA = 7            # Доплата за иллюстрацию
+ASK_DAY_LIMIT = 10          
+VISUAL_EXTRA = 7            
 
 # --- ИИ И ВЛОЖЕНИЯ ---
 AI_MODEL = "anthropic/claude-haiku-5-5" 
@@ -85,7 +85,7 @@ EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
 AI_MAX_TOKENS_VISUAL = 3500
 MAX_VISUAL_LEN = 20000
 
-# --- РЕЖИМ СТУДИИ: сайты и приложения ---
+# --- РЕЖИМ СТУДИИ ---
 BUILD_MODEL = os.getenv("BUILD_MODEL", "anthropic/claude-sonnet-5-5")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "16000")) 
 BUILD_TIMEOUT = 170
@@ -102,12 +102,14 @@ BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|н�
 BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
 BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает|вау|перелив|свет|неон|пульс|мерцан|градиент|стильн|современн|сделай так|хочу чтобы", re.I)
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
+# Регулярка для сложных проектов (игры, презентации)
+COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|змейк|сапёр|сапер|презентаци|слайд|3d|анимаци", re.I)
 
-# --- ПОДПИСКА PRO ---
+# --- ПОДПИСКА PRO (ОБНОВЛЕННЫЕ ЦЕНЫ) ---
 PLANS = {
-    "start":    {"title": "Старт",  "price": 650,  "units": 700,  "days": 30},
-    "pro":      {"title": "Про",    "price": 1200, "units": 1500, "days": 30},
-    "business": {"title": "Бизнес", "price": 2750, "units": 4000, "days": 30},
+    "start":    {"title": "Старт",  "price": 899,  "units": 700,  "days": 30},
+    "pro":      {"title": "Про",    "price": 1999, "units": 1500, "days": 30},
+    "business": {"title": "Бизнес", "price": 4999, "units": 4000, "days": 30},
 }
 PRO_WARN_LEFT = 100
 
@@ -328,7 +330,6 @@ def parse_build(raw):
     html = m.group(3).strip()
     html = re.sub(r"^```[a-zA-Z]*\s*", "", html); html = re.sub(r"\s*```$", "", html)
     
-    # МЯГКАЯ ПРОВЕРКА: если нет </html>, но есть </body>, просто дописываем
     if "</html>" not in html.lower():
         if "</body>" in html.lower() or "<script" in html.lower():
             html = html + "\n</html>"
@@ -1051,8 +1052,12 @@ async def ask(request: Request):
                 weight = BUILD_WEIGHT_EDIT  # 150 за правку
             else:
                 weight = BUILD_WEIGHT       # 100 за новую сборку
-                
+            
+            # ЗАЩИТА БЕСПЛАТНИКОВ: если сложный проект, не даем делать его бесплатно
             if not pro_pre["active"]:
+                if COMPLEX_RE.search(user_text):
+                    return JSONResponse({"text": "Сложные проекты (игры, презентации, 3D) доступны на платных тарифах. На бесплатной пробной сборке можно сделать только простой сайт-визитку.", "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+                
                 if trial_available(conn, uid):
                     trial = True
                     weight = 0
