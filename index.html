@@ -7,13 +7,19 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
 <style>
-    /* CSS-ФИКС ДЛЯ ЗАСТАВКИ */
-    #splash { position: fixed; inset: 0; background: #070B14; display: flex; align-items: center; justify-content: center; z-index: 950; animation: splashHide 0s ease-in 1.2s forwards; }
-    #splash .dot { width: 12px; height: 12px; border-radius: 50%; background: #6FE3F2; box-shadow: 0 0 40px 8px rgba(111,227,242,.6); animation: splashPulse 1.2s ease-in-out infinite; }
-    @keyframes splashPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.6); opacity: 1; } }
-    @keyframes splashHide { to { opacity: 0; visibility: hidden; display: none; } }
+    /* SPLASH */
+    #splash { position: fixed; inset: 0; z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(520px 380px at 50% 45%, rgba(217,179,106,.08), transparent 70%), #070B14; transition: opacity .5s ease, visibility 0s linear .5s; animation: splashHide .5s ease 1.8s forwards; }
+    #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+    #splash .mark { position: relative; width: 10px; height: 10px; border-radius: 50%; background: #F0D79A; box-shadow: 0 0 24px 4px rgba(217,179,106,.55); }
+    #splash .mark::before, #splash .mark::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1px solid rgba(240,215,154,.45); animation: splashRing 2.4s ease-out infinite; }
+    #splash .mark::after { animation-delay: 1.2s; }
+    #splash .word { font: 700 12px 'Manrope', system-ui, sans-serif; letter-spacing: .38em; padding-left: .38em; color: #A7B4CC; opacity: 0; animation: splashWord .5s ease .1s forwards; }
+    @keyframes splashRing { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(6); opacity: 0; } }
+    @keyframes splashWord { to { opacity: 1; } }
+    @keyframes splashHide { to { opacity: 0; visibility: hidden; pointer-events: none; } }
+    @media (prefers-reduced-motion: reduce) { #splash .mark::before, #splash .mark::after { animation: none; opacity: 0; } }
 
     :root {
         --c: #4FD1E8; --s: #9AF0FF; --su: #EEF3FA; --lc: #FFD166;
@@ -178,8 +184,6 @@
 
     /* HUD */
     #hud-panel { padding: 12px 16px; width: 100%; max-width: 450px; background: rgba(7,11,20,.82); backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%); display: flex; flex-direction: column; z-index: 20; padding-top: 10px; padding-bottom: max(16px, env(safe-area-inset-bottom)); flex-shrink: 0; border-top: 1px solid var(--ui-line); position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; transition: background .3s, border-color .3s; }
-    #chips { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
-    #chips::-webkit-scrollbar { display: none; }
     .chip { flex: none; font: 600 12px 'Manrope', system-ui, sans-serif; color: var(--ui-tx-mid); background: rgba(255,255,255,.04); border: 1px solid var(--ui-line); border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: all .2s; }
     .chip:hover  { color: var(--ui-tx-hi); border-color: var(--ui-cyan-dim); background: rgba(111,227,242,.06); }
     .chip:active { transform: scale(.96); }
@@ -272,8 +276,31 @@
     .dialog label { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-bottom: 16px; cursor: pointer; color: var(--ui-tx-mid); }
     .dialog .btns { display: flex; gap: 8px; }
     .dialog .btns button { flex: 1; }
-    #do-clear { background: linear-gradient(180deg, #E06060, #B84040); border: none; color: #FFF; font: 600 13px 'Manrope', system-ui, sans-serif; border-radius: 12px; padding: 9px 14px; cursor: pointer; box-shadow: 0 6px 20px -6px rgba(224,96,96,.5), inset 0 1px 0 rgba(255,255,255,.2); }
-    #do-clear:active { transform: scale(.97); }
+
+    /* iOS-стиль окна подтверждения */
+    #confirm { background: rgba(0,0,0,.45); backdrop-filter: blur(6px) saturate(120%); -webkit-backdrop-filter: blur(6px) saturate(120%); }
+    #confirm .dialog.ios-alert { max-width: 280px; padding: 0; border-radius: 16px; overflow: hidden; background: rgba(28,32,44,.96); border: 1px solid rgba(255,255,255,.06); box-shadow: 0 24px 60px -20px rgba(0,0,0,.8); transform: scale(1.08); opacity: 0; transition: transform .28s cubic-bezier(.2,.9,.3,1), opacity .2s ease; }
+    #confirm.open .dialog.ios-alert { transform: scale(1); opacity: 1; }
+    .ia-body { padding: 20px 18px 16px; text-align: center; }
+    .ios-alert h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+    .ios-alert p { margin: 0 0 14px; font-size: 13px; line-height: 1.4; color: var(--ui-tx-mid); }
+    .ia-check { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 12px; line-height: 1.3; color: var(--ui-tx-lo); text-align: left; cursor: pointer; -webkit-user-select: none; user-select: none; }
+    .ia-check input { position: absolute; opacity: 0; pointer-events: none; }
+    .ia-box { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.28); transition: background .2s, border-color .2s; position: relative; }
+    .ia-box::after { content: ''; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid #fff; border-width: 0 1.8px 1.8px 0; transform: rotate(45deg) scale(0); transition: transform .18s cubic-bezier(.3,1.6,.5,1); }
+    .ia-check input:checked + .ia-box { background: #0A84FF; border-color: #0A84FF; }
+    .ia-check input:checked + .ia-box::after { transform: rotate(45deg) scale(1); }
+    .ia-btns { display: flex; border-top: .5px solid rgba(255,255,255,.14); }
+    .ia-btn { flex: 1; height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #0A84FF; font: 400 16px 'Manrope', system-ui, -apple-system, sans-serif; cursor: pointer; transition: background .35s ease; outline: none; -webkit-tap-highlight-color: transparent; }
+    .ia-btn + .ia-btn { border-left: .5px solid rgba(255,255,255,.14); font-weight: 600; }
+    .ia-btn.danger { color: #FF453A; }
+    .ia-btn:active { background: rgba(255,255,255,.12); transition: background 0s; }
+    body.light-theme #confirm { background: rgba(0,0,0,.3); }
+    body.light-theme #confirm .dialog.ios-alert { background: rgba(250,250,252,.97); border-color: rgba(0,0,0,.06); }
+    body.light-theme .ia-btns, body.light-theme .ia-btn + .ia-btn { border-color: rgba(0,0,0,.14); }
+    body.light-theme .ia-btn:active { background: rgba(0,0,0,.08); }
+    body.light-theme .ia-box { border-color: rgba(0,0,0,.28); }
+    body.light-theme .ios-alert p, body.light-theme .ia-check { color: #64748B; }
 
     /* PRO PAYWALL */
     .pro-card{border-color:var(--ui-gold)!important;max-width:340px;text-align:center;background:radial-gradient(320px 220px at 50% 0,rgba(217,179,106,.24),transparent 70%),linear-gradient(180deg,#1A1C2E,#10162A)!important}
@@ -607,10 +634,116 @@
     #welcome .welcome-dots span.on { width: 34px; border-radius: 2px; background: #F5F3EC; box-shadow: none; }
     #welcome .wl-btn { width: 100%; height: 58px; padding: 0; border: none; border-radius: 999px; background: #F9F9F7; color: #161615; font: 700 17px 'Manrope', system-ui, sans-serif; box-shadow: none; cursor: pointer; }
     @media (prefers-reduced-motion: reduce) { .wl-ico::before, .wl-ico::after { animation: none; opacity: 0; } }
+
+    /* ===== Премиальные кнопки: плоские, без свечения, нажатие как на iPhone ===== */
+    .rpl-box, .rpl { display: none !important; }
+    .neon, .txtbtn.on.neon, .welcome-btn.neon { animation: none !important; }
+
+    .ibtn { background: rgba(255,255,255,.06); border: 0; border-radius: 12px; box-shadow: none; }
+    .ibtn:hover { border-color: transparent; }
+    #topbar .ibtn { background: rgba(22,28,44,.62); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); box-shadow: none; }
+    .txtbtn { background: rgba(255,255,255,.07); border: 0; box-shadow: none; }
+    .txtbtn:hover { background: rgba(255,255,255,.07); }
+    .txtbtn.on { background: var(--ui-gold); color: #1A1206; box-shadow: none; }
+    .chip:hover { color: var(--ui-tx-mid); border-color: var(--ui-line); background: rgba(255,255,255,.04); }
+    #send-btn { background: var(--ui-cyan); box-shadow: none; }
+    .welcome-btn { background: var(--ui-gold); box-shadow: none; }
+    .drow.pro .ibtn { color: var(--ui-gold-hi); }
+    body.light-theme .ibtn { border: 0; }
+    body.light-theme #topbar .ibtn { background: rgba(255,255,255,.8); }
+    body.light-theme .txtbtn { border: 0; background: #EEF2F6; }
+    body.light-theme .txtbtn.on { background: var(--ui-gold); }
+
+    /* Нажатие: лёгкое уменьшение + приглушение, плавный возврат */
+    button:not(.ia-btn), .ibtn, .txtbtn, .chip { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: scale .4s cubic-bezier(.2,.8,.2,1), opacity .4s ease, background-color .25s ease, color .2s ease, border-color .2s ease; }
+    button:not(.ia-btn):not(:disabled):active, .ibtn:active, .txtbtn:active, .chip:active { scale: .95; opacity: .6; transition-duration: .06s; }
+    .ibtn:active, .chip:active, .txtbtn:active, #send-btn:active, .welcome-btn:active, #att-btn:active, .copy-btn:active, .plan-btn:active, .pl-main:active, .pl-alt:active, #vv-bar .pill:active, .code-copy:active { transform: none; }
+    /* Строки меню и истории: подсветка как в iOS — мгновенно появляется, плавно гаснет */
+    .drow, .hi { transition: background-color .45s ease; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    .drow:active, .hi:active { background-color: rgba(255,255,255,.09); transition-duration: 0s; }
+    body.light-theme .drow:active, body.light-theme .hi:active { background-color: rgba(0,0,0,.06); }
+
+    /* WELCOME: единая палитра с приложением (navy + gold) */
+    #welcome { background: radial-gradient(560px 420px at 50% 38%, rgba(217,179,106,.09), transparent 70%), linear-gradient(180deg, #070B14 0%, #0B1120 100%); }
+    .wl-brand { color: #A7B4CC; }
+    .wl-brand i { background: var(--ui-gold-hi); box-shadow: 0 0 12px 2px rgba(217,179,106,.55); }
+    #welcome .welcome-skip { color: #7C8AA5; }
+    #welcome .welcome-skip:hover { color: #EAF0FA; }
+    .wl-ico { color: var(--ui-gold-hi); background: radial-gradient(circle at 50% 35%, rgba(240,215,154,.14), rgba(255,255,255,.02) 70%); border-color: rgba(240,215,154,.3); box-shadow: 0 0 60px -10px rgba(217,179,106,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+    .wl-step { color: rgba(217,179,106,.75); }
+    #welcome h1 { font-family: 'Playfair Display', ui-serif, Georgia, 'Times New Roman', serif; font-weight: 500; font-size: 34px; line-height: 1.14; color: #EAF0FA; }
+    #welcome h1 em { color: var(--ui-gold-hi); }
+    #welcome p { color: #A7B4CC; }
+    #welcome .welcome-dots span { background: rgba(255,255,255,.12); }
+    #welcome .welcome-dots span.on { background: var(--ui-gold-hi); }
+    #welcome .wl-btn { height: 56px; background: linear-gradient(180deg, var(--ui-gold-hi), var(--ui-gold)); color: #1A1206; box-shadow: 0 14px 34px -14px rgba(217,179,106,.6), inset 0 1px 0 rgba(255,255,255,.4); }
+    #welcome .welcome-slide { animation: none; }
+    #welcome .welcome-slide > * { animation: wlUp .6s cubic-bezier(.2,.8,.2,1) both; }
+    #welcome .welcome-slide > :nth-child(2) { animation-delay: .06s; }
+    #welcome .welcome-slide > :nth-child(3) { animation-delay: .12s; }
+    #welcome .welcome-slide > :nth-child(4) { animation-delay: .18s; }
+    @keyframes wlUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { #welcome .welcome-slide > * { animation: none; } }
+
+    /* ЧАТ: пузыри и поле ввода (premium) */
+    /* 1. Без аватара и подписи у каждого сообщения; строка «думает» со своим аватаром остаётся.
+          Чтобы вернуть аватары, удалите это одно правило. */
+    .msg-row:not(.thk) > .avatar, .msg-row:not(.thk) .lbl { display: none; }
+    #chat-history { gap: 14px; }
+    .msg-row.user + .msg-row.user, .msg-row.bot + .msg-row.bot { margin-top: -6px; }
+
+    /* 2. Сообщения пользователя: спокойный навигационный пузырь без неоновой полосы */
+    .msg-row.user { max-width: 84%; }
+    .msg-row.user .message { background: #1B2640; border: 1px solid rgba(255,255,255,.07); border-radius: 20px 20px 6px 20px; box-shadow: none; padding: 10px 15px; font-size: 16px; line-height: 1.5; }
+    body.light-theme .msg-row.user .message { background: #E8EEF6; border-color: rgba(15,23,42,.06); }
+    .message.has-img .cap { background: #1B2640; }
+    body.light-theme .message.has-img .cap { background: #E8EEF6; }
+
+    /* 3. Ответы бота: чистый текст, чуть больше воздуха между строками */
+    .msg-row.bot .message { font-size: 16.5px; line-height: 1.62; color: #DCE4F2; }
+    body.light-theme .msg-row.bot .message { color: #1E293B; }
+
+    /* 4. Время: тише, и только у последнего сообщения в серии */
+    .tm { font-size: 10.5px; opacity: .75; margin: 5px 6px 0; }
+    .msg-row.user:has(+ .msg-row.user) .tm, .msg-row.bot:has(+ .msg-row.bot) .tm { display: none; }
+
+    /* 5. Индикатор набора и код: нейтральные, в цветах приложения */
+    .typing span { background: var(--ui-tx-mid); }
+    body:not(.light-theme) .code-blk { background: #0A0F1D; border: 1px solid var(--ui-line); border-radius: 14px; }
+    body:not(.light-theme) .code-hd { background: rgba(255,255,255,.03); border-bottom: 1px solid var(--ui-line); }
+    body:not(.light-theme) code.ic { background: rgba(255,255,255,.07); border-color: var(--ui-line); }
+
+    /* 6. Нижняя панель: без полосы и линии, чат плавно растворяется под полем */
+    #hud-panel { border-top: 0; background: linear-gradient(180deg, rgba(7,11,20,0) 0, rgba(7,11,20,.92) 26px, rgba(7,11,20,.96)); backdrop-filter: none; -webkit-backdrop-filter: none; padding-top: 22px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    body.light-theme #hud-panel { border: 0; background: linear-gradient(180deg, rgba(240,244,248,0) 0, rgba(240,244,248,.93) 26px, rgba(240,244,248,.96)); }
+
+    /* 7. Поле ввода: лёгкая рамка, подъём тенью, золотой фокус */
+    .input-container { background: rgba(255,255,255,.09); box-shadow: 0 14px 32px -14px rgba(0,0,0,.8); }
+    .input-inner { background: #111A2E; }
+    .input-container:focus-within { background: rgba(217,179,106,.55); box-shadow: 0 0 0 4px rgba(217,179,106,.10), 0 14px 32px -14px rgba(0,0,0,.8); }
+    body:not(.light-theme) #user-input { caret-color: var(--ui-gold-hi); }
+    body.light-theme #user-input { caret-color: #B7791F; }
+    body.light-theme .input-container { background: rgba(15,23,42,.12); box-shadow: 0 12px 28px -14px rgba(15,23,42,.25); }
+    body.light-theme .input-container:focus-within { background: rgba(183,121,31,.6); box-shadow: 0 0 0 4px rgba(183,121,31,.10), 0 12px 28px -14px rgba(15,23,42,.25); }
+
+    /* 8. Скрепка тише; «Отправить» золотая, а пока поле пустое приглушена */
+    #att-btn, body.light-theme #att-btn { background: transparent; color: var(--ui-tx-mid); }
+    #send-btn { background: var(--ui-gold); color: #1A1206; box-shadow: none; }
+    #user-input:placeholder-shown + #send-btn { background: rgba(255,255,255,.08); color: var(--ui-tx-lo); }
+    body.light-theme #user-input:placeholder-shown + #send-btn { background: rgba(15,23,42,.06); color: #64748B; }
+
+    /* 9. Статус-строка: не занимает место, всплывает только при офлайне или близком лимите */
+    #hud-status { display: none; position: absolute; left: 20px; right: 20px; top: 4px; margin: 0; padding: 0; font-size: 11px; letter-spacing: 0; text-transform: none; pointer-events: none; }
+    #hud-status.on { display: flex; }
+    #hud-status span { padding: 3px 10px; border-radius: 999px; background: rgba(13,20,38,.92); border: 1px solid var(--ui-line); }
+    #hud-status span:empty { display: none; }
+    #hud-status:not(.near) #cnt { display: none; }
+    #cnt { margin-left: auto; color: var(--ui-gold-hi); }
+    body.light-theme #hud-status span { background: rgba(255,255,255,.95); border-color: #E2E8F0; }
 </style>
 </head>
 <body>
-<div id="splash"><div class="dot"></div></div>
+<div id="splash"><div class="mark"></div><div class="word">HOLO FRIEND</div></div>
 
 <div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
 
@@ -736,17 +869,16 @@
 <div id="chat-history"></div>
 <button id="down-btn" type="button" aria-label="Вниз"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
 <div id="hud-panel">
-    <div id="chips"><button class="chip" data-say="Станцуй">Станцуй</button><button class="chip" data-say="Поиграем">Поиграем</button><button class="chip" data-shop="1">Магазин</button></div>
     <div id="att-prev"></div>
     <input type="file" id="att-input" hidden accept="image/*,.pdf,.docx,.xlsx,.txt,.md,.csv,.json,.xml,.yml,.yaml,.log,.py,.js,.ts,.html,.css,.java,.c,.cpp,.cs,.go,.php,.sql,text/*">
     <div class="input-container">
         <div class="input-inner">
             <button id="att-btn" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-            <input type="text" id="user-input" placeholder="Напиши сообщение..." autocomplete="off" maxlength="500" enterkeyhint="send">
+            <input type="text" id="user-input" placeholder="Опиши идею или задай вопрос…" autocomplete="off" maxlength="500" enterkeyhint="send">
             <button id="send-btn" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         </div>
     </div>
-    <div id="hud-status"><span id="net">СВЯЗЬ: ОНЛАЙН</span><span id="cnt">0 / 500</span></div>
+    <div id="hud-status"><span id="net"></span><span id="cnt">0 / 500</span></div>
 </div>
 <div id="shop" class="overlay">
   <div id="shop-head">
@@ -801,13 +933,15 @@
   <div id="inv-list" class="pane"></div>
 </div>
 <div id="confirm" class="overlay">
-  <div class="dialog">
-    <h3>Удалить чат?</h3>
-    <p>Вся переписка исчезнет. Вернуть её будет нельзя.</p>
-    <label><input type="checkbox" id="forget" style="margin-top:2px"><span>Забыть и то, что бот запомнил обо мне</span></label>
-    <div class="btns">
-      <button class="txtbtn" id="cancel-clear">Отмена</button>
-      <button id="do-clear">Удалить</button>
+  <div class="dialog ios-alert" role="alertdialog" aria-labelledby="confirm-title">
+    <div class="ia-body">
+      <h3 id="confirm-title">Удалить чат?</h3>
+      <p>Вся переписка исчезнет. Вернуть её будет нельзя.</p>
+      <label class="ia-check"><input type="checkbox" id="forget"><i class="ia-box" aria-hidden="true"></i><span>Забыть и то, что бот запомнил обо мне</span></label>
+    </div>
+    <div class="ia-btns">
+      <button type="button" class="ia-btn" id="cancel-clear">Отмена</button>
+      <button type="button" class="ia-btn danger" id="do-clear">Удалить</button>
     </div>
   </div>
 </div>
@@ -1333,7 +1467,7 @@ let editTarget = null;
 function setEditTarget(v){
     editTarget = v || null;
     document.body.classList.toggle('editing', !!v);
-    input.placeholder = v ? 'Опиши, что изменить… (или «отмена»)' : 'Напиши сообщение...';
+    input.placeholder = v ? 'Опиши, что изменить… (или «отмена»)' : 'Опиши идею или задай вопрос…';
 }
 chatHistory.addEventListener('click', e => {
     const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
@@ -1776,7 +1910,7 @@ async function sendMessage(text) {
     const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
 
     if (text.toLowerCase() === '/admin' && userId() === ADMIN_ID) {
-        input.value = ''; $('cnt').textContent = '0 / 500';
+        input.value = ''; $('cnt').textContent = '0 / 500'; syncHud();
         openAdmin();
         return;
     }
@@ -1787,7 +1921,7 @@ async function sendMessage(text) {
     const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind } : null;
     if (fileInfo) IMGDB.put(fileInfo.id, attToBlob(att));
     addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo);
-    input.value = ''; $('cnt').textContent = '0 / 500';
+    input.value = ''; $('cnt').textContent = '0 / 500'; syncHud();
     input.readOnly = true;
     sendBtn.disabled = true;
     Snd.click();
@@ -2074,12 +2208,13 @@ async function sendMessage(text) {
 }
 sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
 input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
-[sendBtn, $('att-btn'), $('chips')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
+[sendBtn, $('att-btn')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
 input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
 input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 900); onViewportLive(false); [0, 120, 350, 600].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
-$('chips').addEventListener('click', e => { if (e.target.closest('[data-shop]')) { openShop(); return; } const b = e.target.closest('button[data-say]'); if (b) sendMessage(b.dataset.say); });
-function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? 'СВЯЗЬ: ОНЛАЙН' : 'СВЯЗЬ: НЕТ СЕТИ'; el.style.color = on ? '' : '#FF9E9E'; }
+function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? '' : 'Нет соединения'; el.style.color = on ? '' : '#FF9E9E'; }
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
+function syncHud(){ const h = $('hud-status'); if (!h) return; const near = input.value.length > 400, off = !navigator.onLine; h.classList.toggle('near', near); h.classList.toggle('on', near || off); }
+input.addEventListener('input', syncHud); addEventListener('online', syncHud); addEventListener('offline', syncHud); syncHud();
 input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
 const confirmBox = $('confirm');
 $('clear-btn').addEventListener('click', () => { if (!isSending) confirmBox.classList.add('open'); });
@@ -2554,19 +2689,8 @@ $('drawer').addEventListener('click', e => {
 });
 setInterval(() => $('menu-btn').classList.toggle('has', ['shop-btn', 'pro-btn'].some(i => $(i).classList.contains('has'))), 1000);
 
-// Ripple
-addEventListener('pointerdown', e => {
-  const t = e.target.closest('.ibtn,.txtbtn,.chip,.welcome-btn,#send-btn,.drow,#do-clear');
-  if (!t || t.disabled) return;
-  let bx = t.querySelector(':scope > .rpl-box');
-  if (!bx){ bx = document.createElement('span'); bx.className = 'rpl-box'; t.appendChild(bx); }
-  const r = t.getBoundingClientRect(), s = Math.max(r.width, r.height) * 2;
-  const d = document.createElement('i');
-  d.className = 'rpl' + (t.classList.contains('on') || t.classList.contains('welcome-btn') ? ' gold' : '');
-  d.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - r.left - s / 2}px;top:${e.clientY - r.top - s / 2}px`;
-  bx.appendChild(d); setTimeout(() => d.remove(), 650);
-  t.classList.remove('neon'); void t.offsetWidth; t.classList.add('neon'); setTimeout(() => t.classList.remove('neon'), 450);
-}, { passive: true });
+// iOS: чтобы :active срабатывал в WebView
+document.addEventListener('touchstart', function(){}, { passive: true });
 
 // ЗВУК
 const sndBtn = $('snd-btn');
@@ -2676,7 +2800,7 @@ setInterval(ping, 60000); ping();
 ensureQuests(); renderBal(); updateDots();
 setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная награда: магазин → «Бонусы»'); }, 2500);
 
-setTimeout(() => { const s = $('splash'); if (s) s.classList.add('hide'); }, 700);
+setTimeout(() => { const s = $('splash'); if (s) s.classList.add('hide'); }, 900);
 
 (function initWelcome(){
     const KEY = 'welcome_done_v2';
