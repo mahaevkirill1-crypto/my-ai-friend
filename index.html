@@ -541,7 +541,7 @@
     #down-btn.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
     body.light-theme #down-btn{background:rgba(255,255,255,.95)}
 
-    /* ПЛАНЫ: экран выбора как в приложении Claude */
+    /* ПЛАНЫ: экран выбора плана */
     #pro { align-items: stretch; justify-content: flex-start; flex-direction: column; padding: 0; z-index: 90; background: linear-gradient(180deg, #121212 0%, #141312 55%, #2c1f1b 100%); backdrop-filter: none; -webkit-backdrop-filter: none; color: #EDEBE4; }
     .pl-x { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.1); color: #EDEBE4; font-size: 16px; cursor: pointer; z-index: 2; }
     .pl-head { flex: none; text-align: center; padding: calc(52px + env(safe-area-inset-top)) 16px 0; }
@@ -742,7 +742,7 @@
     body.light-theme #hud-status span { background: rgba(255,255,255,.95); border-color: #E2E8F0; }
 
     /* ==========================================================
-       ТЕМА «CLAUDE»: тёплая бумага / тёплый уголь, терракотовый акцент,
+       ТЕМА «WARM»: тёплая бумага / тёплый уголь, терракотовый акцент,
        плоские поверхности, serif в ответах. Блок переопределяет всё выше.
        Чтобы откатить дизайн, удалите этот блок целиком.
        ========================================================== */
@@ -939,7 +939,7 @@
     :root:root body .dr-tabs .txtbtn, :root:root body #drawer .tabs .txtbtn { color: var(--ui-tx-hi); border: 1px solid var(--ui-line-hi); background: transparent; }
     :root:root body #drawer .tabs .txtbtn.on { background: var(--cl-acc); color: var(--cl-acc-fg); border-color: transparent; }
 
-    /* ===== Нажатие как в Claude: быстрое сжатие, пружинистый возврат ===== */
+    /* ===== Нажатие кнопок: быстрое сжатие, пружинистый возврат ===== */
     :root:root body :is(button:not(.ia-btn):not(#down-btn), .ibtn, .txtbtn, .chip, .gi, .pl-seg button, .wd, .code-copy, .copy-btn, #send-btn, #att-btn) {
         scale: 1; opacity: 1; transform: none;
         transition: transform .38s cubic-bezier(.34,1.56,.64,1), background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .2s ease;
@@ -990,7 +990,7 @@
     :root:root body #att-btn { border-radius: 8px; }
     :root:root body .welcome-btn, :root:root body .wl-btn, :root:root body #welcome .wl-btn, :root:root body .pl-main, :root:root body .pl-alt { border-radius: 10px; }
 
-    /* ===== Панели как в приложении Claude: боковая панель с push-эффектом и экран настроек ===== */
+    /* ===== Панели: боковая панель с push-эффектом и экран настроек ===== */
     :root { --pw: min(84vw, 320px); --cl-pill: #FAF9F5; --cl-pill-fg: #141413; }
     body.light-theme { --cl-pill: #141413; --cl-pill-fg: #FAF9F5; }
     body.hp { --push: var(--pw); }
