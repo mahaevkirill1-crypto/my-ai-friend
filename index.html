@@ -7,7 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
 <style>
     /* SPLASH */
     #splash { position: fixed; inset: 0; z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(520px 380px at 50% 45%, rgba(217,179,106,.08), transparent 70%), #070B14; transition: opacity .5s ease, visibility 0s linear .5s; animation: splashHide .5s ease 1.8s forwards; }
@@ -655,8 +655,8 @@
     body.light-theme .txtbtn.on { background: var(--ui-gold); }
 
     /* Нажатие: лёгкое уменьшение + приглушение, плавный возврат */
-    button:not(.ia-btn), .ibtn, .txtbtn, .chip { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: scale .4s cubic-bezier(.2,.8,.2,1), opacity .4s ease, background-color .25s ease, color .2s ease, border-color .2s ease; }
-    button:not(.ia-btn):not(:disabled):active, .ibtn:active, .txtbtn:active, .chip:active { scale: .95; opacity: .6; transition-duration: .06s; }
+    button:not(.ia-btn):not(#down-btn), .ibtn, .txtbtn, .chip { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: scale .4s cubic-bezier(.2,.8,.2,1), opacity .4s ease, background-color .25s ease, color .2s ease, border-color .2s ease; }
+    button:not(.ia-btn):not(#down-btn):not(:disabled):active, .ibtn:active, .txtbtn:active, .chip:active { scale: .95; opacity: .6; transition-duration: .06s; }
     .ibtn:active, .chip:active, .txtbtn:active, #send-btn:active, .welcome-btn:active, #att-btn:active, .copy-btn:active, .plan-btn:active, .pl-main:active, .pl-alt:active, #vv-bar .pill:active, .code-copy:active { transform: none; }
     /* Строки меню и истории: подсветка как в iOS — мгновенно появляется, плавно гаснет */
     .drow, .hi { transition: background-color .45s ease; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
@@ -740,6 +740,335 @@
     #hud-status:not(.near) #cnt { display: none; }
     #cnt { margin-left: auto; color: var(--ui-gold-hi); }
     body.light-theme #hud-status span { background: rgba(255,255,255,.95); border-color: #E2E8F0; }
+
+    /* ==========================================================
+       ТЕМА «CLAUDE»: тёплая бумага / тёплый уголь, терракотовый акцент,
+       плоские поверхности, serif в ответах. Блок переопределяет всё выше.
+       Чтобы откатить дизайн, удалите этот блок целиком.
+       ========================================================== */
+    :root {
+        --cl-rgb: 38,38,36;
+        --cl-side: #1F1E1D; --cl-card: #30302E; --cl-user: #1F1E1D; --cl-field: #30302E;
+        --cl-code: #1F1E1D; --cl-hover: rgba(250,249,245,.06); --cl-btn: rgba(250,249,245,.07);
+        --cl-acc: #D97757; --cl-acc-hi: #E8906E; --cl-acc-fg: #FFFFFF; --cl-acc-soft: rgba(217,119,87,.14);
+        --cl-shadow: 0 6px 24px -10px rgba(0,0,0,.55);
+        --cl-serif: 'Source Serif 4', ui-serif, Georgia, 'Times New Roman', serif;
+        --ui-bg-0:#262624; --ui-bg-1:#30302E; --ui-bg-2:#30302E; --ui-bg-3:#3A3A37;
+        --ui-tx-hi:#FAF9F5; --ui-tx-mid:#C2C0B6; --ui-tx-lo:#938F85;
+        --ui-gold:#D97757; --ui-gold-hi:#E8906E; --ui-cyan:#D97757; --ui-cyan-dim:#B85C3E;
+        --ui-rose:#D9A09A; --ui-danger:#E0675C;
+        --ui-line:rgba(222,220,209,.12); --ui-line-hi:rgba(222,220,209,.22);
+    }
+    body.light-theme {
+        --cl-rgb: 250,249,245;
+        --cl-side: #F5F4ED; --cl-card: #FFFFFF; --cl-user: #F0EEE6; --cl-field: #FFFFFF;
+        --cl-code: #F0EEE6; --cl-hover: rgba(20,20,19,.045); --cl-btn: rgba(20,20,19,.05);
+        --cl-acc: #C6613F; --cl-acc-hi: #B05730; --cl-acc-fg: #FFFFFF; --cl-acc-soft: rgba(198,97,63,.1);
+        --cl-shadow: 0 6px 24px -12px rgba(20,20,19,.18);
+        --ui-bg-0:#FAF9F5; --ui-bg-1:#FFFFFF; --ui-bg-2:#F0EEE6; --ui-bg-3:#E8E6DC;
+        --ui-tx-hi:#141413; --ui-tx-mid:#4A4943; --ui-tx-lo:#73726C;
+        --ui-gold:#C6613F; --ui-gold-hi:#B05730; --ui-cyan:#C6613F; --ui-cyan-dim:#A64F30;
+        --ui-rose:#B9605A; --ui-danger:#C0392B;
+        --ui-line:rgba(31,30,29,.12); --ui-line-hi:rgba(31,30,29,.2);
+    }
+
+    /* фон и шрифты */
+    html, body, body.light-theme { background: var(--ui-bg-0); }
+    html, body { font-family: 'Manrope', system-ui, -apple-system, sans-serif; }
+    #splash { background: var(--ui-bg-0); }
+    #splash .mark { background: var(--cl-acc); box-shadow: none; }
+    #splash .mark::before, #splash .mark::after { border-color: var(--cl-acc); }
+    #splash .word { color: var(--ui-tx-lo); }
+    body:not(.light-theme) #splash { background: #262624; }
+
+    /* кнопки: плоские, 10px, без свечения */
+    :root:root body .ibtn { background: transparent; border: 0; border-radius: 10px; color: var(--ui-tx-mid); box-shadow: none; }
+    :root:root body .ibtn:hover { color: var(--ui-tx-hi); background: var(--cl-hover); }
+    :root:root body #topbar .ibtn, :root:root body #hist-btn { background: rgba(var(--cl-rgb),.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--ui-line); color: var(--ui-tx-hi); box-shadow: none; border-radius: 12px; }
+    :root:root body .txtbtn { background: transparent; border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 10px; box-shadow: none; font-weight: 600; }
+    :root:root body .txtbtn:hover { background: var(--cl-hover); }
+    :root:root body .txtbtn.on, :root:root body .tabs .txtbtn.on, :root:root body #shop-tabs .txtbtn.on, :root:root body .dr-tabs .txtbtn.on { background: var(--cl-acc); border-color: transparent; color: var(--cl-acc-fg); box-shadow: none; }
+    :root:root body .txtbtn:disabled { opacity: .45; }
+    :root:root body .chip { background: transparent; border: 1px solid var(--ui-line-hi); color: var(--ui-tx-mid); }
+    :root:root body .chip:hover { background: var(--cl-hover); color: var(--ui-tx-hi); border-color: var(--ui-line-hi); }
+    :root:root body .welcome-btn, :root:root body .wl-btn, :root:root body #welcome .wl-btn { background: var(--cl-acc); color: var(--cl-acc-fg); box-shadow: none; border-radius: 14px; }
+    :root:root body #drawer .txtbtn { border-radius: 10px; }
+
+    /* панели: меню и история */
+    :root:root body #drawer, :root:root body #hist-panel { background: var(--cl-side); border-color: var(--ui-line); box-shadow: none; }
+    #drawer-bg, #hist-bg { background: rgba(20,20,19,.5); backdrop-filter: blur(2px); }
+    :root:root body .drow { color: var(--ui-tx-hi); border-radius: 10px; font-weight: 500; }
+    :root:root body .drow:active, :root:root body .hi:active { background-color: var(--cl-hover); }
+    :root:root body .drow.pro { background: var(--cl-acc-soft); border-color: transparent; }
+    :root:root body .drow.pro .ibtn { color: var(--cl-acc); background: transparent; }
+    :root:root body .drow.footer { color: var(--ui-tx-lo); background: none; }
+    :root:root body .hi { background: transparent; border-color: transparent; border-radius: 10px; }
+    :root:root body .hi-title, :root:root body #hist-panel .hp-head { color: var(--ui-tx-hi); }
+    :root:root body #hist-panel .hp-head { font-family: var(--cl-serif); font-weight: 500; font-size: 19px; }
+    :root:root body .hi-del { color: var(--ui-danger); border-color: var(--ui-line); }
+    .pav { background-color: var(--ui-bg-3); border: 1px solid var(--ui-line-hi); color: var(--cl-acc); font-family: var(--cl-serif); font-weight: 500; }
+    .pav.pro { border-color: var(--cl-acc); box-shadow: none; }
+    :root:root body .pname { font-family: var(--cl-serif); font-weight: 500; font-size: 20px; color: var(--ui-tx-hi); }
+    :root:root body .puser { color: var(--ui-tx-lo); }
+    :root:root body .pbal { color: var(--cl-acc-hi); }
+    :root:root body .pst { background: var(--cl-card); border-color: var(--ui-line); border-radius: 12px; }
+    :root:root body .pst b { color: var(--ui-tx-hi); } :root:root body .pst span { color: var(--ui-tx-lo); }
+
+    /* чат: ответы — serif-текст, сообщения пользователя — спокойный пузырь */
+    :root:root body .msg-row.bot .message { font-family: var(--cl-serif); font-size: 17px; line-height: 1.62; color: var(--ui-tx-hi); background: none; border: 0; box-shadow: none; letter-spacing: 0; }
+    :root:root body .msg-row.user .message { background: var(--cl-user); border: 1px solid var(--ui-line); border-radius: 18px; color: var(--ui-tx-hi); box-shadow: none; font-size: 16px; }
+    :root:root body .message.has-img .cap { background: var(--cl-user); }
+    :root:root body .tm { color: var(--ui-tx-lo); }
+    :root:root body .typing span { background: var(--ui-tx-lo); }
+    :root:root body .message.has-file::after { color: var(--cl-acc); }
+    :root:root body .shimmer, :root:root body body.light-theme .shimmer { background-image: linear-gradient(100deg, var(--ui-tx-lo) 0%, var(--ui-tx-lo) 35%, var(--cl-acc) 50%, var(--ui-tx-lo) 65%, var(--ui-tx-lo) 100%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; }
+    :root:root body .avatar { background: var(--ui-bg-3); border: 1px solid var(--ui-line-hi); color: var(--cl-acc); }
+    :root:root body .avatar.thinking { border: 0; }
+    :root:root body .avatar.thinking::before { background: conic-gradient(from 0deg, transparent 0deg, transparent 190deg, var(--cl-acc) 320deg, transparent 360deg); }
+    :root:root body .avatar.thinking::after { background: var(--ui-bg-0); }
+    @keyframes avBreath { 0%,100% { box-shadow: none; transform: none; } 50% { box-shadow: 0 0 0 3px var(--cl-acc-soft); transform: translateY(-1px); } }
+    :root:root body #bub, :root:root body body.light-theme #bub { background: rgba(var(--cl-rgb),.94); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 14px; box-shadow: var(--cl-shadow); font-family: var(--cl-serif); font-size: 14px; }
+    :root:root body #down-btn { background: var(--cl-card); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-mid); box-shadow: var(--cl-shadow); backdrop-filter: none; }
+    :root:root body #chat-history { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent); }
+
+    /* код */
+    :root:root body .code-blk { background: var(--cl-code); border: 1px solid var(--ui-line); border-radius: 12px; }
+    :root:root body .code-hd { background: transparent; border-bottom: 1px solid var(--ui-line); }
+    :root:root body .code-lang { color: var(--ui-tx-lo); }
+    :root:root body .code-copy, :root:root body .copy-btn { background: transparent; border-color: var(--ui-line); color: var(--ui-tx-mid); }
+    :root:root body code.ic { background: var(--cl-code); border: 1px solid var(--ui-line); color: var(--ui-tx-hi); }
+
+    /* нижняя панель и поле ввода */
+    :root:root body #hud-panel { background: linear-gradient(180deg, rgba(var(--cl-rgb),0) 0, rgba(var(--cl-rgb),.94) 24px, rgb(var(--cl-rgb))); border: 0; }
+    :root:root body .input-container { background: var(--ui-line-hi); border-radius: 24px; padding: 1px; box-shadow: var(--cl-shadow); }
+    :root:root body .input-container:focus-within { background: var(--cl-acc); box-shadow: 0 0 0 3px var(--cl-acc-soft), var(--cl-shadow); }
+    :root:root body .input-inner { background: var(--cl-field); border-radius: 23px; padding: 6px; }
+    :root:root body #user-input { color: var(--ui-tx-hi); -webkit-text-fill-color: var(--ui-tx-hi); caret-color: var(--cl-acc); font-family: 'Manrope', system-ui, sans-serif; }
+    :root:root body #user-input::placeholder { color: var(--ui-tx-lo); -webkit-text-fill-color: var(--ui-tx-lo); }
+    :root:root body #att-btn { background: transparent; color: var(--ui-tx-mid); border-radius: 10px; }
+    :root:root body #send-btn { background: var(--cl-acc); color: var(--cl-acc-fg); border-radius: 12px; box-shadow: none; }
+    :root:root body #user-input:placeholder-shown + #send-btn { background: var(--cl-btn); color: var(--ui-tx-lo); }
+    :root:root body #att-prev { background: var(--cl-card); border-color: var(--ui-line); }
+    :root:root body #hud-status span { background: var(--cl-card); border-color: var(--ui-line); color: var(--ui-tx-mid); }
+    :root:root body #cnt { color: var(--cl-acc-hi); }
+    body.editing #user-input { box-shadow: none; }
+
+    /* магазин и карточки */
+    :root:root body #shop { background: var(--ui-bg-0); }
+    :root:root body #shop-head { background: rgba(var(--cl-rgb),.9); border-color: var(--ui-line); }
+    :root:root body #shop-head h2 { font-family: var(--cl-serif); font-weight: 500; font-size: 22px; }
+    :root:root body .bal, :root:root body #shop-head .bal, :root:root body .price, :root:root body .res, :root:root body .gi .pr { color: var(--cl-acc-hi); }
+    :root:root body .card, :root:root body .try, :root:root body .case, :root:root body .bcard, :root:root body .dropbox, :root:root body .dialog { background: var(--cl-card); border: 1px solid var(--ui-line); border-radius: 16px; box-shadow: none; }
+    :root:root body .name, :root:root body .bt { font-weight: 600; color: var(--ui-tx-hi); }
+    :root:root body .desc, :root:root body .bs { color: var(--ui-tx-mid); }
+    :root:root body .sect { color: var(--ui-tx-lo); }
+    :root:root body .gi { background: transparent; border-color: var(--ui-line); color: var(--ui-tx-mid); border-radius: 12px; }
+    :root:root body .gi:hover { background: var(--cl-hover); border-color: var(--ui-line-hi); }
+    :root:root body .gi.sel { border-color: var(--cl-acc); background: var(--cl-acc-soft); color: var(--ui-tx-hi); }
+    :root:root body .gi .own { color: var(--cl-acc); }
+    :root:root body .wd { background: var(--cl-btn); color: var(--ui-tx-lo); border-radius: 8px; }
+    :root:root body .wd.f { background: var(--cl-acc); color: var(--cl-acc-fg); box-shadow: none; }
+    :root:root body .wd.t { border: 1px solid var(--cl-acc); color: var(--cl-acc-hi); background: var(--cl-acc-soft); }
+    :root:root body .bar { background: var(--cl-btn); }
+    :root:root body .bar i { background: var(--cl-acc); }
+    :root:root body .q { border-top-color: var(--ui-line); }
+    :root:root body .txtbtn.has .dot, :root:root body .txtbtn .dot { background: var(--cl-acc); box-shadow: none; }
+
+    /* окна и уведомления */
+    :root:root body #toast { background: var(--cl-card); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 14px; box-shadow: var(--cl-shadow); backdrop-filter: none; }
+    #confirm, #support-modal, #drop { background: rgba(20,20,19,.5); backdrop-filter: blur(3px); }
+    :root:root body #confirm .dialog.ios-alert { background: var(--cl-card); border: 1px solid var(--ui-line-hi); border-radius: 18px; box-shadow: var(--cl-shadow); }
+    :root:root body .ios-alert h3 { font-family: var(--cl-serif); font-weight: 500; font-size: 19px; color: var(--ui-tx-hi); }
+    :root:root body .ios-alert p, :root:root body .ia-check { color: var(--ui-tx-mid); }
+    :root:root body .ia-btns, :root:root body .ia-btn + .ia-btn { border-color: var(--ui-line); }
+    :root:root body .ia-btn { color: var(--ui-tx-hi); font-weight: 500; }
+    :root:root body .ia-btn + .ia-btn { color: var(--cl-acc); font-weight: 600; }
+    :root:root body .ia-btn.danger { color: var(--ui-danger); }
+    :root:root body .ia-btn:active { background: var(--cl-hover); }
+    :root:root body .ia-box { border-color: var(--ui-line-hi); }
+    :root:root body .ia-check input:checked + .ia-box { background: var(--cl-acc); border-color: var(--cl-acc); }
+    :root:root body .dialog h3 { font-family: var(--cl-serif); font-weight: 500; font-size: 20px; }
+    :root:root body #support-modal textarea { background: var(--ui-bg-0); border-color: var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 12px; }
+    #visview { background: var(--ui-bg-0); }
+    :root:root body #vv-bar { color: var(--ui-tx-hi); background: rgba(var(--cl-rgb),.92); }
+    :root:root body #vv-bar .pill, :root:root body #vv-close { background: var(--cl-btn); color: var(--ui-tx-hi); }
+    :root:root body #vv-bar #vv-apply { background: var(--cl-acc); color: var(--cl-acc-fg); }
+    :root:root body .vis-frame { border-color: var(--ui-line-hi); border-radius: 12px; }
+
+    /* выбор плана (Pro): теперь следует теме */
+    :root:root body #pro { background: var(--ui-bg-0); }
+    :root:root body .pl-x { background: var(--cl-btn); color: var(--ui-tx-hi); }
+    :root:root body .pl-title, :root:root body .pl-name { font-family: var(--cl-serif); font-weight: 500; color: var(--ui-tx-hi); }
+    :root:root body .pl-seg { background: var(--cl-btn); border: 0; }
+    :root:root body .pl-seg button { color: var(--ui-tx-mid); }
+    :root:root body .pl-seg button.on { background: var(--cl-card); color: var(--ui-tx-hi); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+    :root:root body .pl-status, :root:root body .pl-card { background: var(--cl-card); border: 1px solid var(--ui-line); }
+    :root:root body .pl-status .row { color: var(--ui-tx-hi); } :root:root body .pl-status .row.sm { color: var(--ui-tx-mid); }
+    :root:root body .pl-sub, :root:root body .pl-note { color: var(--ui-tx-lo); }
+    :root:root body .pl-feat li { color: var(--ui-tx-hi); }
+    :root:root body .pl-feat svg { stroke: var(--ui-tx-mid); }
+    :root:root body .pl-price { background: var(--cl-acc-soft); border: 1px solid var(--cl-acc); }
+    :root:root body .pl-radio { background: var(--cl-acc); }
+    :root:root body .pl-radio::after { background: var(--cl-acc-fg); }
+    :root:root body .pl-badge { background: var(--cl-acc-soft); color: var(--cl-acc-hi); }
+    :root:root body .pl-price b { color: var(--ui-tx-hi); } :root:root body .pl-price span { color: var(--ui-tx-mid); }
+    :root:root body .pl-main { background: var(--cl-acc); color: var(--cl-acc-fg); }
+    :root:root body .pl-alt { background: transparent; border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); }
+    :root:root body .ps-msg { color: var(--ui-tx-mid); }
+
+    /* приветствие */
+    :root:root body #welcome { background: var(--ui-bg-0); }
+    :root:root body .wl-brand { color: var(--ui-tx-mid); }
+    :root:root body .wl-brand i { background: var(--cl-acc); box-shadow: none; }
+    :root:root body #welcome .welcome-skip { color: var(--ui-tx-lo); }
+    :root:root body #welcome .welcome-skip:hover { color: var(--ui-tx-hi); }
+    :root:root body .wl-ico { color: var(--cl-acc); background: var(--cl-acc-soft); border: 1px solid transparent; box-shadow: none; }
+    :root:root body .wl-ico::before, :root:root body .wl-ico::after { border-color: var(--cl-acc); }
+    :root:root body .wl-step { color: var(--ui-tx-lo); }
+    :root:root body #welcome h1 { font-family: var(--cl-serif); font-weight: 500; font-size: 36px; color: var(--ui-tx-hi); }
+    :root:root body #welcome h1 em { color: var(--cl-acc); font-style: italic; }
+    :root:root body #welcome p { color: var(--ui-tx-mid); font-family: var(--cl-serif); font-size: 17px; }
+    :root:root body #welcome .welcome-dots span { background: var(--ui-line-hi); }
+    :root:root body #welcome .welcome-dots span.on { background: var(--cl-acc); }
+    :root:root body #welcome .wl-btn { height: 54px; background: var(--cl-acc); color: var(--cl-acc-fg); box-shadow: none; border-radius: 14px; }
+    :root:root body #fileview { background: var(--ui-bg-0); }
+
+    :root:root body .drow { background: transparent; border: 1px solid transparent; }
+    :root:root body .drow.pro { background: var(--cl-acc-soft); border-color: transparent; }
+    :root:root body .drow.footer { background: transparent; border: 0; border-top: 1px solid var(--ui-line); border-radius: 0; }
+    :root:root body .dr-tabs .txtbtn, :root:root body #drawer .tabs .txtbtn { color: var(--ui-tx-hi); border: 1px solid var(--ui-line-hi); background: transparent; }
+    :root:root body #drawer .tabs .txtbtn.on { background: var(--cl-acc); color: var(--cl-acc-fg); border-color: transparent; }
+
+    /* ===== Нажатие как в Claude: быстрое сжатие, пружинистый возврат ===== */
+    :root:root body :is(button:not(.ia-btn):not(#down-btn), .ibtn, .txtbtn, .chip, .gi, .pl-seg button, .wd, .code-copy, .copy-btn, #send-btn, #att-btn) {
+        scale: 1; opacity: 1; transform: none;
+        transition: transform .38s cubic-bezier(.34,1.56,.64,1), background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .2s ease;
+        will-change: transform;
+    }
+    :root:root body :is(button:not(.ia-btn):not(#down-btn), .ibtn, .txtbtn, .chip, .gi, .pl-seg button, .wd, .code-copy, .copy-btn, #send-btn, #att-btn):not(:disabled):active {
+        scale: 1; opacity: 1; transform: scale(.94);
+        transition: transform .09s cubic-bezier(.2,.8,.2,1), background-color .09s ease;
+    }
+    :root:root body .txtbtn:not(.on):not(:disabled):active, :root:root body .chip:active, :root:root body .ibtn:active { background: var(--cl-hover); }
+    :root:root body .txtbtn.on:not(:disabled):active, :root:root body #send-btn:not(:disabled):active, :root:root body .pl-main:active, :root:root body .wl-btn:active { filter: brightness(.92); }
+    :root:root body .drow, :root:root body .hi, :root:root body .gi { transition: transform .38s cubic-bezier(.34,1.56,.64,1), background-color .2s ease; }
+    :root:root body .drow:active, :root:root body .hi:active { transform: scale(.985); transition: transform .09s ease, background-color 0s; }
+    @media (prefers-reduced-motion: reduce) { :root:root body :is(button:not(.ia-btn):not(#down-btn), .ibtn, .txtbtn, .chip, .gi, .pl-seg button, .wd, .code-copy, .copy-btn, #send-btn, #att-btn), :root:root body :is(button:not(.ia-btn):not(#down-btn), .ibtn, .txtbtn, .chip, .gi, .pl-seg button, .wd, .code-copy, .copy-btn, #send-btn, #att-btn):active { transition: none; transform: none; } }
+
+    :root:root body #down-btn { transition: opacity .25s ease, translate .25s ease, scale .38s cubic-bezier(.34,1.56,.64,1); }
+    :root:root body #down-btn:active { scale: .94; transition-duration: .09s; }
+
+    /* ===== Строгий вид: меньше скруглений, тонкие линии, без заливок ===== */
+    :root:root body #drawer, :root:root body #hist-panel { width: min(84vw, 320px); border: 0; box-shadow: none; }
+    :root:root body #drawer { border-left: 1px solid var(--ui-line); }
+    :root:root body #hist-panel { border-right: 1px solid var(--ui-line); }
+    :root:root body #drawer .tabs { gap: 0; flex-wrap: nowrap; border-bottom: 1px solid var(--ui-line); margin-bottom: 6px; }
+    :root:root body #drawer .tabs .txtbtn { height: 42px; border: 0; border-radius: 0; background: transparent; color: var(--ui-tx-lo); font-weight: 600; font-size: 14px; }
+    :root:root body #drawer .tabs .txtbtn.on { background: transparent; color: var(--ui-tx-hi); box-shadow: inset 0 -2px 0 var(--cl-acc); filter: none; }
+    :root:root body .dr-pane { gap: 0; }
+    :root:root body .drow { padding: 13px 6px; gap: 14px; border-radius: 0; border: 0; border-bottom: 1px solid var(--ui-line); font-size: 15px; font-weight: 500; }
+    :root:root body .drow .ibtn { width: 24px; height: 24px; border: 0; background: transparent; padding: 0; border-radius: 0; color: var(--ui-tx-mid); }
+    :root:root body .drow .ibtn svg { width: 20px; height: 20px; stroke-width: 1.7; }
+    :root:root body .drow.pro, :root:root body .drow.pro:active { background: transparent; border-bottom: 1px solid var(--ui-line); }
+    :root:root body .drow.pro .ibtn { color: var(--cl-acc); }
+    :root:root body .drow.footer { border: 0; padding: 14px 0 6px; font-size: 11px; letter-spacing: .04em; }
+    :root:root body .drow:active, :root:root body .hi:active { background-color: var(--cl-hover); }
+    :root:root body #hist-panel .hp-head { padding-bottom: 12px; border-bottom: 1px solid var(--ui-line); font-size: 18px; }
+    :root:root body #hist-panel .hp-head .txtbtn { border-radius: 8px; padding: 7px 12px; font-size: 13px; }
+    :root:root body #hist-list { gap: 0; }
+    :root:root body .hi { padding: 13px 4px; border: 0; border-bottom: 1px solid var(--ui-line); border-radius: 0; background: transparent; }
+    :root:root body .hi-date { text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }
+    :root:root body .hi-empty { text-align: left; padding: 18px 2px; font-size: 13px; line-height: 1.55; }
+    :root:root body .ibtn, :root:root body .txtbtn, :root:root body .chip, :root:root body .gi, :root:root body .pst, :root:root body .wd { border-radius: 8px; }
+    :root:root body #topbar .ibtn, :root:root body #hist-btn { border-radius: 10px; }
+    :root:root body .card, :root:root body .try, :root:root body .case, :root:root body .bcard, :root:root body .dropbox { border-radius: 10px; }
+    :root:root body .dialog, :root:root body #confirm .dialog.ios-alert { border-radius: 12px; }
+    :root:root body .msg-row.user .message { border-radius: 12px; }
+    :root:root body .input-container { border-radius: 16px; }
+    :root:root body .input-inner { border-radius: 15px; }
+    :root:root body #send-btn { border-radius: 10px; }
+    :root:root body #att-btn { border-radius: 8px; }
+    :root:root body .welcome-btn, :root:root body .wl-btn, :root:root body #welcome .wl-btn, :root:root body .pl-main, :root:root body .pl-alt { border-radius: 10px; }
+
+    /* ===== Панели как в приложении Claude: боковая панель с push-эффектом и экран настроек ===== */
+    :root { --pw: min(84vw, 320px); --cl-pill: #FAF9F5; --cl-pill-fg: #141413; }
+    body.light-theme { --cl-pill: #141413; --cl-pill-fg: #FAF9F5; }
+    body.hp { --push: var(--pw); }
+    :root:root body :is(#chat-history, #hud-panel, #sv, #topbar, #bub) { translate: var(--push, 0px) 0; transition: translate .32s cubic-bezier(.2,.8,.2,1); }
+    :root:root body #stage { translate: var(--push, 0px) 0; transition: translate .32s cubic-bezier(.2,.8,.2,1), height .3s ease; }
+    :root:root body #hist-btn { translate: var(--push, 0px) 0; transition: translate .32s cubic-bezier(.2,.8,.2,1), transform .38s cubic-bezier(.34,1.56,.64,1), background-color .18s ease; }
+    :root:root body #down-btn { translate: var(--push, 0px) 0; transition: opacity .25s ease, translate .32s cubic-bezier(.2,.8,.2,1), scale .38s cubic-bezier(.34,1.56,.64,1); }
+    :root:root body #hist-bg { inset: 0; translate: var(--push, 0px) 0; border-radius: 22px 0 0 22px; background: rgba(20,20,19,.38); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: -1px 0 0 var(--ui-line); transition: opacity .25s ease, translate .32s cubic-bezier(.2,.8,.2,1); }
+    @.swiping :is(#chat-history, #hud-panel, #sv, #topbar, #bub, #stage, #hist-btn, #down-btn, #hist-bg) { transition: none !important; }
+    :root:root body #hist-panel { width: var(--pw); padding: calc(18px + env(safe-area-inset-top, 0px)) 12px calc(14px + env(safe-area-inset-bottom, 0px)); gap: 0; background: var(--cl-side); border-right: 0; }
+    :root:root body .hp-brand { padding: 6px 10px 18px; font: 500 27px/1.1 var(--cl-serif); color: var(--ui-tx-hi); letter-spacing: -.01em; }
+    :root:root body .hp-nav { display: flex; flex-direction: column; gap: 2px; }
+    :root:root body .hp-item { display: flex; align-items: center; gap: 16px; min-height: 50px; padding: 0 10px; border: 0; border-radius: 12px; background: transparent; color: var(--ui-tx-hi); font: 500 17px 'Manrope', system-ui, sans-serif; text-align: left; }
+    :root:root body .hp-item:active { background: var(--cl-hover); }
+    :root:root body .hp-item svg { width: 24px; height: 24px; flex: none; fill: none; stroke: var(--ui-tx-mid); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    :root:root body .hp-sec { padding: 24px 10px 8px; font-size: 14px; color: var(--ui-tx-lo); }
+    :root:root body #hist-list { flex: 1; min-height: 0; gap: 2px; }
+    :root:root body .hi { display: flex; align-items: center; min-height: 48px; padding: 0 10px; border: 0; border-bottom: 0; border-radius: 12px; background: transparent; }
+    :root:root body .hi.cur { background: var(--cl-btn); }
+    :root:root body .hi-date { display: none; }
+    :root:root body .hi-title { font: 500 16px 'Manrope', system-ui, sans-serif; color: var(--ui-tx-hi); }
+    :root:root body .hi-del { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ui-tx-lo); font-size: 12px; }
+    :root:root body .hi-empty { padding: 6px 10px; }
+    :root:root body .hp-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 4px 0; }
+    :root:root body .hp-av { flex: none; width: 50px; height: 50px; border-radius: 50%; border: 1px solid var(--ui-line-hi); background: var(--cl-card) center/cover; color: var(--ui-tx-hi); font: 700 15px 'Manrope', system-ui, sans-serif; }
+    :root:root body .hp-new { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; max-width: 190px; height: 50px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--cl-pill); color: var(--cl-pill-fg); font: 600 16px 'Manrope', system-ui, sans-serif; }
+    :root:root body .hp-new svg { width: 20px; height: 20px; }
+
+    :root:root body #drawer { width: min(94vw, 400px); padding: 0; gap: 0; background: var(--cl-side); border-left: 1px solid var(--ui-line); }
+    :root:root body #dr-tabs { display: none; }
+    :root:root body .st-head { position: relative; flex: none; height: 56px; margin-top: env(safe-area-inset-top, 0px); display: flex; align-items: center; justify-content: center; }
+    :root:root body .st-head h2 { margin: 0; font: 700 17px 'Manrope', system-ui, sans-serif; color: var(--ui-tx-hi); }
+    :root:root body .st-x { position: absolute; left: 12px; top: 8px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--ui-line-hi); background: var(--cl-btn); color: var(--ui-tx-hi); display: flex; align-items: center; justify-content: center; padding: 0; }
+    :root:root body #drawer .dr-pane { gap: 0; padding: 6px 14px calc(20px + env(safe-area-inset-bottom, 0px)); }
+    :root:root body .st-acc { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-radius: 18px; background: var(--cl-card); color: var(--ui-tx-hi); text-align: left; font-family: inherit; }
+    :root:root body .st-av { flex: none; width: 52px; height: 52px; border-radius: 50%; background: #141413 center/cover; color: #FAF9F5; display: flex; align-items: center; justify-content: center; font: 700 16px 'Manrope', system-ui, sans-serif; }
+    :root:root body .st-ai { min-width: 0; }
+    :root:root body .st-ai b { display: block; font: 500 17px/1.3 'Manrope', system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    :root:root body .st-ai i { display: block; font-style: normal; font-size: 14px; color: var(--ui-tx-lo); }
+    :root:root body .st-up { margin-top: 12px; padding: 20px 18px; border-radius: 18px; background: var(--cl-card); }
+    :root:root body .st-up b { font-size: 17px; font-weight: 700; color: var(--ui-tx-hi); }
+    :root:root body .st-up p { margin: 6px 0 16px; font-size: 15px; line-height: 1.5; color: var(--ui-tx-mid); }
+    :root:root body .st-pill { height: 46px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--cl-pill); color: var(--cl-pill-fg); font: 700 15px 'Manrope', system-ui, sans-serif; }
+    :root:root body .st-sec { padding: 22px 10px 8px; font-size: 14px; color: var(--ui-tx-lo); }
+    :root:root body .st-sec:empty { padding: 8px 0 0; }
+    :root:root body .st-grp { border-radius: 18px; background: var(--cl-card); overflow: hidden; }
+    :root:root body .st-grp .drow { position: relative; min-height: 58px; padding: 0 16px; gap: 16px; border: 0; border-radius: 0; background: transparent; }
+    :root:root body .st-grp .drow + .drow::before { content: ''; position: absolute; top: 0; left: 56px; right: 0; height: 1px; background: var(--ui-line); }
+    :root:root body .st-grp .drow > span:not(.sw):not(.ibtn) { flex: 1; font-size: 16px; font-weight: 500; }
+    :root:root body .st-grp .drow .ibtn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: 0; }
+    :root:root body .st-grp .drow .ibtn svg { width: 22px; height: 22px; stroke-width: 1.6; }
+    :root:root body .st-grp .drow:active { background-color: var(--cl-hover); }
+    :root:root body .drow.dng, :root:root body .drow.dng .ibtn { color: var(--ui-danger); }
+    :root:root body .chev { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--ui-tx-lo); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    :root:root body .sw { flex: none; position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--ui-bg-3); transition: background .2s ease; }
+    :root:root body .sw i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .28s cubic-bezier(.34,1.56,.64,1); }
+    :root:root body .drow.sw-on .sw { background: var(--cl-acc); }
+    :root:root body .drow.sw-on .sw i { transform: translateX(18px); }
+    :root:root body .st-th { display: flex; gap: 10px; padding: 14px; }
+    :root:root body .th-opt { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: var(--ui-tx-mid); font: 500 14px 'Manrope', system-ui, sans-serif; }
+    :root:root body .th-pv { position: relative; display: block; width: 100%; aspect-ratio: 1.5; border-radius: 14px; border: 2px solid transparent; overflow: hidden; }
+    :root:root body .th-pv i { position: absolute; display: block; }
+    :root:root body .th-pv .cd { inset: 8px; border-radius: 9px; }
+    :root:root body .th-pv .ln { left: 17px; height: 3px; border-radius: 2px; background: #8F8D84; }
+    :root:root body .th-pv .dt { right: 15px; bottom: 13px; width: 12px; height: 12px; border-radius: 50%; background: #D97757; }
+    :root:root body .th-l { background: #ECEAE0; } :root:root body .th-l .cd { background: #fff; }
+    :root:root body .th-d { background: #141413; } :root:root body .th-d .cd { background: #262624; }
+    :root:root body .th-s { background: linear-gradient(135deg, #ECEAE0 50%, #141413 50%); }
+    :root:root body .th-s .cd { background: linear-gradient(135deg, #fff 50%, #262624 50%); }
+    :root:root body .th-opt.on { color: var(--cl-acc); }
+    :root:root body .th-opt.on .th-pv { border-color: var(--cl-acc); }
+    :root:root body .st-ver { padding: 20px 0 4px; text-align: center; font-size: 12px; color: var(--ui-tx-lo); }
+    :root:root body .st-back { align-self: flex-start; padding: 8px 4px 12px; border: 0; background: none; color: var(--ui-tx-mid); font: 600 15px 'Manrope', system-ui, sans-serif; }
+
+    :root:root body #drawer .dr-pane > * { flex: none; }
+    :root:root body #drawer .dr-pane { overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+    :root:root body #drawer { overflow: hidden; }
+    :root:root body #hist-list > * { flex: none; }
 </style>
 </head>
 <body>
@@ -779,32 +1108,51 @@
   </div>
 </div>
 
-<button class="ibtn" id="hist-btn" aria-label="История"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+<button class="ibtn" id="hist-btn" aria-label="История"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h11M4 17h16"/></svg></button>
 <div id="hist-bg"></div>
-<aside id="hist-panel" aria-label="История чатов"><div class="hp-head"><span>История</span><button type="button" class="txtbtn" id="hist-new">+ Новый чат</button></div><div id="hist-list"></div></aside>
+<aside id="hist-panel" aria-label="Чаты">
+  <div class="hp-brand">Holo Friend</div>
+  <div class="hp-nav">
+    <button type="button" class="hp-item" id="hn-shop"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Магазин и бонусы</span></button>
+    <button type="button" class="hp-item" id="hn-pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span>Premium</span></button>
+  </div>
+  <div class="hp-sec">Недавние</div>
+  <div id="hist-list"></div>
+  <div class="hp-foot"><button type="button" class="hp-av" id="hp-av" aria-label="Настройки"></button><button type="button" class="hp-new" id="hist-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Новый чат</span></button></div>
+</aside>
 <div id="topbar">
-  <button class="ibtn" id="menu-btn" aria-label="Меню"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <button class="ibtn" id="menu-btn" aria-label="Меню"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
 </div>
 <div id="drawer-bg"></div>
-<aside id="drawer" aria-label="Меню">
+<aside id="drawer" aria-label="Настройки">
+  <div class="st-head"><button type="button" class="st-x" id="st-close" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><h2>Настройки</h2></div>
   <div class="tabs" id="dr-tabs"><button class="txtbtn on" data-dt="menu">Меню</button><button class="txtbtn" data-dt="prof">Профиль</button></div>
   <div class="dr-pane on" id="dr-menu">
-    <div class="drow"><button class="ibtn" id="shop-btn" aria-label="Магазин"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></button><span>Магазин и бонусы</span></div>
-    <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Premium</span></div>
-    <div class="drow" data-keep="1"><button class="ibtn" id="snd-btn"></button><span>Звуки</span></div>
-    <div class="drow"><button class="ibtn" id="bot-btn" aria-label="Скрыть бота"></button><span id="bot-lbl">Скрыть бота</span></div>
-    <div class="drow"><button class="ibtn" id="theme-btn" aria-label="Тема"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button><span>Сменить тему</span></div>
-    <div class="drow"><button class="ibtn" id="share-btn" aria-label="Поделиться"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><span>Поделиться</span></div>
-    <div class="drow"><button class="ibtn" id="support-btn" aria-label="Поддержка"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button><span>Поддержка</span></div>
-    <div class="drow"><button class="ibtn danger" id="clear-btn" aria-label="Удалить чат"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button><span>Очистить чат</span></div>
-    <div class="drow footer">Holo Friend v1.2</div>
+    <button type="button" class="st-acc" id="st-acc"><span class="st-av" id="st-av"></span><span class="st-ai"><b id="st-name"></b><i id="st-sub"></i></span></button>
+    <div class="st-up" id="st-up"><b>Больше возможностей</b><p>Перейдите на Premium: выше лимиты и больше возможностей.</p><button type="button" class="st-pill" id="st-up-btn">Перейти на Premium</button></div>
+    <div class="st-sec">Аккаунт</div>
+    <div class="st-grp">
+      <div class="drow"><button class="ibtn" id="shop-btn" aria-label="Магазин"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></button><span>Магазин и бонусы</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Premium</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="drow" data-keep="1" id="st-prof-row"><span class="ibtn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-5.5 7-5.5s6 1.5 7 5.5"/></svg></span><span>Профиль</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+    </div>
+    <div class="st-sec">Приложение</div>
+    <div class="st-grp">
+      <div class="drow" data-keep="1"><button class="ibtn" id="snd-btn"></button><span>Звуки</span><span class="sw"><i></i></span></div>
+      <div class="drow" data-keep="1"><button class="ibtn" id="bot-btn" aria-label="Скрыть бота"></button><span id="bot-lbl">Показывать бота</span><span class="sw"><i></i></span></div>
+      <div class="drow"><button class="ibtn" id="share-btn" aria-label="Поделиться"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><span>Поделиться</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="drow"><button class="ibtn" id="support-btn" aria-label="Поддержка"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button><span>Поддержка</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+    </div>
+    <div class="st-sec">Внешний вид</div>
+    <div class="st-grp st-th" id="st-th"><button type="button" class="th-opt" data-th="light"><span class="th-pv th-l"><i class="cd"></i><i class="ln" style="top:15px;width:34%"></i><i class="ln" style="top:23px;width:24%"></i><i class="dt"></i></span>Светлая</button><button type="button" class="th-opt" data-th="dark"><span class="th-pv th-d"><i class="cd"></i><i class="ln" style="top:15px;width:34%"></i><i class="ln" style="top:23px;width:24%"></i><i class="dt"></i></span>Тёмная</button></div>
+    <div class="st-sec"></div>
+    <div class="st-grp"><div class="drow dng"><button class="ibtn danger" id="clear-btn" aria-label="Удалить чат"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button><span>Очистить чат</span></div></div>
+    <button class="ibtn" id="theme-btn" hidden aria-label="Тема"></button>
+    <div class="st-ver">Holo Friend v1.2</div>
   </div>
   <div class="dr-pane" id="dr-prof">
-    <div class="pav" id="pav"></div>
-    <div class="pname" id="pname"></div>
-    <div class="puser" id="puser"></div>
-    <div class="pbal" id="pbal"></div>
-    <div class="pstats" id="pstats"></div>
+    <button type="button" class="st-back" id="st-back">‹ Настройки</button>
+    <div class="pav" id="pav"></div><div class="pname" id="pname"></div><div class="puser" id="puser"></div><div class="pbal" id="pbal"></div><div class="pstats" id="pstats"></div>
   </div>
 </aside>
 
@@ -874,7 +1222,7 @@
     <div class="input-container">
         <div class="input-inner">
             <button id="att-btn" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-            <input type="text" id="user-input" placeholder="Опиши идею или задай вопрос…" autocomplete="off" maxlength="500" enterkeyhint="send">
+            <input type="text" id="user-input" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="500" enterkeyhint="send">
             <button id="send-btn" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         </div>
     </div>
@@ -1017,7 +1365,7 @@ let isFirstLoad = true;
 if (tg) {
     tg.ready();
     tg.expand();
-    try { tg.setHeaderColor('#0E1726'); tg.setBackgroundColor('#070B14'); } catch(e) {}
+    try { tg.setHeaderColor('#262624'); tg.setBackgroundColor('#262624'); } catch(e) {}
     try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch(e) {}
     tg.onEvent('viewportChanged', e => { onViewportLive(!!(e && e.isStateStable)); });
 }
@@ -1467,7 +1815,7 @@ let editTarget = null;
 function setEditTarget(v){
     editTarget = v || null;
     document.body.classList.toggle('editing', !!v);
-    input.placeholder = v ? 'Опиши, что изменить… (или «отмена»)' : 'Опиши идею или задай вопрос…';
+    input.placeholder = v ? 'Опиши, что изменить… (или «отмена»)' : 'Опиши идею или вопрос…';
 }
 chatHistory.addEventListener('click', e => {
     const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
@@ -1501,7 +1849,7 @@ chatHistory.addEventListener('touchstart', () => { userScrolled = true; }, { pas
 chatHistory.addEventListener('wheel', () => { userScrolled = true; }, { passive: true });
 function pinBottom(){ userScrolled = false; stick = true; [0, 60, 150, 300, 600, 1000].forEach(ms => setTimeout(() => { if (!userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }, ms)); }
 const downBtn = $('down-btn');
-function updDown(){ downBtn.classList.toggle('show', chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight > 140); }
+function updDown(){ const sp = parseFloat(getComputedStyle(chatHistory, '::after').height) || 0; downBtn.classList.toggle('show', chatHistory.scrollHeight - sp - chatHistory.scrollTop - chatHistory.clientHeight > 140); }
 chatHistory.addEventListener('scroll', updDown, { passive: true });
 new MutationObserver(() => setTimeout(updDown, 120)).observe(chatHistory, { childList: true });
 downBtn.addEventListener('click', () => { userScrolled = false; stick = true; chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }); });
@@ -2567,7 +2915,7 @@ function closeShop(){ shopOpen = false; shop.classList.remove('open'); if (tg &&
 $('shop-btn').addEventListener('click', openShop); $('shop-close').addEventListener('click', closeShop);
 
 // Drawer
-function drTab(t){ $('dr-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.dt === t)); $('dr-menu').classList.toggle('on', t === 'menu'); $('dr-prof').classList.toggle('on', t === 'prof'); if (t === 'prof') renderProfile(); }
+function drTab(t){ $('dr-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.dt === t)); $('dr-menu').classList.toggle('on', t === 'menu'); $('dr-prof').classList.toggle('on', t === 'prof'); renderProfile(); }
 // --- ИСТОРИЯ ЧАТОВ (localStorage: holo_chats = массив архивных чатов) ---
 const CHATS_KEY = 'holo_chats', CHATS_MAX = 30;
 function loadChats(){ try { const a = JSON.parse(localStorage.getItem(CHATS_KEY) || '[]'); return Array.isArray(a) ? a.filter(c => c && Array.isArray(c.msgs)) : []; } catch(e) { return []; } }
@@ -2596,18 +2944,19 @@ function archiveCurrent(chats){
 function renderHistList(){
     const box = $('hist-list'), chats = loadChats();
     box.innerHTML = '';
-    if (!chats.length){ const e = document.createElement('div'); e.className = 'hi-empty'; e.textContent = 'Пока нет сохранённых чатов. Нажми «+ Новый чат», чтобы сохранить текущий.'; box.appendChild(e); return; }
+    if (chatHistoryForServer.some(m => m.sender === 'user')){ const cur = document.createElement('div'); cur.className = 'hi cur'; cur.dataset.cur = '1'; cur.innerHTML = '<div class="hi-main"><span class="hi-title"></span></div>'; cur.querySelector('.hi-title').textContent = chatTitle({ msgs: chatHistoryForServer }); box.appendChild(cur); }
+    if (!chats.length){ if (box.children.length) return; const e = document.createElement('div'); e.className = 'hi-empty'; e.textContent = 'Пока нет сохранённых чатов. Нажми «+ Новый чат», чтобы сохранить текущий.'; box.appendChild(e); return; }
     chats.forEach(c => {
         const row = document.createElement('div'); row.className = 'hi'; row.dataset.id = c.id;
         const main = document.createElement('div'); main.className = 'hi-main';
         const d = document.createElement('span'); d.className = 'hi-date'; d.textContent = new Date(c.ts).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
         const t = document.createElement('span'); t.className = 'hi-title'; t.textContent = chatTitle(c);
         main.appendChild(d); main.appendChild(t);
-        const del = document.createElement('button'); del.type = 'button'; del.className = 'hi-del'; del.dataset.del = c.id; del.textContent = 'Удалить';
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'hi-del'; del.dataset.del = c.id; del.textContent = '✕'; del.setAttribute('aria-label', 'Удалить чат');
         row.appendChild(main); row.appendChild(del); box.appendChild(row);
     });
 }
-function openHist(){ renderHistList(); document.body.classList.add('hp'); }
+function openHist(){ renderProfile(); renderHistList(); document.body.classList.add('hp'); }
 function closeHist(){ document.body.classList.remove('hp'); }
 function showChat(msgs, greet){
     chatHistory.innerHTML = '';
@@ -2642,7 +2991,7 @@ $('hist-new').addEventListener('click', newChat);
 $('hist-list').addEventListener('click', e => {
     const del = e.target.closest('button[data-del]');
     if (del){ e.stopPropagation(); saveChats(loadChats().filter(c => c.id !== del.dataset.del)); IMGDB.prune(keepIds()); renderHistList(); return; }
-    const row = e.target.closest('.hi'); if (row) openChat(row.dataset.id);
+    const row = e.target.closest('.hi'); if (row){ if (row.dataset.cur){ closeHist(); return; } openChat(row.dataset.id); }
 });
 function openDrawer(){ document.body.classList.add('dr'); drTab('menu'); }
 function closeDrawer(){ document.body.classList.remove('dr'); }
@@ -2651,6 +3000,10 @@ function renderProfile(){
   const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Гость';
   const av = $('pav'); av.classList.toggle('pro', !!PRO.active);
   if (u.photo_url){ av.style.backgroundImage = `url("${encodeURI(u.photo_url)}")`; av.textContent = ''; } else { av.style.backgroundImage = ''; av.textContent = name[0].toUpperCase(); }
+  const ini = ((u.first_name || '')[0] || '') + ((u.last_name || '')[0] || ''), init = (ini || name[0] || '?').toUpperCase();
+  ['st-av', 'hp-av'].forEach(id => { const el = $(id); if (!el) return; if (u.photo_url){ el.style.backgroundImage = `url("${encodeURI(u.photo_url)}")`; el.textContent = ''; } else { el.style.backgroundImage = ''; el.textContent = init; } });
+  $('st-name').textContent = name; $('st-sub').textContent = (u.username ? '@' + u.username + ' · ' : '') + (PRO.active ? 'Premium' : 'Free');
+  $('st-up').style.display = PRO.active ? 'none' : '';
   $('pname').textContent = name; $('puser').textContent = u.username ? '@' + u.username : '';
   $('pbal').textContent = '★ ' + BAL;
   const st = [['Сообщений', store.get('stat_msgs', 0)], ['Серия, дней', DLY.streak || 0], ['Предметов', Object.keys(OWNED).filter(k => OWNED[k]).length], ['Pro', PRO.active ? 'до ' + new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU') : 'нет']];
@@ -2696,7 +3049,7 @@ document.addEventListener('touchstart', function(){}, { passive: true });
 const sndBtn = $('snd-btn');
 const ICON_ON  = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>';
-function drawSnd(){ if(!sndBtn) return; sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
+function drawSnd(){ if(!sndBtn) return; sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.closest('.drow').classList.toggle('sw-on', Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
 
 // СКРЫТЬ / ПОКАЗАТЬ БОТА
@@ -2709,7 +3062,7 @@ function setBotHidden(h, init){
     document.body.classList.toggle('bot-hidden', botHidden);
     botBtn.innerHTML = botHidden ? EYE_OFF : EYE_ON;
     botBtn.setAttribute('aria-label', botHidden ? 'Показать бота' : 'Скрыть бота');
-    $('bot-lbl').textContent = botHidden ? 'Показать бота' : 'Скрыть бота';
+    $('bot-lbl').textContent = 'Показывать бота'; botBtn.closest('.drow').classList.toggle('sw-on', !botHidden);
     if (botHidden){ hideBubble(); Snd.jetStop(); } else if (!init) Snd.unlock();
 }
 botBtn.addEventListener('click', () => setBotHidden(!botHidden));
@@ -2717,13 +3070,89 @@ setBotHidden(botHidden, true);
 
 // ТЕМА
 const themeBtn = $('theme-btn');
-if (store.get('theme', 'dark') === 'light') document.body.classList.add('light-theme');
-themeBtn.addEventListener('click', () => {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    store.set('theme', isLight ? 'light' : 'dark');
-    if (tg) try { tg.setHeaderColor(isLight ? '#F0F4F8' : '#0E1726'); tg.setBackgroundColor(isLight ? '#F0F4F8' : '#070B14'); } catch(e) {}
-});
+const mqLight = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
+function themeMode(){ const m = store.get('theme', 'dark'); return m === 'light' ? 'light' : 'dark'; }
+function sysLight(){ return (tg && tg.colorScheme) ? tg.colorScheme === 'light' : !!(mqLight && mqLight.matches); }
+function applyTheme(){
+    const m = themeMode(), light = m === 'light' || (m === 'system' && sysLight());
+    document.body.classList.toggle('light-theme', light);
+    const c = light ? '#FAF9F5' : '#262624';
+    if (tg) try { tg.setHeaderColor(c); tg.setBackgroundColor(c); } catch(e) {}
+    document.querySelectorAll('.th-opt').forEach(b => b.classList.toggle('on', b.dataset.th === m));
+}
+function setTheme(m){ store.set('theme', m); applyTheme(); }
+if (mqLight && mqLight.addEventListener) mqLight.addEventListener('change', () => { if (themeMode() === 'system') applyTheme(); });
+if (tg && tg.onEvent) try { tg.onEvent('themeChanged', () => { if (themeMode() === 'system') applyTheme(); }); } catch(e) {}
+document.querySelectorAll('.th-opt').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.th)));
+themeBtn.addEventListener('click', () => setTheme(document.body.classList.contains('light-theme') ? 'dark' : 'light'));
+applyTheme();
+
+// ПАНЕЛИ: навигация
+$('hn-shop').addEventListener('click', () => { closeHist(); $('shop-btn').click(); });
+$('hn-pro').addEventListener('click', () => { closeHist(); $('pro-btn').click(); });
+$('hp-av').addEventListener('click', () => { closeHist(); openDrawer(); });
+$('st-close').addEventListener('click', closeDrawer);
+$('st-acc').addEventListener('click', () => drTab('prof'));
+$('st-prof-row').addEventListener('click', () => drTab('prof'));
+$('st-back').addEventListener('click', () => drTab('menu'));
+$('st-up-btn').addEventListener('click', () => $('pro-btn').click());
+
+
+
+// ЖЕСТЫ: выдвинуть панель пальцем от края, закрыть смахиванием
+(function(){
+  const hp = $('hist-panel'), hbg = $('hist-bg'), dp = $('drawer'), dbg = $('drawer-bg');
+  const EDGE = 28;
+  let g = null;
+  const busy = () => document.querySelector('.overlay.open, #visview.open, #lightbox.open, #fileview.open');
+  function clear(g){ document.body.style.removeProperty('--push'); document.body.classList.remove('swiping'); [g.p, g.bg].forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; el.style.pointerEvents = ''; }); }
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || busy()) { g = null; return; }
+    const t = e.touches[0], W = innerWidth, o = document.body.classList;
+    let side = null, mode = null;
+    if (o.contains('hp')) { side = 'l'; mode = 'close'; }
+    else if (o.contains('dr')) { side = 'r'; mode = 'close'; }
+    else if (t.clientX <= EDGE) { side = 'l'; mode = 'open'; }
+    else if (t.clientX >= W - EDGE) { side = 'r'; mode = 'open'; }
+    if (!side) { g = null; return; }
+    g = { side, mode, x0: t.clientX, y0: t.clientY, t0: Date.now(), lock: null, p: side === 'l' ? hp : dp, bg: side === 'l' ? hbg : dbg, w: (side === 'l' ? hp : dp).offsetWidth || 320, prog: 0 };
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!g) return;
+    const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    if (!g.lock) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      const okDir = g.mode === 'open' ? (g.side === 'l' ? dx > 0 : dx < 0) : (g.side === 'l' ? dx < 0 : dx > 0);
+      if (Math.abs(dx) > Math.abs(dy) * 1.2 && okDir) {
+        g.lock = 'x';
+        if (g.mode === 'open') { if (g.side === 'l') renderHistList(); else drTab('menu'); }
+        g.p.style.transition = 'none'; g.bg.style.transition = 'none'; g.bg.style.pointerEvents = 'none'; document.body.classList.add('swiping');
+      } else { g = null; return; }
+    }
+    e.preventDefault();
+    const s = g.side === 'l' ? 1 : -1;           // l: панель слева, r: справа
+    let open = g.mode === 'open' ? s * dx / g.w : 1 + s * dx / g.w;
+    open = Math.max(0, Math.min(1, open));
+    g.prog = open;
+    g.p.style.transform = 'translateX(' + (-s * (1 - open) * g.w * 1.05) + 'px)';
+    g.bg.style.opacity = open;
+    if (g.side === 'l') document.body.style.setProperty('--push', (open * g.w) + 'px');
+  }, { passive: false });
+  function end(e){
+    if (!g) return;
+    const cur = g; g = null;
+    if (cur.lock !== 'x') return;
+    const t = (e.changedTouches && e.changedTouches[0]) || { clientX: cur.x0 };
+    const dx = t.clientX - cur.x0, dt = Math.max(1, Date.now() - cur.t0), v = (cur.side === 'l' ? dx : -dx) / dt;
+    const fast = Math.abs(v) > 0.5, openDir = v > 0.5;
+    const want = fast ? openDir : (cur.mode === 'open' ? cur.prog > 0.35 : cur.prog > 0.7);
+    clear(cur);
+    const cls = cur.side === 'l' ? 'hp' : 'dr';
+    if (want) { if (cur.side === 'l') openHist(); else openDrawer(); } else document.body.classList.remove(cls);
+  }
+  document.addEventListener('touchend', end, { passive: true });
+  document.addEventListener('touchcancel', end, { passive: true });
+})();
 
 // ПОДЕЛИТЬСЯ
 $('share-btn').addEventListener('click', () => {
