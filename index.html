@@ -1070,12 +1070,43 @@
     }
     html, body, body.light-theme { background: var(--ui-bg-0); }
     #splash { background: var(--ui-bg-0); }
+    /* ===== Политика конфиденциальности ===== */
+    #consent { position: fixed; inset: 0; z-index: 920; display: none; flex-direction: column; justify-content: center; align-items: center; padding: calc(env(safe-area-inset-top, 0px) + 24px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px); background: var(--ui-bg-0); overflow-y: auto; }
+    #consent.open { display: flex; }
+    #consent .cs-box { width: 100%; max-width: 360px; text-align: center; animation: wlUp .5s cubic-bezier(.2,.8,.2,1) both; }
+    #consent .cs-ico { width: 64px; height: 64px; margin: 0 auto 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); }
+    #consent h1 { margin: 0 0 12px; font: 700 26px/1.2 'Manrope', system-ui, sans-serif; letter-spacing: -.01em; color: var(--ui-tx-hi); }
+    #consent p { margin: 0 0 18px; font: 500 15px/1.6 'Manrope', system-ui, sans-serif; color: var(--ui-tx-mid); }
+    #consent .cs-link { display: inline-block; margin-bottom: 28px; font: 600 15px 'Manrope', system-ui, sans-serif; color: var(--ui-tx-hi); text-decoration: underline; text-underline-offset: 4px; }
+    #consent .cs-btn { display: block; width: 100%; height: 54px; border-radius: 14px; font: 700 16px 'Manrope', system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    #consent .cs-btn:active { transform: scale(.98); }
+    #consent .cs-yes { border: none; background: var(--cl-acc); color: var(--cl-acc-fg); margin-bottom: 10px; }
+    #consent .cs-no { border: 1px solid var(--ui-line-hi); background: transparent; color: var(--ui-tx-hi); }
+    #consent .cs-deny p { margin-bottom: 28px; }
+    #consent [hidden] { display: none; }
 </style>
 </head>
 <body>
 <div id="splash"><div class="mark"></div><div class="word">HOLO FRIEND</div></div>
 
 <div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
+
+<div id="consent" role="dialog" aria-modal="true" aria-labelledby="cs-title">
+  <div class="cs-box" id="cs-ask">
+    <div class="cs-ico"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <h1 id="cs-title">Политика конфиденциальности</h1>
+    <p>Чтобы пользоваться Holo Friend, нужно ознакомиться с политикой конфиденциальности и согласиться с обработкой данных.</p>
+    <a class="cs-link" id="cs-link" href="https://telegra.ph/Politika-konfidencialnosti-10-29-98" target="_blank" rel="noopener">Читать политику</a>
+    <button class="cs-btn cs-yes" id="cs-yes" type="button">Согласен</button>
+    <button class="cs-btn cs-no" id="cs-no" type="button">Не согласен</button>
+  </div>
+  <div class="cs-box cs-deny" id="cs-deny" hidden>
+    <div class="cs-ico"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg></div>
+    <h1>Без согласия нельзя</h1>
+    <p>Пользоваться приложением без согласия с политикой конфиденциальности невозможно.</p>
+    <button class="cs-btn cs-yes" id="cs-back" type="button">Вернуться</button>
+  </div>
+</div>
 
 <div id="welcome">
   <div class="wl-top">
@@ -1115,6 +1146,7 @@
   <div class="hp-nav">
     <button type="button" class="hp-item" id="hn-shop"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span>Магазин и бонусы</span></button>
     <button type="button" class="hp-item" id="hn-pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span>Premium</span></button>
+    <button type="button" class="hp-item" id="hn-privacy"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg><span>Политика конфиденциальности</span></button>
   </div>
   <div class="hp-sec">Недавние</div>
   <div id="hist-list"></div>
@@ -2919,6 +2951,7 @@ applyTheme();
 // ПАНЕЛИ: навигация
 $('hn-shop').addEventListener('click', () => { closeHist(); $('shop-btn').click(); });
 $('hn-pro').addEventListener('click', () => { closeHist(); $('pro-btn').click(); });
+$('hn-privacy').addEventListener('click', () => { closeHist(); openPrivacy(); });
 $('st-close').addEventListener('click', closeDrawer);
 $('st-acc').addEventListener('click', () => drTab('prof'));
 $('st-prof-row').addEventListener('click', () => drTab('prof'));
@@ -3059,6 +3092,27 @@ setTimeout(() => { if (canDaily()) toast('Тебя ждёт ежедневная
 
 setTimeout(() => { const s = $('splash'); if (s) s.classList.add('hide'); }, 900);
 
+const PRIVACY_URL = 'https://telegra.ph/Politika-konfidencialnosti-10-29-98';
+const PRIVACY_KEY = 'privacy_ok_v1';
+function openPrivacy(){
+    try { if (tg && tg.openLink) { tg.openLink(PRIVACY_URL, { try_instant_view: true }); return; } } catch (_) {}
+    window.open(PRIVACY_URL, '_blank', 'noopener');
+}
+function showConsent(){
+    const c = $('consent');
+    if (!c || store.get(PRIVACY_KEY, false)) return;
+    $('cs-ask').hidden = false; $('cs-deny').hidden = true;
+    c.classList.add('open');
+}
+(function initConsent(){
+    const c = $('consent');
+    if (!c) return;
+    $('cs-link').addEventListener('click', e => { e.preventDefault(); openPrivacy(); });
+    $('cs-yes').addEventListener('click', () => { store.set(PRIVACY_KEY, true); c.classList.remove('open'); });
+    $('cs-no').addEventListener('click', () => { $('cs-ask').hidden = true; $('cs-deny').hidden = false; });
+    $('cs-back').addEventListener('click', () => { $('cs-deny').hidden = true; $('cs-ask').hidden = false; });
+})();
+
 (function initWelcome(){
     const KEY = 'welcome_done_v2';
     const el = $('welcome');
@@ -3067,6 +3121,7 @@ setTimeout(() => { const s = $('splash'); if (s) s.classList.add('hide'); }, 900
     if (store.get(KEY, false) || chatHistoryForServer.length > 0 || BAL > 0) {
         store.set(KEY, true);
         el.classList.remove('open');
+        showConsent();
         return;
     }
     el.classList.add('open');
@@ -3128,7 +3183,7 @@ setTimeout(() => { const s = $('splash'); if (s) s.classList.add('hide'); }, 900
     function finish(){
         store.set(KEY, true);
         el.style.opacity = '0';
-        setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; }, 400);
+        setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; showConsent(); }, 400);
     }
 
     function advance(){
