@@ -987,6 +987,10 @@ async def ask(request: Request):
                 if COMPLEX_RE.search(user_text):
                     return JSONResponse({"text": "Сложные проекты (игры, презентации, 3D) доступны на платных тарифах. На бесплатной пробной сборке можно сделать только простой сайт-визитку.", "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 
+                # ЗАЩИТА: правки недоступны на бесплатной пробной сборке
+                if is_edit:
+                    return JSONResponse({"text": "Правки проектов доступны только на платных тарифах. Оформи подписку, чтобы вносить изменения.", "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+
                 if trial_available(conn, uid):
                     trial = True
                     weight = 0
