@@ -347,6 +347,18 @@ def refund_units(conn, uid, units):
     except Exception:
         log.exception("refund failed")
 
+def refund_ask(conn, uid, weight, is_pro):
+    """Возврат списанного за /ask, если ответ не получился."""
+    try:
+        if weight <= 0: return
+        if is_pro:
+            conn.execute("UPDATE pro_state SET requests_left = requests_left + ? WHERE user_id = ?", (weight, uid))
+        else:
+            conn.execute("UPDATE rate_state SET ask_count = MAX(ask_count - ?, 0) WHERE user_id = ?", (weight, uid))
+        conn.commit()
+    except Exception:
+        log.exception("ask refund failed")
+
 def trial_available(conn, uid):
     return scalar(conn, "SELECT COUNT(*) FROM trial_build WHERE user_id = ?", (uid,)) == 0
 
@@ -472,6 +484,13 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
         
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
+
+def is_valid_html(code):
+    """Проверяет, что переданный код похож на HTML-документ"""
+    if not isinstance(code, str):
+        return False
+    code_lower = code.lower()
+    return ("<html" in code_lower or "<div" in code_lower or "<body" in code_lower)
 
 def is_banned(uid):
     try:
@@ -929,6 +948,7 @@ def build_user_content(text, att, hi=False):
 
 @app.post("/ask")
 async def ask(request: Request):
+    refund_pending = None  # (weight, is_pro): что вернуть, если после списания всё упадёт
     try:
         try:
             if int(request.headers.get("content-length", "0")) > MAX_BODY_BYTES:
@@ -955,8 +975,14 @@ async def ask(request: Request):
         pro_pre = pro_info(conn, uid, now)
         visual_mode = bool(VISUAL_RE.search(user_text))
         weight = ask_weight(att, visual_mode)
+        if visual_mode:
+            weight += VISUAL_EXTRA  # доплата за визуал берётся ДО генерации
         lv = data.get("last_visual")
-        current_code = lv.get("code") if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str) and 400 <= len(lv["code"]) <= MAX_BUILD_LEN else None
+        current_code = None
+        if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str):
+            # Проверяем длину И то, что это реально HTML-код, а не мусор
+            if 400 <= len(lv["code"]) <= MAX_BUILD_LEN and is_valid_html(lv["code"]):
+                current_code = lv["code"]
         edit_req = bool(data.get("edit_project"))
         if edit_req and not current_code:
             return {"text": "Не нашёл проект для правки. Нажми «Править проект» под нужным сайтом ещё раз.", "emotion": "sad", "pro": pro_pre}
@@ -1017,10 +1043,15 @@ async def ask(request: Request):
             if now - last_ask < ASK_MIN_GAP:
                 return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
             if pro["active"]:
-                cur = conn.execute("UPDATE pro_state SET requests_left = MAX(requests_left - ?, 0) WHERE user_id = ? AND requests_left > 0 AND expires_at > ?", (weight, uid, now))
+                cur = conn.execute("UPDATE pro_state SET requests_left = requests_left - ? WHERE user_id = ? AND requests_left >= ? AND expires_at > ?", (weight, uid, weight, now))
                 if cur.rowcount != 1:
                     conn.commit()
-                    return JSONResponse({"text": "Лимит Pro закончился. Продли подписку.", "emotion": "sleepy", "pro": pro_info(conn, uid, now)}, status_code=402)
+                    pro_now = pro_info(conn, uid, now)
+                    if pro_now.get("active") and pro_now.get("left", 0) > 0:
+                        msg = f"На этот запрос нужно {weight} единиц, а осталось {pro_now['left']}. Пополни тариф."
+                    else:
+                        msg = "Лимит Pro закончился. Продли подписку."
+                    return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_now}, status_code=402)
                 pro = pro_info(conn, uid, now)
             else:
                 if cnt >= ASK_DAY_LIMIT and not trial:
@@ -1048,6 +1079,8 @@ async def ask(request: Request):
                     conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,))
                     conn.commit()
             return res
+        
+        refund_pending = (weight, bool(pro and pro.get("active")))
             
         if visual_mode:
             system_prompt = (ASTRO_PROMPT if persona == "astronaut" else BASE_PROMPT) + VISUAL_RULES
@@ -1101,25 +1134,31 @@ async def ask(request: Request):
         if not str(result.get("text") or "").strip():
             log.warning("empty reply from model, finish_reason=%s, raw=%r", getattr(response.choices[0], "finish_reason", None), raw[:200])
             result["text"] = "Не получилось ответить, попробуй ещё раз."
+            refund_ask(conn, uid, *refund_pending)
+            if refund_pending[1]: pro = pro_info(conn, uid, int(time.time()))
+            refund_pending = None
             
         emotion = result.get("emotion")
         if emotion not in EMOTIONS_OK: emotion = "happy"
         visual = clean_visual(result.get("visual")) if visual_mode else None
-        if visual:
+        if visual_mode and not visual and refund_pending:  # refund_pending=None => уже вернули выше
+            # визуал не получился (запрос просто совпал с «покажи/схема» и т.п.) — возвращаем доплату
             try:
                 if pro and pro.get("active"):
-                    conn.execute("UPDATE pro_state SET requests_left = MAX(requests_left - ?, 0) WHERE user_id = ?", (VISUAL_EXTRA, uid))
+                    refund_units(conn, uid, VISUAL_EXTRA)
                     pro = pro_info(conn, uid, int(time.time()))
                 else:
-                    conn.execute("UPDATE rate_state SET ask_count = ask_count + ? WHERE user_id = ?", (VISUAL_EXTRA, uid))
-                conn.commit()
+                    conn.execute("UPDATE rate_state SET ask_count = MAX(ask_count - ?, 0) WHERE user_id = ?", (VISUAL_EXTRA, uid))
+                    conn.commit()
             except Exception:
-                log.exception("visual surcharge failed")
+                log.exception("visual refund failed")
         return {"text": str(result.get("text") or "Что-то я задумался...").strip(), "emotion": emotion, "visual": visual, "pro": pro}
     except BannedError:
         raise
     except Exception:
         log.exception("ask failed")
+        if refund_pending:
+            refund_ask(get_db_connection(), uid, *refund_pending)
         return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
 
 @app.post("/pro/status")
