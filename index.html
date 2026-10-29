@@ -1354,7 +1354,7 @@
 </div>
 
 <div id="admin-panel" class="overlay">
-  <div class="dialog" style="border-color: var(--ui-line-hi); max-width: 350px;">
+  <div class="dialog" style="border-color: var(--ui-line-hi); max-width: 350px; max-height: 90vh; overflow-y: auto;">
     <h3 style="color: var(--ui-gold-hi);">👑 Админ-панель</h3>
     <p>Статистика в реальном времени:</p>
     <div style="font-size: 20px; text-align: center; margin-bottom: 15px;">
@@ -1369,6 +1369,22 @@
     </div>
     <button class="txtbtn on" style="width: 100%; margin-bottom: 10px;" onclick="adminGiveMoney()">💰 Выдать указанную сумму</button>
     <button class="txtbtn on" style="width: 100%; margin-bottom: 10px; border-color:var(--ui-line-hi); color:var(--ui-gold-hi);" onclick="adminGivePro()">👑 Выдать себе Pro</button>
+    <div style="border-top: 1px solid var(--ui-line-hi); margin: 6px 0 12px; padding-top: 12px; text-align: center; color: var(--ui-gold-hi);">🚫 Баны (<span id="adm-bancnt">0</span>)</div>
+    <div class="input-container" style="margin-bottom: 8px;">
+        <div class="input-inner">
+            <input type="number" inputmode="numeric" id="adm-banid" placeholder="ID пользователя" style="background: transparent; border: none; color: var(--ui-tx-hi); padding: 8px; outline: none; width: 100%; font-size: 16px; font-family: inherit;">
+        </div>
+    </div>
+    <div class="input-container" style="margin-bottom: 10px;">
+        <div class="input-inner">
+            <input type="text" id="adm-banreason" maxlength="200" placeholder="Причина (необязательно)" style="background: transparent; border: none; color: var(--ui-tx-hi); padding: 8px; outline: none; width: 100%; font-size: 16px; font-family: inherit;">
+        </div>
+    </div>
+    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <button class="txtbtn on" style="flex: 1;" onclick="adminBan()">🚫 Забанить</button>
+        <button class="txtbtn" style="flex: 1;" onclick="adminUnban()">✅ Разбанить</button>
+    </div>
+    <div id="adm-banlist" style="font-size: 13px; margin-bottom: 12px; max-height: 130px; overflow-y: auto;"></div>
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
@@ -1896,7 +1912,18 @@ const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.us
 const refOk = () => !!(tg && tg.initData);
 async function tgPost(path, extra){
     const r = await fetch(`${BACKEND_URL}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ init_data: tg.initData }, extra || {})) });
-    return r.json();
+    const j = await r.json();
+    if (j && j.reason === 'banned') showBanned();
+    return j;
+}
+
+function showBanned(){
+    if (document.getElementById('banned-screen')) return;
+    const d = document.createElement('div');
+    d.id = 'banned-screen';
+    d.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;color:#fff;font-family:inherit;';
+    d.innerHTML = '<div style="font-size:56px;margin-bottom:14px">🚫</div><div style="font-size:20px;margin-bottom:10px">Доступ ограничен</div><div style="font-size:14px;opacity:.7;max-width:280px">Ваш аккаунт заблокирован администратором. Если это ошибка — напишите в поддержку бота.</div>';
+    document.body.appendChild(d);
 }
 
 let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, units: 500, days: 30, builds: 5 }, { id: 'pro', title: 'Про', price: 1999, units: 1500, days: 30, builds: 15 }, { id: 'business', title: 'Максимум', price: 4999, units: 4000, days: 365, builds: 40 } ] };
@@ -2482,6 +2509,11 @@ async function sendMessage(text) {
             input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         }
+        if (response.status === 403 && data.reason === 'banned'){
+            hideTyping(); showBanned();
+            input.readOnly = false; sendBtn.disabled = false; isSending = false;
+            return;
+        }
         if (response.status === 401){
             hideTyping();
             addToHistory('Ошибка авторизации. Открой приложение из Telegram.', 'bot');
@@ -3056,7 +3088,7 @@ setInterval(refreshPro, 120000);
 
 const ADMIN_ID = 5194423911;
 let admT = null;
-function openAdmin(){ $('admin-panel').classList.add('open'); refreshAdmin(); clearInterval(admT); admT = setInterval(refreshAdmin, 5000); }
+function openAdmin(){ $('admin-panel').classList.add('open'); refreshAdmin(); refreshBans(); clearInterval(admT); admT = setInterval(refreshAdmin, 5000); }
 function closeAdmin(){ clearInterval(admT); $('admin-panel').classList.remove('open'); }
 async function refreshAdmin(){
     if (!refOk()) return;
@@ -3073,6 +3105,38 @@ async function adminGiveMoney(){
     try {
         const r = await tgPost('admin/give', { amount: n });
         if (r.status === 'ok'){ BAL = r.bal; store.set('bal', BAL); renderBal(); $('adm-amount').value = ''; toast('Выдано: +' + n + ' ★'); }
+        else toast('Не получилось');
+    } catch(e) { toast('Нет связи'); }
+}
+function escHtml(t){ return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function refreshBans(){
+    if (!refOk()) return;
+    try {
+        const r = await tgPost('admin/banned');
+        if (r.status !== 'ok') return;
+        $('adm-bancnt').textContent = r.total;
+        const box = $('adm-banlist');
+        box.innerHTML = r.list.length ? r.list.map(b => `<div data-id="${b.id}" style="padding:6px 8px;margin-bottom:4px;border:1px solid var(--ui-line-hi);border-radius:8px;cursor:pointer;text-align:left"><b>${b.id}</b>${b.reason ? ' — ' + escHtml(b.reason) : ''}</div>`).join('') : '<div style="opacity:.6;text-align:center">Банов нет</div>';
+        box.querySelectorAll('[data-id]').forEach(el => el.onclick = () => { $('adm-banid').value = el.dataset.id; toast('ID подставлен — жми «Разбанить»'); });
+    } catch(e) {}
+}
+async function adminBan(){
+    if (!refOk()){ toast('Только в Telegram'); return; }
+    const id = parseInt($('adm-banid').value, 10);
+    if (!id || id <= 0){ toast('Введи ID'); return; }
+    try {
+        const r = await tgPost('admin/ban', { user_id: id, reason: $('adm-banreason').value.trim() });
+        if (r.status === 'ok'){ $('adm-banid').value = ''; $('adm-banreason').value = ''; toast('Забанен: ' + id); refreshBans(); }
+        else toast(r.reason === 'self' ? 'Себя банить нельзя' : r.reason === 'bad_id' ? 'Неверный ID' : 'Не получилось');
+    } catch(e) { toast('Нет связи'); }
+}
+async function adminUnban(){
+    if (!refOk()){ toast('Только в Telegram'); return; }
+    const id = parseInt($('adm-banid').value, 10);
+    if (!id || id <= 0){ toast('Введи ID'); return; }
+    try {
+        const r = await tgPost('admin/unban', { user_id: id });
+        if (r.status === 'ok'){ $('adm-banid').value = ''; toast('Разбанен: ' + id); refreshBans(); }
         else toast('Не получилось');
     } catch(e) { toast('Нет связи'); }
 }
@@ -3208,6 +3272,8 @@ window.openAdmin = openAdmin;
 window.closeAdmin = closeAdmin;
 window.adminGiveMoney = adminGiveMoney;
 window.adminGivePro = adminGivePro;
+window.adminBan = adminBan;
+window.adminUnban = adminUnban;
 </script>
 </body>
 </html>
