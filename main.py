@@ -38,6 +38,17 @@ client = AsyncOpenAI(
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+class BannedError(Exception):
+    pass
+
+@app.exception_handler(BannedError)
+async def _banned_handler(request: Request, exc: BannedError):
+    # text/emotion — чтобы /ask тоже мог показать сообщение; reason — для остальных запросов
+    return JSONResponse(
+        {"status": "error", "reason": "banned", "text": "Доступ к приложению ограничен администратором.", "emotion": "sad"},
+        status_code=403,
+    )
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DANCE_LIST = ["disco", "dab", "floss", "robot", "party", "twist"]
 
@@ -124,19 +135,6 @@ PRO_WARN_LEFT = 100
 def plans_public():
     return [{"id": k, "title": v["title"], "price": v["price"], "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT} for k, v in PLANS.items()]
 
-# --- НАСТРОЙКИ КЕЙСОВ ---
-CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "")
-CHANNEL_LINK = os.getenv("CHANNEL_LINK", "") or (
-    f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}" if CHANNEL_USERNAME and not CHANNEL_USERNAME.lstrip('-').isdigit() else ""
-)
-CASE_ALL_PRICE = 50
-CASE_FREE_COOLDOWN = 86400
-EXCLUSIVE_FREE = ["h_halo", "f_visor"]
-EXCLUSIVE_CHANCE = 0.02
-FREE_MAX_PRICE = 50
-TIER_WEIGHTS = [("common", 55), ("uncommon", 30), ("rare", 12), ("epic", 3)]
-SELL_DIV = 2
-
 # --- ЭКОНОМИКА И ЗАЩИТА ---
 QUEST_EARN_CAP = 20
 DAILY_COOLDOWN = 20 * 3600
@@ -162,30 +160,6 @@ ITEM_SLOT = {i: SLOT_BY_PREFIX[i[0]] for i in ITEM_PRICE}
 VALID_SLOTS = set(SLOT_BY_PREFIX.values())
 _rng = random.SystemRandom()
 
-def tier_of_price(price):
-    if price <= 30: return "common"
-    if price <= 60: return "uncommon"
-    if price <= 100: return "rare"
-    return "epic"
-
-def roll_all():
-    tiers = {t: [] for t, _ in TIER_WEIGHTS}
-    for item_id, price in SHOP_PRICES.items():
-        if item_id != "astro" and not item_id.startswith("c_aurum"):
-            tiers[tier_of_price(price)].append(item_id)
-    r = _rng.random() * sum(w for _, w in TIER_WEIGHTS)
-    for tier, w in TIER_WEIGHTS:
-        if r < w:
-            return _rng.choice(tiers[tier])
-        r -= w
-    return _rng.choice(tiers["common"])
-
-def roll_free():
-    if _rng.random() < EXCLUSIVE_CHANCE * len(EXCLUSIVE_FREE):
-        return _rng.choice(EXCLUSIVE_FREE)
-    pool = [i for i, p in SHOP_PRICES.items() if i != "astro" and p <= FREE_MAX_PRICE]
-    return _rng.choice(pool)
-
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
@@ -208,11 +182,11 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS daily_state (user_id INTEGER PRIMARY KEY, last_ts INTEGER DEFAULT 0, streak INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS earn_state (user_id INTEGER PRIMARY KEY, day TEXT DEFAULT '', earned INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS payments (charge_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, item TEXT NOT NULL, created_at INTEGER NOT NULL)")
-    conn.execute("CREATE TABLE IF NOT EXISTS case_state (user_id INTEGER PRIMARY KEY, last_free INTEGER DEFAULT 0, pending TEXT DEFAULT '', pending_case TEXT DEFAULT '')")
     conn.execute("CREATE TABLE IF NOT EXISTS user_seen (user_id INTEGER PRIMARY KEY, last_seen INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS rate_state (user_id INTEGER PRIMARY KEY, last_ask INTEGER DEFAULT 0, day TEXT DEFAULT '', ask_count INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS banned_users (user_id INTEGER PRIMARY KEY, reason TEXT DEFAULT '', banned_at INTEGER DEFAULT 0)")
     for col in ("plan TEXT DEFAULT ''", "units_total INTEGER DEFAULT 0"):
         try:
             conn.execute(f"ALTER TABLE pro_state ADD COLUMN {col}")
@@ -499,6 +473,14 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
 
+def is_banned(uid):
+    try:
+        conn = get_db_connection()
+        return conn.execute("SELECT 1 FROM banned_users WHERE user_id = ?", (uid,)).fetchone() is not None
+    except Exception:
+        log.exception("is_banned check failed")
+        return False  # если БД недоступна — не блокируем всех подряд
+
 def validate_init_data(init_data: str):
     if not init_data or not BOT_TOKEN: return None
     try:
@@ -516,6 +498,8 @@ def validate_init_data(init_data: str):
         user = json.loads(pairs.get("user", "{}"))
         if not isinstance(user.get("id"), int): return None
     except (ValueError, TypeError): return None
+    if user["id"] != ADMIN_ID and is_banned(user["id"]):
+        raise BannedError()
     return {"user": user, "start_param": pairs.get("start_param", "")}
 
 def scalar(conn, sql, params=()):
@@ -538,7 +522,7 @@ def stars_price(item):
     if item.startswith("plan_"):
         p = PLANS.get(item[5:])
         return p["price"] if p else None
-    return CASE_ALL_PRICE if item == "case_all" else SHOP_PRICES.get(item)
+    return SHOP_PRICES.get(item)
 
 def make_link(user_id):
     if not BOT_USERNAME: return ""
@@ -687,6 +671,47 @@ def admin_pro(data: dict = Body(...)):
     conn.commit()
     return {"status": "ok", "pro": pro_info(conn, uid, now)}
 
+def _admin_target(data):
+    try: target = int(str(data.get("user_id", "")).strip())
+    except (TypeError, ValueError): return None
+    return target if target > 0 else None
+
+@app.post("/admin/ban")
+def admin_ban(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
+    target = _admin_target(data)
+    if target is None: return {"status": "error", "reason": "bad_id"}
+    if target == ADMIN_ID: return {"status": "error", "reason": "self"}
+    reason = str(data.get("reason", "") or "").strip()[:200]
+    conn = get_db_connection()
+    conn.execute(
+        "INSERT INTO banned_users (user_id, reason, banned_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(user_id) DO UPDATE SET reason = excluded.reason, banned_at = excluded.banned_at",
+        (target, reason, int(time.time())))
+    conn.commit()
+    return {"status": "ok", "banned": scalar(conn, "SELECT COUNT(*) FROM banned_users")}
+
+@app.post("/admin/unban")
+def admin_unban(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
+    target = _admin_target(data)
+    if target is None: return {"status": "error", "reason": "bad_id"}
+    conn = get_db_connection()
+    conn.execute("DELETE FROM banned_users WHERE user_id = ?", (target,))
+    conn.commit()
+    return {"status": "ok", "banned": scalar(conn, "SELECT COUNT(*) FROM banned_users")}
+
+@app.post("/admin/banned")
+def admin_banned(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
+    conn = get_db_connection()
+    rows = conn.execute("SELECT user_id, reason, banned_at FROM banned_users ORDER BY banned_at DESC LIMIT 30").fetchall()
+    total = scalar(conn, "SELECT COUNT(*) FROM banned_users")
+    return {"status": "ok", "total": total, "list": [{"id": r[0], "reason": r[1] or "", "at": r[2]} for r in rows]}
+
 @app.post("/save_progress")
 def save_progress(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
@@ -834,146 +859,7 @@ def referral_claim(data: dict = Body(...)):
     conn.commit()
     return {"status": "ok", "reward": reward}
 
-_member_cache = {}
-MEMBER_TTL = 300
-MEMBER_MAX = 5000
 _http = httpx.AsyncClient(timeout=8)
-
-async def channel_check(user_id):
-    if not CHANNEL_USERNAME or not BOT_TOKEN: return None, "CHANNEL_USERNAME или BOT_TOKEN не заданы"
-    hit = _member_cache.get(user_id)
-    if hit and time.time() - hit < MEMBER_TTL: return True, ""
-    chat = CHANNEL_USERNAME if (CHANNEL_USERNAME.startswith("@") or CHANNEL_USERNAME.lstrip("-").isdigit()) else "@" + CHANNEL_USERNAME
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember"
-    try:
-        r = await _http.post(url, json={"chat_id": chat, "user_id": user_id}); res = r.json()
-    except Exception:
-        return None, "нет связи с Telegram"
-    if not res.get("ok"):
-        err = res.get("description", "unknown"); log.warning("getChatMember error: %s", err)
-        return None, err
-    member = res.get("result", {}); status = member.get("status")
-    is_m = status in ("creator", "administrator", "member") or (status == "restricted" and bool(member.get("is_member")))
-    if is_m:
-        if len(_member_cache) >= MEMBER_MAX:
-            oldest = sorted(_member_cache.items(), key=lambda kv: kv[1])[:1000]
-            for kk, _ in oldest:
-                del _member_cache[kk]
-        _member_cache[user_id] = time.time()
-    else:
-        _member_cache.pop(user_id, None)
-    return is_m, ""
-
-def _case_row(uid):
-    conn = get_db_connection()
-    row = conn.execute("SELECT last_free, pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-    return (row[0], row[1], row[2]) if row else (0, "", "")
-
-@app.post("/case/status")
-async def case_status(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; now = int(time.time())
-    if CHANNEL_USERNAME:
-        (last_free, pending, pending_case), (member, _why) = await asyncio.gather(asyncio.to_thread(_case_row, uid), channel_check(uid))
-    else:
-        (last_free, pending, pending_case), member = await asyncio.to_thread(_case_row, uid), None
-    return {"status": "ok", "free_wait": max(0, last_free + CASE_FREE_COOLDOWN - now), "subscribed": member, "configured": bool(CHANNEL_USERNAME), "channel_link": CHANNEL_LINK, "price": CASE_ALL_PRICE, "pending": pending or None, "pending_case": pending_case or None}
-
-def _case_open_db(uid, kind):
-    now = int(time.time())
-    conn = get_db_connection()
-    row = conn.execute("SELECT pending, pending_case FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-    pending = row[0] if row else ""
-    if pending:
-        return {"status": "error", "reason": "pending", "item": pending, "case": row[1]}
-    if kind == "free":
-        cutoff = now - CASE_FREE_COOLDOWN
-        cur = conn.execute("UPDATE case_state SET last_free = ? WHERE user_id = ? AND last_free <= ?", (now, uid, cutoff))
-        if cur.rowcount != 1:
-            row2 = conn.execute("SELECT last_free FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-            if not row2:
-                conn.execute("INSERT INTO case_state (user_id, last_free) VALUES (?, ?)", (uid, now))
-            else:
-                wait = max(0, row2[0] + CASE_FREE_COOLDOWN - now)
-                conn.commit()
-                return {"status": "error", "reason": "cooldown", "wait": wait}
-        item = roll_free()
-        conn.execute("UPDATE case_state SET pending = ?, pending_case = 'free' WHERE user_id = ?", (item, uid))
-        conn.commit()
-        return {"status": "ok", "item": item, "case": "free"}
-    if not try_spend(conn, uid, CASE_ALL_PRICE):
-        conn.commit()
-        return {"status": "error", "reason": "no_funds"}
-    item = roll_all()
-    conn.execute("INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all') ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'", (uid, item))
-    bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
-    conn.commit()
-    return {"status": "ok", "item": item, "case": "all", "new_bal": bal}
-
-@app.post("/case/open")
-async def case_open(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; kind = data.get("case")
-    if kind not in ("free", "all"): return {"status": "error", "reason": "bad_case"}
-    if kind == "free":
-        member, why = await channel_check(uid)
-        if member is None: return {"status": "error", "reason": "channel_unavailable", "detail": why if uid == ADMIN_ID else ""}
-        if not member: return {"status": "error", "reason": "not_subscribed"}
-    return await asyncio.to_thread(_case_open_db, uid, kind)
-
-@app.post("/case/resolve")
-def case_resolve(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; action = data.get("action")
-    if action not in ("keep", "sell"): return {"status": "error", "reason": "bad_action"}
-    conn = get_db_connection()
-    row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-    item = row[0] if row else ""
-    if not item: return {"status": "error", "reason": "nothing"}
-    sell = ITEM_PRICE.get(item, 0) // SELL_DIV
-    conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-    cur = conn.execute("UPDATE case_state SET pending = '', pending_case = '' WHERE user_id = ? AND pending = ?", (uid, item))
-    if cur.rowcount != 1:
-        conn.commit()
-        return {"status": "error", "reason": "nothing"}
-    if action == "keep" and get_owned(conn, uid).get(item):
-        action = "sell"
-    if action == "sell":
-        if sell > 0: conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (sell, uid))
-    else:
-        grant_item(conn, uid, item)
-    conn.commit()
-    bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
-    return {"status": "ok", "action": action, "item": item, "sell": sell if action == "sell" else 0, "bal": bal}
-
-class BetData(BaseModel):
-    init_data: str
-    bet: int
-    choice: str
-
-@app.post("/play_rps")
-def play_rps(data: BetData):
-    info = validate_init_data(data.init_data)
-    if not info: return {"error": "auth"}
-    uid = info["user"]["id"]
-    if data.choice not in ("rock", "paper", "scissors"): return {"error": "Неверный выбор"}
-    if data.bet <= 0: return {"error": "Ставка должна быть больше нуля"}
-    conn = get_db_connection()
-    if not try_spend(conn, uid, data.bet):
-        conn.commit()
-        return {"error": "Недостаточно звезд"}
-    bot_choice = _rng.choice(["rock", "paper", "scissors"])
-    beats = {"rock": "scissors", "paper": "rock", "scissors": "paper"}
-    tie = data.choice == bot_choice
-    win = (not tie) and beats[data.choice] == bot_choice
-    if tie: conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (data.bet, uid))
-    elif win: conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (data.bet * 2, uid))
-    conn.commit()
-    bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
-    return {"status": "ok", "bot_choice": bot_choice, "win": win, "tie": tie, "new_bal": bal}
 
 # --- ВЛОЖЕНИЯ ДЛЯ /ask ---
 def _pdf_to_text(b64):
@@ -1226,6 +1112,8 @@ async def ask(request: Request):
             except Exception:
                 log.exception("visual surcharge failed")
         return {"text": str(result.get("text") or "Что-то я задумался...").strip(), "emotion": emotion, "visual": visual, "pro": pro}
+    except BannedError:
+        raise
     except Exception:
         log.exception("ask failed")
         return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
@@ -1272,9 +1160,6 @@ async def tg_call(method, payload):
 def _invoice_blocked(uid, item_id):
     if item_id == "pro" or item_id.startswith("plan_"): return None
     conn = get_db_connection()
-    if item_id == "case_all":
-        row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-        return "pending" if (row and row[0]) else None
     return "owned" if get_owned(conn, uid).get(item_id) else None
 
 @app.post("/invoice")
@@ -1287,7 +1172,7 @@ async def create_invoice(data: dict = Body(...)):
     if not WEBHOOK_SECRET: return {"error": "payments_disabled"}
     blocked = await asyncio.to_thread(_invoice_blocked, uid, item_id)
     if blocked: return {"error": blocked}
-    title = "Кейс «Всё сразу»" if item_id == "case_all" else f"Покупка: {item_id}"
+    title = f"Покупка: {item_id}"
     payload = {"title": title, "description": "Покупка в Holo Friend", "payload": f"{uid}|{item_id}", "currency": "XTR", "provider_token": "", "prices": [{"label": "Товар", "amount": price}]}
     r = await tg_call("createInvoiceLink", payload)
     res = r.json()
@@ -1297,10 +1182,7 @@ async def create_invoice(data: dict = Body(...)):
 def _precheck_db(uid, item):
     if item == "pro" or item.startswith("plan_"): return True, ""
     conn = get_db_connection()
-    if item == "case_all":
-        row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (uid,)).fetchone()
-        if row and row[0]: return False, "Сначала реши, что делать с прошлым предметом"
-    elif get_owned(conn, uid).get(item): return False, "Этот предмет у тебя уже есть"
+    if get_owned(conn, uid).get(item): return False, "Этот предмет у тебя уже есть"
     return True, ""
 
 def _apply_payment(from_id, item, charge):
@@ -1310,13 +1192,6 @@ def _apply_payment(from_id, item, charge):
         if item == "pro" or item.startswith("plan_"):
             conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
             pro_grant(conn, from_id, int(time.time()), charge, "pro" if item == "pro" else item[5:])
-        elif item == "case_all":
-            row = conn.execute("SELECT pending FROM case_state WHERE user_id = ?", (from_id,)).fetchone()
-            conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (from_id,))
-            if row and row[0]:
-                conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (CASE_ALL_PRICE, from_id))
-            else:
-                conn.execute("INSERT INTO case_state (user_id, last_free, pending, pending_case) VALUES (?, 0, ?, 'all') ON CONFLICT(user_id) DO UPDATE SET pending = excluded.pending, pending_case = 'all'", (from_id, roll_all()))
         else:
             grant_item(conn, from_id, item)
         conn.commit()
