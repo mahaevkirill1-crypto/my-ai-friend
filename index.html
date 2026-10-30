@@ -2322,7 +2322,6 @@ async function sendMessage(text) {
     input.value = ''; $('cnt').textContent = '0 / 500'; syncHud();
     input.readOnly = true;
     sendBtn.disabled = true;
-    Snd.click();
     Quest.add('msg');
     store.set('stat_msgs', store.get('stat_msgs', 0) + 1);
     if (text.length >= 50) Quest.add('long');
@@ -3213,47 +3212,6 @@ function showConsent(){
     const next   = $('welcome-next');
     const tryBtn = $('welcome-try');
     let idx = 0;
-    let soundPlayed = false;
-
-    function chime(){
-        if (soundPlayed) return;
-        soundPlayed = true;
-        try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (!AC) return;
-            const ctx = new AC();
-            const now = ctx.currentTime;
-            [523.25, 783.99, 1046.5].forEach((f, i) => {
-                const o = ctx.createOscillator();
-                const g = ctx.createGain();
-                o.type = 'sine';
-                o.frequency.value = f;
-                g.gain.setValueAtTime(.0001, now);
-                g.gain.exponentialRampToValueAtTime(.12, now + .05 + i*.08);
-                g.gain.exponentialRampToValueAtTime(.0001, now + 1.4 + i*.15);
-                o.connect(g).connect(ctx.destination);
-                o.start(now + i*.08);
-                o.stop(now + 1.8);
-            });
-            const sub = ctx.createOscillator();
-            sub.frequency.value = 60;
-            const sg = ctx.createGain();
-            sg.gain.setValueAtTime(.0001, now);
-            sg.gain.exponentialRampToValueAtTime(.08, now + .1);
-            sg.gain.exponentialRampToValueAtTime(.0001, now + 1.0);
-            sub.connect(sg).connect(ctx.destination);
-            sub.start(now); sub.stop(now + 1.1);
-            const buf = ctx.createBuffer(1, ctx.sampleRate*.6, ctx.sampleRate);
-            const d = buf.getChannelData(0);
-            for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
-            const src = ctx.createBufferSource(); src.buffer = buf;
-            const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2000; bp.Q.value=.7;
-            const g2 = ctx.createGain(); g2.gain.value = .05;
-            src.connect(bp).connect(g2).connect(ctx.destination);
-            src.start(now);
-        } catch(e) {}
-    }
-
     function render(){
         slides.forEach((s,i) => s.hidden = i !== idx);
         dots.forEach((d,i) => d.classList.toggle('on', i === idx));
@@ -3269,7 +3227,6 @@ function showConsent(){
     }
 
     function advance(){
-        if (idx === 0) chime();
         if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         if (idx < slides.length-1) { idx++; render(); }
         else finish();
@@ -3277,7 +3234,6 @@ function showConsent(){
 
     next.addEventListener('click', advance);
     tryBtn.addEventListener('click', () => {
-        chime();
         if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         finish();
         setTimeout(() => { input.value = 'Сделай лендинг для кофейни'; $('cnt').textContent = input.value.length + ' / 500'; input.focus(); }, 450);
