@@ -29,6 +29,9 @@ except ImportError:
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("holo")
+# httpx на уровне INFO пишет полный URL запроса, а в нём токен бота (/bot<TOKEN>/...)
+for _n in ("httpx", "httpcore", "openai"):
+    logging.getLogger(_n).setLevel(logging.WARNING)
 
 client = AsyncOpenAI(
     api_key=os.getenv("PROXYAPI_KEY"),
@@ -91,6 +94,58 @@ MAX_FILE_TEXT = 30000
 IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"GIF8")
 EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
+
+OTHER_BODY_LIMIT = 1024 * 1024  # все эндпоинты кроме /ask
+
+class BodyLimitMiddleware:
+    """Режет слишком большие тела запросов: и по Content-Length, и по факту при chunked-передаче."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] not in ("POST", "PUT", "PATCH"):
+            return await self.app(scope, receive, send)
+        limit = MAX_BODY_BYTES if scope["path"] == "/ask" else OTHER_BODY_LIMIT
+        cl = dict(scope["headers"]).get(b"content-length")
+        if cl is not None:
+            try: too_big = int(cl) > limit
+            except ValueError: too_big = True
+            if too_big: return await self._reject(send)
+        total = 0; blown = False; answered = False
+
+        async def limited_receive():
+            nonlocal total, blown
+            msg = await receive()
+            if msg["type"] == "http.request":
+                total += len(msg.get("body", b""))
+                if total > limit:
+                    blown = True
+                    return {"type": "http.disconnect"}
+            return msg
+
+        async def limited_send(msg):
+            nonlocal answered
+            if blown:
+                if not answered:
+                    answered = True
+                    await self._reject(send)
+                return
+            await send(msg)
+
+        try:
+            await self.app(scope, limited_receive, limited_send)
+        except Exception:
+            if not blown: raise
+        if blown and not answered:
+            await self._reject(send)
+
+    @staticmethod
+    async def _reject(send):
+        body = json.dumps({"status": "error", "reason": "too_large", "text": "Слишком большой запрос.", "emotion": "sad"}).encode()
+        await send({"type": "http.response.start", "status": 413, "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
+
+app.add_middleware(BodyLimitMiddleware)
 
 # --- ИЛЛЮСТРАЦИИ ---
 AI_MAX_TOKENS_VISUAL = 3500
@@ -866,11 +921,12 @@ def referral_claim(data: dict = Body(...)):
     reward = 0
     rows = conn.execute("SELECT invitee_id FROM referrals WHERE referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (uid,)).fetchall()
     for (invitee_id,) in rows:
-        conn.execute("UPDATE referrals SET referrer_claimed = 1 WHERE invitee_id = ?", (invitee_id,))
-        reward += REF_REWARD_REFERRER
-    mine = conn.execute("SELECT activated, invitee_claimed FROM referrals WHERE invitee_id = ?", (uid,)).fetchone()
-    if mine and mine[0] == 1 and mine[1] == 0:
-        conn.execute("UPDATE referrals SET invitee_claimed = 1 WHERE invitee_id = ?", (uid,))
+        # условный UPDATE: награду получит только тот запрос, который реально переключил флаг
+        cur = conn.execute("UPDATE referrals SET referrer_claimed = 1 WHERE invitee_id = ? AND referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (invitee_id, uid))
+        if cur.rowcount == 1:
+            reward += REF_REWARD_REFERRER
+    cur = conn.execute("UPDATE referrals SET invitee_claimed = 1 WHERE invitee_id = ? AND activated = 1 AND invitee_claimed = 0", (uid,))
+    if cur.rowcount == 1:
         reward += REF_REWARD_INVITEE
     if reward > 0:
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
@@ -969,6 +1025,8 @@ async def ask(request: Request):
         uid = ask_info["user"]["id"]
         now = int(time.time())
         conn = get_db_connection()
+        if persona == "astronaut" and not get_owned(conn, uid).get("astro"):
+            persona = "hologram"
         if not raw_text and not att:
             return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro_info(conn, uid, now)}
         user_content = None
@@ -1035,12 +1093,12 @@ async def ask(request: Request):
         pro = None
         try:
             pro = pro_info(conn, uid, now)
-            r = conn.execute("SELECT last_ask, day, ask_count FROM rate_state WHERE user_id = ?", (uid,)).fetchone()
-            last_ask, day, cnt = (r[0], r[1], r[2]) if r else (0, "", 0)
             today = time.strftime("%Y-%m-%d", time.gmtime(now))
-            if today != day: 
-                cnt = 0
-            if now - last_ask < ASK_MIN_GAP:
+            # атомарный «слот»: параллельные запросы не могут одновременно пройти паузу
+            conn.execute("INSERT OR IGNORE INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, 0, ?, 0)", (uid, today))
+            cur = conn.execute("UPDATE rate_state SET last_ask = ? WHERE user_id = ? AND last_ask <= ?", (now, uid, now - ASK_MIN_GAP))
+            if cur.rowcount != 1:
+                conn.commit()
                 return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
             if pro["active"]:
                 cur = conn.execute("UPDATE pro_state SET requests_left = requests_left - ? WHERE user_id = ? AND requests_left >= ? AND expires_at > ?", (weight, uid, weight, now))
@@ -1053,12 +1111,15 @@ async def ask(request: Request):
                         msg = "Лимит Pro закончился. Продли подписку."
                     return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_now}, status_code=402)
                 pro = pro_info(conn, uid, now)
-            else:
-                if cnt >= ASK_DAY_LIMIT and not trial:
+            elif not trial:
+                # проверка дневного лимита и прибавка — одним атомарным запросом
+                cur = conn.execute(
+                    "UPDATE rate_state SET day = ?, ask_count = (CASE WHEN day = ? THEN ask_count ELSE 0 END) + ? "
+                    "WHERE user_id = ? AND (CASE WHEN day = ? THEN ask_count ELSE 0 END) < ?",
+                    (today, today, weight, uid, today, ASK_DAY_LIMIT))
+                if cur.rowcount != 1:
                     conn.commit()
                     return JSONResponse({"text": "Бесплатный лимит на сегодня закончился. Выбери тариф — и пиши без дневных ограничений.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
-                cnt += weight
-            conn.execute("INSERT INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_ask = excluded.last_ask, day = excluded.day, ask_count = excluded.ask_count", (uid, now, today, cnt))
             conn.commit()
         finally:
             pass
@@ -1067,10 +1128,11 @@ async def ask(request: Request):
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
             if trial:
-                if not trial_available(conn, uid):
-                    return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
-                conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
+                # занимаем пробную попытку атомарно: из N параллельных запросов пройдёт один
+                cur = conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
                 conn.commit()
+                if cur.rowcount != 1:
+                    return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
             res = await run_build(conn, uid, user_content, history_text, current_code if is_edit else None, weight)
             if trial:
                 if res.get("visual"):
@@ -1279,35 +1341,40 @@ class SupportRequest(BaseModel):
     message: str
     user_id: int = None
 
+SUPPORT_GAP = 30
+SUPPORT_MAX_LEN = 2000
+_support_last = {}
+
+def _one_line(v, n):
+    return re.sub(r"[\r\n\t]+", " ", str(v or "")).strip()[:n]
+
 @app.post("/support/send")
 async def support_send(data: SupportRequest):
     info = validate_init_data(data.init_data)
     if not info: return {"status": "error", "reason": "auth"}
-    
     uid = info["user"]["id"]
-    username = info["user"].get("username", "Нет юзернейма")
-    first_name = info["user"].get("first_name", "Без имени")
-    
-    text_to_send = f"🆘 **Сообщение в поддержку**\n\n"
-    text_to_send += f"👤 От: [{first_name}](tg://user?id={uid}) (@{username})\n"
-    text_to_send += f"🆔 ID: `{uid}`\n\n"
-    text_to_send += f"💬 Сообщение:\n{data.message}"
-    
+    message = (data.message or "").strip()
+    if not message: return {"status": "error", "reason": "empty"}
+    nowf = time.time()
+    if nowf - _support_last.get(uid, 0) < SUPPORT_GAP: return {"status": "error", "reason": "too_often"}
+    if len(_support_last) > 5000: _support_last.clear()
+    _support_last[uid] = nowf
+    username = _one_line(info["user"].get("username"), 40) or "нет юзернейма"
+    first_name = _one_line(info["user"].get("first_name"), 60) or "Без имени"
+    # обычный текст (без Markdown): пользователь не может сломать разметку или подделать ссылку.
+    # Настоящий ID — в самой последней строке, её подделать нельзя.
+    text_to_send = (f"🆘 Сообщение в поддержку\n👤 {first_name} (@{username})\n\n💬 Сообщение:\n{message[:SUPPORT_MAX_LEN]}\n\n"
+                    f"———\n🆔 ID отправителя (по подписи Telegram): {uid}")
     try:
-        r = await tg_call("sendMessage", {
-            "chat_id": ADMIN_ID,
-            "text": text_to_send,
-            "parse_mode": "Markdown"
-        })
+        r = await tg_call("sendMessage", {"chat_id": ADMIN_ID, "text": text_to_send, "disable_web_page_preview": True})
         res = r.json()
         if res.get("ok"):
             return {"status": "ok"}
-        else:
-            log.error(f"Telegram API error: {res}")
-            return {"status": "error", "reason": "telegram_api_error"}
-    except Exception as e:
+        log.error("Telegram API error: %s", res)
+        return {"status": "error", "reason": "telegram_api_error"}
+    except Exception:
         log.exception("support_send failed")
-        return {"status": "error", "reason": str(e)}
+        return {"status": "error", "reason": "send_failed"}
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
