@@ -128,7 +128,7 @@ COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|зме�
 PLANS = {
     "start":    {"title": "Старт",  "price": 899,  "units": 500,  "days": 30},
     "pro":      {"title": "Про",    "price": 1999, "units": 1500, "days": 30},
-    "business": {"title": "Бизнес", "price": 4999, "units": 4000, "days": 365},
+    "business": {"title": "Максимум", "price": 4999, "units": 4000, "days": 365},
 }
 PRO_WARN_LEFT = 100
 
