@@ -352,7 +352,6 @@ BUILD_SYSTEM = """
 - Один самодостаточный файл: <!doctype html>, весь CSS в <style>, JS в <script> перед </body>.
 - Запросы к сети (fetch, XHR), отправка форм, alert/confirm/prompt, window.open и переходы по внешним ссылкам не работают: используй <button type="button">. Навигация только внутри одной страницы: якоря href="#id" на секции этого же файла или переключение секций через JS. Ссылок на другие файлы и страницы (about.html, /contacts) не делай.
 - Чистый код без ошибок в консоли.
-- ЖЁСТКОЕ ПРАВИЛО: НИКОГДА не используй текст [[HTML]], [[END]], [[TEXT]], [[EMOTION]] или [[FILE: внутри тегов <script> и <style>, в строках, комментариях и шаблонах. Эти метки служебные, их можно писать только как разделители ответа.
 - КРИТИЧЕСКОЕ ОГРАНИЧЕНИЕ: Код должен быть ОЧЕНЬ компактным. Не делай огромных отступов, не дублируй стили, не пиши длинные комментарии. Максимальный размер кода — 2000 строк. Если нужно написать больше, пиши более эффективно, используя классы и общие стили.
 
 ФОРМАТ ОТВЕТА — строго так, без лишнего текста вокруг:
@@ -619,9 +618,7 @@ class BuildStreamParser:
                     break
                 hold = self._hold(body, ("[[FILE:", "[[END]]"))
                 safe = body[:len(body) - hold] if hold else body
-                emit = safe
-                tail = safe.rstrip(_TRAIL)
-                if "`" in safe[len(tail):]: emit = tail   # режем хвост только если в нём ``` (ограда перед [[END]]); обычные пробелы и переносы не трогаем
+                emit = safe.rstrip(_TRAIL)   # хвост из ``` и пробелов не отдаём: это может быть ограда перед [[END]]
                 if emit:
                     out.append(("html", emit)); self.buf = self.buf[len(emit):]
                 break
@@ -1322,7 +1319,7 @@ async def ask(request: Request):
                 conn.commit()
                 if cur.rowcount != 1:
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
-            if data.get("stream"):
+            if data.get("stream") is True:
                 return StreamingResponse(
                     run_build_stream(conn, uid, user_content, history_text, current_code if is_edit else None, weight, trial),
                     media_type="application/x-ndjson",
