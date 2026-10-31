@@ -1744,13 +1744,66 @@ function renderRich(text){
     });
     return { frag, any, blocks };
 }
+// Плавное появление текста: идём по всем текстовым узлам (и в обычном тексте, и в форматированном/с кодом) и открываем символы по времени
+function revealAnimate(root, row){
+    if (REDUCED || !root) return;
+    const SKIP = '.vis,.copy-btn,.chat-img,iframe,button';
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.nodeValue && !(n.parentElement && n.parentElement.closest(SKIP))) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+    const items = []; let n, total = 0;
+    while ((n = walker.nextNode())){ items.push({ n, t: n.nodeValue, s: total }); total += n.nodeValue.length; }
+    if (total < 2) return;
+    const hide = Array.from(root.querySelectorAll('.vis,.copy-btn')).filter(el => !el.parentElement.closest('.vis'));
+    hide.forEach(el => { el.style.visibility = 'hidden'; if (el.classList.contains('vis')) el.style.display = 'none'; });
+    items.forEach(o => { o.n.nodeValue = ''; });
+    const speed = Math.max(0.09, total / 6000);   // символов в мс: не медленнее ~90/с, но длинный ответ — не дольше ~6 с
+    let pos = 0, cur = 0, last = performance.now(), done = false;
+    const follow = () => { if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; };
+    const finish = () => {
+        if (done) return; done = true;
+        items.forEach(o => { o.n.nodeValue = o.t; });
+        hide.forEach(el => { el.style.visibility = ''; if (el.classList.contains('vis')) el.style.display = ''; });
+        follow();
+    };
+    const tick = now => {
+        if (done) return;
+        if (!row.isConnected){ done = true; return; }
+        pos = Math.min(total, pos + Math.max(0, now - last) * speed); last = now;
+        const p = Math.floor(pos);
+        while (cur < items.length){
+            const o = items[cur], end = o.s + o.t.length;
+            if (p >= end){ o.n.nodeValue = o.t; cur++; continue; }
+            let k = p - o.s;
+            if (k > 0){ if (/[\uD800-\uDBFF]/.test(o.t[k - 1])) k++; o.n.nodeValue = o.t.slice(0, k); }
+            break;
+        }
+        follow();
+        if (p >= total) finish(); else requestAnimationFrame(tick);
+    };
+    root.addEventListener('click', finish);
+    requestAnimationFrame(tick);
+}
+function attachVis(row, msg, visual, opts){
+    opts = opts || {};
+        row.classList.add('has-vis'); msg.classList.add('has-vis');
+        const vis = document.createElement('div'); vis.className = 'vis'; if (!opts.live) vis._v = visual;
+        const fr = document.createElement('div'); fr.className = 'vis-frame';
+        const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = opts.doc || visDoc(visual);
+        fr.appendChild(ifr); vis._ifr = ifr;
+        const bar = document.createElement('div'); bar.className = 'vis-bar';
+        bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button><button type="button" class="txtbtn" data-vis="help">Как запустить?</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править проект</button>' : '');
+        if (opts.live) bar.style.display = 'none';
+        vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis); vis._bar = bar;
+        const fit = () => { const w = fr.clientWidth; const f = vis._ifr || ifr; if (w) f.style.transform = 'scale(' + (w / 800) + ')'; };
+        requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(fr);
+    return vis;
+}
 function addToHistory(text, sender, time, img, visual, animate, file) {
     const row = document.createElement('div'); row.className = `msg-row ${sender}`;
     const avatar = document.createElement('div'); avatar.className = 'avatar';
     avatar.innerHTML = sender === 'user' ? USER_ICON : (char === 'astro' ? '🧑‍🚀' : BOT_ICON);
     const col = document.createElement('div'); col.className = 'col';
     const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = sender === 'user' ? 'You' : (char === 'astro' ? 'Astronaut' : 'Holo-friend');
-    const msg = document.createElement('div'); msg.className = 'message'; let tn = null;
+    const msg = document.createElement('div'); msg.className = 'message';
     let rich = null;
     if (!(img && img.thumb) && text && !/^(📎|🖼)/.test(String(text))){ try { rich = renderRich(String(text)); } catch(e){ rich = null; } }
     if (img && img.thumb){
@@ -1758,7 +1811,6 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
         const cap = String(text || '').replace(/^🖼 Фото\n?/, '');
         if (cap){ const sp = document.createElement('div'); sp.className = 'cap'; sp.textContent = cap; msg.appendChild(sp); }
     } else if (rich && rich.any) { msg.appendChild(rich.frag); if (rich.blocks) row.classList.add('has-codeblk'); }
-    else if (animate && sender === 'bot' && text && !REDUCED) { tn = document.createTextNode(''); msg.appendChild(tn); }
     else msg.textContent = text;
     if (file && file.id){ msg.classList.add('has-file'); msg._file = file; }
     const body = (img && img.thumb) ? String(text || '').replace(/^🖼 Фото\n?/, '') : String(text || '');
@@ -1766,41 +1818,14 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
         msg.classList.add('has-copy');
         const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = body; msg.appendChild(cb);
     }
-    if (visual && typeof visual.code === 'string' && (visual.type === 'html' || visual.type === 'svg')){
-        row.classList.add('has-vis'); msg.classList.add('has-vis');
-        const vis = document.createElement('div'); vis.className = 'vis'; vis._v = visual;
-        const fr = document.createElement('div'); fr.className = 'vis-frame';
-        const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = visDoc(visual);
-        fr.appendChild(ifr); vis._ifr = ifr;
-        const bar = document.createElement('div'); bar.className = 'vis-bar';
-        bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button><button type="button" class="txtbtn" data-vis="help">Как запустить?</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править проект</button>' : '');
-        vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis);
-        const fit = () => { const w = fr.clientWidth; if (w) ifr.style.transform = 'scale(' + (w / 800) + ')'; };
-        requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(fr);
-    }
+    if (visual && typeof visual.code === 'string' && (visual.type === 'html' || visual.type === 'svg')) attachVis(row, msg, visual);
     const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = time === undefined ? nowTime() : time;
     col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
     row.appendChild(avatar); row.appendChild(col);
     chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight;
     pinBottom();
-    if (tn){
-        const full = String(text), vs = row.querySelector('.vis'), cbn = msg.querySelector('.copy-btn');
-        if (vs) vs.style.display = 'none';
-        if (cbn) cbn.style.visibility = 'hidden';
-        const step = Math.max(1, Math.ceil(full.length / 140)); let i = 0, done = false;
-        const follow = () => { if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; };
-        const end = () => { if (done) return; done = true; tn.nodeValue = full; if (vs) vs.style.display = ''; if (cbn) cbn.style.visibility = ''; follow(); };
-        const tick = () => {
-            if (done) return;
-            if (!row.isConnected){ done = true; return; }
-            i = Math.min(full.length, i + step);
-            if (i < full.length && /[\uD800-\uDBFF]/.test(full[i - 1])) i++;
-            tn.nodeValue = full.slice(0, i); follow();
-            if (i >= full.length) end(); else requestAnimationFrame(tick);
-        };
-        msg.addEventListener('click', end);
-        requestAnimationFrame(tick);
-    }
+    if (animate && sender === 'bot' && text && !(img && img.thumb)) revealAnimate(msg, row);
+    return row;
 }
 let focusT = 0;
 function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
@@ -1830,6 +1855,128 @@ function visDoc(v){
     const head = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style>';
     if (v.type === 'svg') return head + '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>' + v.code;
     return head + VIS_NAV + v.code;
+}
+
+// ---------- Живой предпросмотр сборки (стриминг) ----------
+// Внутри iframe живёт приёмник: получает полный частичный HTML через postMessage и аккуратно «подшивает» его в DOM
+// (без перезагрузки iframe -> нет мигания). Скрипты на время стрима не выполняются, финальная версия подставляется один раз.
+function liveRecv(){
+    function attrs(a, b){
+        var i, n;
+        for (i = a.attributes.length - 1; i >= 0; i--){ n = a.attributes[i].name; if (!b.hasAttribute(n)) a.removeAttribute(n); }
+        for (i = 0; i < b.attributes.length; i++){
+            n = b.attributes[i].name;
+            if (a.getAttribute(n) !== b.attributes[i].value){ try { a.setAttribute(n, b.attributes[i].value); } catch (e) {} }
+        }
+    }
+    function clean(doc){
+        var bad = doc.querySelectorAll('script,iframe,object,embed,base,meta[http-equiv]'), i, all, j, el;
+        for (i = 0; i < bad.length; i++) if (bad[i].parentNode) bad[i].parentNode.removeChild(bad[i]);
+        all = doc.querySelectorAll('*');
+        for (i = 0; i < all.length; i++){ el = all[i]; for (j = el.attributes.length - 1; j >= 0; j--) if (/^on/i.test(el.attributes[j].name)) el.removeAttribute(el.attributes[j].name); }
+    }
+    function sync(a, b){
+        var i, x, y;
+        for (i = 0; i < b.childNodes.length; i++){
+            y = b.childNodes[i]; x = a.childNodes[i];
+            if (!x){ a.appendChild(document.importNode(y, true)); continue; }
+            if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName){ a.replaceChild(document.importNode(y, true), x); continue; }
+            if (y.nodeType === 1){ attrs(x, y); sync(x, y); }
+            else if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
+        }
+        while (a.childNodes.length > b.childNodes.length) a.removeChild(a.lastChild);
+    }
+    function headSync(doc){
+        var want = [], kids = doc.head.children, i, w, hv, c, have = document.head.querySelectorAll('[data-m]');
+        for (i = 0; i < kids.length; i++) if (/^(STYLE|LINK)$/.test(kids[i].nodeName)) want.push(kids[i]);
+        for (i = 0; i < want.length; i++){
+            w = want[i]; hv = have[i];
+            if (!hv || hv.nodeName !== w.nodeName || (w.nodeName === 'LINK' && hv.getAttribute('href') !== w.getAttribute('href'))){
+                c = document.importNode(w, true); c.setAttribute('data-m', '1');
+                if (hv) document.head.replaceChild(c, hv); else document.head.appendChild(c);
+            } else if (w.nodeName === 'STYLE' && hv.textContent !== w.textContent) hv.textContent = w.textContent;
+        }
+        for (i = have.length - 1; i >= want.length; i--) if (have[i].parentNode) have[i].parentNode.removeChild(have[i]);
+    }
+    window.addEventListener('message', function(e){
+        if (e.source !== window.parent || !e.data || typeof e.data.holoLive !== 'string') return;
+        var doc = new DOMParser().parseFromString(e.data.holoLive, 'text/html');
+        clean(doc); headSync(doc);
+        attrs(document.documentElement, doc.documentElement); attrs(document.body, doc.body);
+        sync(document.body, doc.body);
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    });
+}
+const LIVE_SHELL = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}@keyframes holoIn{from{opacity:0}to{opacity:1}}body *:not(style):not(link){animation:holoIn .35s ease-out}</style>' + VIS_NAV + '<script>(' + liveRecv.toString() + ')()<\/script>';
+function liveFollow(){ if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }
+function startLive(){
+    const row = addToHistory('', 'bot');
+    return { row, msg: row.querySelector('.message'), holder: null, vis: null, ifr: null, text: '', html: '', pend: false, t: 0, done: false };
+}
+function liveText(live, d){
+    if (!live.holder){ live.holder = document.createElement('div'); live.holder.className = 'live-txt'; live.msg.insertBefore(live.holder, live.msg.firstChild); }
+    live.text += d;
+    live.holder.textContent = live.text.replace(/^\s+/, '');
+    liveFollow();
+}
+function livePost(live){
+    if (live.pend || live.done) return;
+    live.pend = true;
+    setTimeout(() => {
+        live.pend = false; live.t = performance.now();
+        try { if (live.ifr && live.ifr.contentWindow) live.ifr.contentWindow.postMessage({ holoLive: live.html }, '*'); } catch (e) {}
+    }, Math.max(0, 110 - (performance.now() - live.t)));
+}
+function liveHtml(live, d){
+    if (!live.vis){
+        live.vis = attachVis(live.row, live.msg, { type: 'html', code: '' }, { doc: LIVE_SHELL, live: true });
+        live.ifr = live.vis._ifr;
+        live.ifr.addEventListener('load', () => livePost(live));
+        liveFollow();
+    }
+    live.html += d;
+    livePost(live);
+}
+// Подмена iframe на финальную версию без белой вспышки: новый грузится скрытым, потом занимает место старого
+function swapFrame(vis, doc){
+    const old = vis._ifr; if (!old) return;
+    const n = document.createElement('iframe');
+    n.setAttribute('sandbox', 'allow-scripts'); n.setAttribute('title', 'Иллюстрация');
+    n.style.cssText = old.style.cssText; n.style.visibility = 'hidden';
+    let swapped = false;
+    const go = () => { if (swapped) return; swapped = true; n.style.visibility = ''; vis._ifr = n; if (old.parentNode) old.parentNode.removeChild(old); if (vis._fit) vis._fit(); };
+    n.addEventListener('load', go); setTimeout(go, 4000);
+    n.srcdoc = doc;   // srcdoc до вставки в DOM: иначе браузер сразу шлёт load для пустой страницы и фрейм показывается белым
+    old.parentNode.appendChild(n);
+}
+function liveFinish(live, text, vis){
+    const msg = live.msg, row = live.row, final = String(text || '');
+    live.done = true;
+    let rich = null; try { rich = renderRich(final); } catch (e) { rich = null; }
+    if (!live.holder){ live.holder = document.createElement('div'); live.holder.className = 'live-txt'; msg.insertBefore(live.holder, msg.firstChild); }
+    live.holder.textContent = '';
+    if (rich && rich.any){ live.holder.appendChild(rich.frag); if (rich.blocks) row.classList.add('has-codeblk'); } else live.holder.textContent = final;
+    if (final && !(rich && rich.blocks) && (final.length > 150 || final.split('\n').length > 4)){
+        msg.classList.add('has-copy');
+        const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = final; msg.appendChild(cb);
+    }
+    if (vis && live.vis){
+        live.vis._v = vis;
+        if (live.vis._bar) live.vis._bar.style.display = '';
+        swapFrame(live.vis, visDoc(vis));
+    }
+    pinBottom();
+}
+async function readNdjson(response, onEv){
+    const feed = l => { l = l.trim(); if (!l) return; let ev; try { ev = JSON.parse(l); } catch (e) { return; } onEv(ev); };
+    if (!response.body || !response.body.getReader){ (await response.text()).split('\n').forEach(feed); return; }
+    const reader = response.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;){
+        const r = await reader.read(); if (r.done) break;
+        buf += dec.decode(r.value, { stream: true });
+        let i; while ((i = buf.indexOf('\n')) >= 0){ const l = buf.slice(0, i); buf = buf.slice(i + 1); feed(l); }
+    }
+    buf += dec.decode(); feed(buf);
 }
 let curVis = null, vvEditing = false;
 function vvMode(edit){
@@ -2500,10 +2647,39 @@ async function sendMessage(text) {
         const isSearchReq = !att && !isBuildReq && /найди в (интернете|сети|гугле)|погугли|загугли|поищи в|в интернете|последние новости|что нового|новости|курс (доллара|евро|биткоина|валют)|погода (в|на)|сколько стоит|актуальн/i.test(text);
         showTyping(isBuildReq ? ['Анализирую запрос...', 'Проектирую дизайн...', 'Пишу код...', 'Собираю проект...'] : isSearchReq ? ['Ищу в интернете...', 'Читаю источники...', 'Формулирую ответ...'] : att ? ['Смотрю вложение...', 'Анализирую...', 'Формулирую...'] : null, isBuildReq ? 6000 : 2500);
         clearTimeout(window._slowT); window._slowT = setTimeout(() => toast('Работаю над этим, может занять до минуты…'), 9000);
+        const deliver = (data, live) => {
+            if (data.pro){ Object.assign(PRO, data.pro); renderPro(); }
+            if (editing) setEditTarget(null);
+
+            hideTyping();
+
+            if (char === 'astro') {
+                hideBubble();
+                if (data.action === 'aliens') invade();
+            } else if (data.action === 'dance') {
+                Hologram.dance(data.dance_name || 'floss', 5000);
+                Quest.add('dance');
+            } else {
+                let pose = 'idle';
+                if (data.emotion === 'happy') { pose = 'wave'; Quest.add('happy'); }
+                if (data.emotion === 'surprised') pose = 'cheer';
+                Hologram.react(data.emotion, pose, 4000);
+            }
+
+            const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
+            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
+            let outText = data.text;
+            if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
+            if (live) liveFinish(live, outText, vis); else addToHistory(outText, 'bot', undefined, null, vis, true);
+            chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
+            chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
+            saveHistory();
+        };
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: text,
+                stream: true,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 last_visual: editing ? { type: editing.type, code: editing.code } : lastVisual,
                 edit_project: !!editing,
@@ -2512,6 +2688,27 @@ async function sendMessage(text) {
                 init_data: (tg && tg.initData) || ''
             })
         });
+
+        if (response.ok && (response.headers.get('content-type') || '').indexOf('ndjson') >= 0){
+            let live = null, fin = null;
+            try {
+                await readNdjson(response, ev => {
+                    if (ev.t === 'text'){ if (!live){ hideTyping(); live = startLive(); } liveText(live, ev.d); }
+                    else if (ev.t === 'html'){ if (!live){ hideTyping(); live = startLive(); } liveHtml(live, ev.d); }
+                    else if (ev.t === 'done' || ev.t === 'error') fin = ev;
+                });
+            } catch (e) { /* обрыв соединения: ниже покажем ошибку */ }
+            if (fin && fin.t === 'done'){ deliver(fin, live); return; }
+            hideTyping();
+            if (live && live.row.parentNode) live.row.parentNode.removeChild(live.row);
+            const er = fin || { text: 'Соединение прервалось. Попробуй ещё раз — списанное я верну.', emotion: 'sad' };
+            if (er.pro){ Object.assign(PRO, er.pro); renderPro(); }
+            if (editing) setEditTarget(null);
+            if (char === 'astro') hideBubble(); else Hologram.react(er.emotion || 'sad', 'idle');
+            addToHistory(er.text || 'Не получилось собрать проект.', 'bot');
+            if (att && !ATT){ ATT = att; renderAtt(); }
+            return;
+        }
 
         const data = await response.json().catch(() => ({}));
 
@@ -2546,32 +2743,7 @@ async function sendMessage(text) {
         }
         if (!response.ok) throw new Error(`Сервер ответил: ${response.status}`);
 
-        if (data.pro){ Object.assign(PRO, data.pro); renderPro(); }
-        if (editing) setEditTarget(null);
-
-        hideTyping();
-
-        if (char === 'astro') {
-            hideBubble();
-            if (data.action === 'aliens') invade();
-        } else if (data.action === 'dance') {
-            Hologram.dance(data.dance_name || 'floss', 5000);
-            Quest.add('dance');
-        } else {
-            let pose = 'idle';
-            if (data.emotion === 'happy') { pose = 'wave'; Quest.add('happy'); }
-            if (data.emotion === 'surprised') pose = 'cheer';
-            Hologram.react(data.emotion, pose, 4000);
-        }
-
-        const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
-        let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
-        let outText = data.text;
-        if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
-        addToHistory(outText, 'bot', undefined, null, vis, true);
-        chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
-        chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
-        saveHistory();
+        deliver(data, null);
 
     } catch (error) {
         hideTyping();
