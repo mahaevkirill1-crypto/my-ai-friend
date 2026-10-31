@@ -1901,13 +1901,15 @@ function liveRecv(){
     window.addEventListener('message', function(e){
         if (e.source !== window.parent || !e.data || typeof e.data.holoLive !== 'string') return;
         var doc = new DOMParser().parseFromString(e.data.holoLive, 'text/html');
+        var atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 150;
         clean(doc); headSync(doc);
         attrs(document.documentElement, doc.documentElement); attrs(document.body, doc.body);
+        document.body.classList.add('loaded');
         sync(document.body, doc.body);
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        if (atBottom) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
     });
 }
-const LIVE_SHELL = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}@keyframes holoIn{from{opacity:0}to{opacity:1}}body *:not(style):not(link){animation:holoIn .35s ease-out}</style>' + VIS_NAV + '<script>(' + liveRecv.toString() + ')()<\/script>';
+const LIVE_SHELL = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%;background:#fff}body{font-family:system-ui,-apple-system,sans-serif}@keyframes holoIn{from{opacity:0}to{opacity:1}}body *:not(style):not(link){animation:holoIn .35s ease-out}</style>' + VIS_NAV + '<script>(' + liveRecv.toString() + ')()<\/script>';
 function liveFollow(){ if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }
 function startLive(){
     const row = addToHistory('', 'bot');
@@ -1925,7 +1927,7 @@ function livePost(live){
     setTimeout(() => {
         live.pend = false; live.t = performance.now();
         try { if (live.ifr && live.ifr.contentWindow) live.ifr.contentWindow.postMessage({ holoLive: live.html }, '*'); } catch (e) {}
-    }, Math.max(0, 110 - (performance.now() - live.t)));
+    }, Math.max(0, 350 - (performance.now() - live.t)));
 }
 function liveHtml(live, d){
     if (!live.vis){
