@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Body
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
@@ -476,69 +476,255 @@ def wants_build(user_text):
     if BUILD_NEG_RE.search(user_text): return False
     return bool(BUILD_THING_RE.search(user_text) and BUILD_ACTION_RE.search(user_text))
 
-async def run_build(conn, uid, user_content, history_text, current_code, weight):
+BUILD_FAIL = {"text": "Не получилось собрать проект. Попробуй написать задачу чуть проще или покороче.", "emotion": "sad"}
+BUILD_TRIAL_NOTE = " Это была бесплатная пробная сборка — дальше студия доступна на тарифах."
+
+def build_messages(user_content, history_text, current_code):
     messages = [{"role": "system", "content": BUILD_SYSTEM}]
     if history_text: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
-    
-    if current_code: 
+    if current_code:
         messages.append({"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code})
     else:
         messages.append({"role": "user", "content": "Проект создается с нуля."})
-        
     messages.append({"role": "user", "content": f"ЗАДАЧА: {user_content}"})
-    
-    fail = {"text": "Не получилось собрать проект. Попробуй написать задачу чуть проще или покороче.", "emotion": "sad"}
-    
+    return messages
+
+def build_continue_messages(messages, raw):
+    tail = raw[-500:]
+    return messages + [
+        {"role": "assistant", "content": raw},
+        {"role": "user", "content": f"Ты оборвался на полуслове: ...{tail}\nПродолжи генерацию ровно с этого места и закончи код тегом </html>. Не пиши ничего лишнего, только продолжение кода."}
+    ]
+
+def build_error_result(conn, uid, weight, e):
+    refund_units(conn, uid, weight)
+    err_text = str(e).lower()
+    pro_now = pro_info(conn, uid, int(time.time()))
+    if "429" in err_text or "quota" in err_text or "overloaded" in err_text:
+        return {"text": "Сейчас огромный спрос, сервера перегружены. Я вернул тебе сборку, попробуй через пару минут.", "emotion": "sleepy", "pro": pro_now}
+    if "402" in err_text or "insufficient" in err_text or "balance" in err_text:
+        return {"text": "У бота закончились ресурсы на генерацию. Я вернул тебе сборку, попробуй чуть позже.", "emotion": "sad", "pro": pro_now}
+    return {**BUILD_FAIL, "pro": pro_now}
+
+def finalize_build(conn, uid, raw, weight):
+    parsed = parse_build(raw)
+    visual = None
+    if parsed:
+        text, emotion, html = parsed
+        visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
+    if not parsed or not visual:
+        refund_units(conn, uid, weight)
+        log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
+        return {**BUILD_FAIL, "pro": pro_info(conn, uid, int(time.time()))}
+    if emotion not in EMOTIONS_OK: emotion = "happy"
+    return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
+
+async def run_build(conn, uid, user_content, history_text, current_code, weight):
+    messages = build_messages(user_content, history_text, current_code)
     try:
         resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-            model=BUILD_MODEL, 
-            messages=messages, 
-            max_tokens=BUILD_MAX_TOKENS, 
+            model=BUILD_MODEL,
+            messages=messages,
+            max_tokens=BUILD_MAX_TOKENS,
             temperature=0.7
         )
         raw = resp.choices[0].message.content or ""
-        
         if "</html>" not in raw.lower() and len(raw) > 100:
             log.warning("Код оборвался, запускаю авто-докрутку...")
-            tail = raw[-500:]
-            
             resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
                 model=BUILD_MODEL,
-                messages=messages + [
-                    {"role": "assistant", "content": raw},
-                    {"role": "user", "content": f"Ты оборвался на полуслове: ...{tail}\nПродолжи генерацию ровно с этого места и закончи код тегом </html>. Не пиши ничего лишнего, только продолжение кода."}
-                ],
+                messages=build_continue_messages(messages, raw),
                 max_tokens=BUILD_MAX_TOKENS,
                 temperature=0.7
             )
             raw = raw + (resp2.choices[0].message.content or "")
-            
     except Exception as e:
         log.exception("build request failed")
-        refund_units(conn, uid, weight)
-        
-        err_text = str(e).lower()
-        if "429" in err_text or "quota" in err_text or "overloaded" in err_text:
-            return {"text": "Сейчас огромный спрос, сервера перегружены. Я вернул тебе сборку, попробуй через пару минут.", "emotion": "sleepy", "pro": pro_info(conn, uid, int(time.time()))}
-        if "402" in err_text or "insufficient" in err_text or "balance" in err_text:
-            return {"text": "У бота закончились ресурсы на генерацию. Я вернул тебе сборку, попробуй чуть позже.", "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
-        
-        return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
-        
-    parsed = parse_build(raw)
-    visual = None
-    
-    if parsed:
-        text, emotion, html = parsed
-        visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
-        
-    if not parsed or not visual:
-        refund_units(conn, uid, weight)
-        log.error(f"Build failed to parse. Raw: {raw[:200]}")
-        return {**fail, "pro": pro_info(conn, uid, int(time.time()))}
-        
-    if emotion not in EMOTIONS_OK: emotion = "happy"
-    return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
+        return build_error_result(conn, uid, weight, e)
+    return finalize_build(conn, uid, raw, weight)
+
+# ---------- СТРИМИНГ СБОРКИ ----------
+_TRAIL = "`\n\r\t "
+
+class BuildStreamParser:
+    """Режет поток [[TEXT]]..[[EMOTION]]..[[HTML]]..[[FILE:..]]..[[END]] на события ("text", ..) и ("html", ..).
+    В html попадает только чистый код: без всего до [[HTML]], без ```-оград и без всего после [[END]] / [[FILE:."""
+    def __init__(self):
+        self.buf = ""
+        self.state = "pre"   # pre -> text -> emotion -> head -> html
+        self.ended = False
+
+    @staticmethod
+    def _hold(buf, markers):
+        """Сколько символов с конца нельзя отдавать: вдруг это начало маркера, разорванного между кусками."""
+        hold = 0
+        for m in markers:
+            for k in range(min(len(m) - 1, len(buf)), 0, -1):
+                if buf.endswith(m[:k]):
+                    hold = max(hold, k); break
+        return hold
+
+    def feed(self, d):
+        out = []
+        if self.ended: return out
+        self.buf += d
+        while self.buf and not self.ended:
+            if self.state == "pre":
+                i = self.buf.find("[[TEXT]]")
+                if i < 0:
+                    self.buf = self.buf[-8:]
+                    break
+                self.buf = self.buf[i + 8:]; self.state = "text"; continue
+            if self.state == "text":
+                found = [(self.buf.find(m), m) for m in ("[[EMOTION]]", "[[HTML]]")]
+                found = [(i, m) for i, m in found if i >= 0]
+                if not found:
+                    safe = len(self.buf) - self._hold(self.buf, ("[[EMOTION]]", "[[HTML]]"))
+                    if safe > 0:
+                        out.append(("text", self.buf[:safe])); self.buf = self.buf[safe:]
+                    break
+                i, m = min(found)
+                if i: out.append(("text", self.buf[:i]))
+                self.buf = self.buf[i + len(m):]
+                self.state = "emotion" if m == "[[EMOTION]]" else "head"
+                continue
+            if self.state == "emotion":
+                i = self.buf.find("[[HTML]]")
+                if i < 0: break
+                self.buf = self.buf[i + 8:]; self.state = "head"; continue
+            if self.state == "head":
+                t = self.buf.lstrip()
+                if t.startswith("```"):
+                    nl = t.find("\n")
+                    if nl < 0: break
+                    t = t[nl + 1:]
+                elif len(t) < 3 and "```".startswith(t):
+                    break
+                self.buf = t; self.state = "html"; continue
+            if self.state == "html":
+                cut = None
+                for m in ("[[FILE:", "[[END]]"):
+                    i = self.buf.find(m)
+                    if i >= 0 and (cut is None or i < cut): cut = i
+                body = self.buf if cut is None else self.buf[:cut]
+                finished = cut is not None
+                k = body.lower().find("</html>")
+                if k >= 0:
+                    body = body[:k + 7]; finished = True
+                if finished:
+                    emit = body.rstrip(_TRAIL)
+                    if emit: out.append(("html", emit))
+                    self.buf = ""; self.ended = True
+                    break
+                hold = self._hold(body, ("[[FILE:", "[[END]]"))
+                safe = body[:len(body) - hold] if hold else body
+                emit = safe.rstrip(_TRAIL)   # хвост из ``` и пробелов не отдаём: это может быть ограда перед [[END]]
+                if emit:
+                    out.append(("html", emit)); self.buf = self.buf[len(emit):]
+                break
+        return out
+
+    def finish(self):
+        """Поток закончился: отдаём то, что осталось (без обрывка маркера и хвостовых ```)."""
+        out = []
+        if self.ended: return out
+        if self.state == "text" and self.buf:
+            b = self.buf[:len(self.buf) - self._hold(self.buf, ("[[EMOTION]]", "[[HTML]]"))]
+            if b: out.append(("text", b))
+        elif self.state == "html" and self.buf:
+            cut = None
+            for m in ("[[FILE:", "[[END]]"):
+                i = self.buf.find(m)
+                if i >= 0 and (cut is None or i < cut): cut = i
+            body = self.buf if cut is None else self.buf[:cut]
+            k = body.lower().find("</html>")
+            if k >= 0: body = body[:k + 7]
+            elif cut is None: body = body[:len(body) - self._hold(body, ("[[FILE:", "[[END]]"))]
+            body = body.rstrip(_TRAIL)
+            if body: out.append(("html", body))
+        self.buf = ""; self.ended = True
+        return out
+
+def _nd(obj):
+    return (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+
+async def _llm_stream(messages):
+    stream = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+        model=BUILD_MODEL, messages=messages, max_tokens=BUILD_MAX_TOKENS, temperature=0.7, stream=True)
+    async for chunk in stream:
+        if not chunk.choices: continue
+        d = chunk.choices[0].delta.content
+        if d: yield d
+
+def _trial_adjust(conn, uid, res, trial):
+    if trial:
+        if res.get("visual"):
+            res["text"] = ((res.get("text") or "Готово!") + BUILD_TRIAL_NOTE).strip()
+        else:
+            try:
+                conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
+            except Exception:
+                log.exception("trial rollback failed")
+    return res
+
+async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial):
+    """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
+    messages = build_messages(user_content, history_text, current_code)
+    parser = BuildStreamParser()
+    st = {"raw": "", "hbuf": "", "last": time.monotonic()}
+    done = False
+
+    def handle(d):
+        st["raw"] += d
+        out = []
+        for kind, part in parser.feed(d):
+            if kind == "text": out.append(_nd({"t": "text", "d": part}))
+            else: st["hbuf"] += part
+        now_m = time.monotonic()
+        if st["hbuf"] and (now_m - st["last"] >= 0.15 or len(st["hbuf"]) > 4000):  # склеиваем мелкие куски, чтобы не дёргать клиента на каждый токен
+            out.append(_nd({"t": "html", "d": st["hbuf"]})); st["hbuf"] = ""; st["last"] = now_m
+        return out
+
+    def flush():
+        out = []
+        for kind, part in parser.finish():
+            if kind == "text": out.append(_nd({"t": "text", "d": part}))
+            else: st["hbuf"] += part
+        if st["hbuf"]:
+            out.append(_nd({"t": "html", "d": st["hbuf"]})); st["hbuf"] = ""
+        return out
+
+    try:
+        yield _nd({"t": "start"})
+        try:
+            async for d in _llm_stream(messages):
+                for b in handle(d): yield b
+            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100:
+                log.warning("Код оборвался, запускаю авто-докрутку (stream)...")
+                async for d in _llm_stream(build_continue_messages(messages, st["raw"])):
+                    for b in handle(d): yield b
+        except Exception as e:
+            if st["raw"]:
+                log.exception("build stream failed mid-way")
+                res = _trial_adjust(conn, uid, build_error_result(conn, uid, weight, e), trial)
+                done = True
+                yield _nd({"t": "error", **res}); return
+            log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
+            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight), trial)
+            done = True
+            yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
+        for b in flush(): yield b
+        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight), trial)
+        done = True
+        yield _nd({"t": "done" if res.get("visual") else "error", **res})
+    finally:
+        if not done:  # клиент ушёл / поток оборвался: возвращаем списанное и пробную попытку
+            refund_units(conn, uid, weight)
+            if trial:
+                try:
+                    conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
+                except Exception:
+                    log.exception("trial rollback failed")
 
 def is_valid_html(code):
     """Проверяет, что переданный код похож на HTML-документ"""
@@ -1133,6 +1319,11 @@ async def ask(request: Request):
                 conn.commit()
                 if cur.rowcount != 1:
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
+            if data.get("stream"):
+                return StreamingResponse(
+                    run_build_stream(conn, uid, user_content, history_text, current_code if is_edit else None, weight, trial),
+                    media_type="application/x-ndjson",
+                    headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
             res = await run_build(conn, uid, user_content, history_text, current_code if is_edit else None, weight)
             if trial:
                 if res.get("visual"):
