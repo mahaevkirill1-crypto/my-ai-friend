@@ -2456,9 +2456,30 @@ attInput.addEventListener('change', async () => {
     } catch(e){ toast('Не удалось прочитать файл'); }
 });
 
-async function sendMessage(text) {
+// кнопки уточняющего вопроса («Собрать сайт» / «Просто совет»): повторно шлём тот же текст с выбором, без нового пузыря пользователя
+function addChoices(choices, origText){
+    const last = chatHistory.lastElementChild;
+    const msg = last && last.querySelector('.message');
+    if (!msg) return;
+    const bar = document.createElement('div'); bar.className = 'vis-bar';
+    choices.forEach(c => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'txtbtn'; b.textContent = c.label; b.dataset.choice = c.id;
+        b.addEventListener('click', () => {
+            if (isSending) return;
+            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            bar.remove();
+            sendMessage(origText, { silent: true, choice: c.id });
+        });
+        bar.appendChild(b);
+    });
+    msg.appendChild(bar);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+async function sendMessage(text, opts) {
+    opts = opts || {};
+    const silent = !!opts.silent;
     if ((!text && !ATT) || isSending) return;
-    const att = ATT; ATT = null; renderAtt();
+    const att = silent ? null : ATT; if (!silent){ ATT = null; renderAtt(); }
     const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
 
     if (text.toLowerCase() === '/admin' && userId() === ADMIN_ID) {
@@ -2472,13 +2493,10 @@ async function sendMessage(text) {
     if (imgInfo) IMGDB.put(att.id, att.view);
     const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind } : null;
     if (fileInfo) IMGDB.put(fileInfo.id, attToBlob(att));
-    addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo);
-    input.value = ''; $('cnt').textContent = '0 / 500'; syncHud();
+    if (!silent){ addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo); input.value = ''; $('cnt').textContent = '0 / 500'; syncHud(); }
     input.readOnly = true;
     sendBtn.disabled = true;
-    Quest.add('msg');
-    store.set('stat_msgs', store.get('stat_msgs', 0) + 1);
-    if (text.length >= 50) Quest.add('long');
+    if (!silent){ Quest.add('msg'); store.set('stat_msgs', store.get('stat_msgs', 0) + 1); if (text.length >= 50) Quest.add('long'); }
 
     const low0 = text.toLowerCase().trim();
     if (editTarget && /^(отмена|отменить|не надо|не нужно|стоп)[.!]?$/.test(low0)){ setEditTarget(null); botSay('Ок, правку отменил.'); endSend(); return; }
@@ -2650,7 +2668,7 @@ async function sendMessage(text) {
     let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, чтобы обычный чат не считался правкой (150)
 
     try {
-        const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
+        const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд|мес{1,2}енджер|web-?socket|веб-?сокет)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
         const isSearchReq = !att && !isBuildReq && /найди в (интернете|сети|гугле)|погугли|загугли|поищи в|в интернете|последние новости|что нового|новости|курс (доллара|евро|биткоина|валют)|погода (в|на)|сколько стоит|актуальн/i.test(text);
         showTyping(isBuildReq ? ['Анализирую запрос...', 'Проектирую дизайн...', 'Пишу код...', 'Собираю проект...'] : isSearchReq ? ['Ищу в интернете...', 'Читаю источники...', 'Формулирую ответ...'] : att ? ['Смотрю вложение...', 'Анализирую...', 'Формулирую...'] : null, isBuildReq ? 6000 : 2500);
         clearTimeout(window._slowT); window._slowT = setTimeout(() => toast('Работаю над этим, может занять до минуты…'), 9000);
@@ -2680,7 +2698,8 @@ async function sendMessage(text) {
             // режим правки (diff): живого iframe не было, итог приходит целиком, поэтому заменяем черновой пузырь готовым
             if (live && vis && !live.vis){ if (live.row.parentNode) live.row.parentNode.removeChild(live.row); live = null; }
             if (live) liveFinish(live, outText, vis); else addToHistory(outText, 'bot', undefined, null, vis, true);
-            chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
+            if (Array.isArray(data.choices) && data.choices.length) addChoices(data.choices, text);
+            if (!silent) chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
             chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
             saveHistory();
         };
@@ -2692,6 +2711,7 @@ async function sendMessage(text) {
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 last_visual: editing ? { type: editing.type, code: editing.code } : lastVisual,
                 edit_project: !!editing,
+                build_choice: silent ? (opts.choice || '') : '',
                 attachment: att ? (att.kind === 'image' ? { kind: 'image', mime: att.mime, name: att.name, data: att.data } : (att.kind === 'pdf' || att.kind === 'docx' || att.kind === 'xlsx') ? { kind: att.kind, name: att.name, data: att.data } : { kind: 'text', name: att.name, text: att.text }) : null,
                 history: historyText,
                 init_data: (tg && tg.initData) || ''
@@ -2710,7 +2730,7 @@ async function sendMessage(text) {
                 await readNdjson(response, ev => {
                     if (ev.t === 'status'){ real = true; setTypingStatus(ev.d); }
                     else if (ev.t === 'text'){ ensureLive(); liveText(live, ev.d); }
-                    else if (ev.t === 'html'){ ensureLive(); liveHtml(live, ev.d); }
+                    // ev.t === 'html' игнорируем: проект показываем только готовым, без белого поля и «допечатывания»
                     else if (ev.t === 'done' || ev.t === 'error') fin = ev;
                 });
             } catch (e) { /* обрыв соединения: ниже покажем ошибку */ }
