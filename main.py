@@ -167,10 +167,20 @@ HISTORY_LONG_EXTRA = 10
 
 MAX_BUILD_LEN = 70000
 
+# мессенджеры / чаты / realtime / WebSocket: нужен сервер, поэтому только платные тарифы
+REALTIME_RE = re.compile(
+    r"мес{1,2}енджер|messenger|web-?socket|веб-?сокет|вэб-?сокет"
+    r"|(?<!\bв )(?<!\bво )(?<!\bна )(?<!\bиз )(?<!\bпро )(?<!\bо )\bчат(?!\s*-?\s*(?:gpt|гпт|джи))\w*"  # «в чат», «про чат», ChatGPT — не считаем
+    r"|общени\w*\s+(?:в\s+)?(?:реальн|real|онлайн)|переписк\w*\s+(?:в\s+)?реальн"
+    r"|(?:чат|сообщени\w*)\s+(?:в\s+)?реальн\w*\s+времени|реал-?тайм|real-?time", re.I)
+REALTIME_PAYWALL_TEXT = "Для создания мессенджера с реальным временем нужен платный тариф, так как это требует серверной части"
+
 # ДОБАВЛЕНЫ ПРЕЗЕНТАЦИИ И СЛАЙДЫ
-BUILD_THING_RE = re.compile(r"презентаци|слайд|сайт|лендинг|landing|веб-?страниц|страниц[ауы] |приложени|игр[ауы]\b|мини-?игр|калькулятор|визитк|портфолио|дашборд|интерфейс|тетрис|змейк|сапёр|сапер|секундомер|таймер|тудулист|to-?do|конвертер|генератор", re.I)
+BUILD_THING_RE = re.compile(r"презентаци|слайд|сайт|лендинг|landing|веб-?страниц|страниц[ауы] |приложени|игр[ауы]\b|мини-?игр|калькулятор|визитк|портфолио|дашборд|интерфейс|тетрис|змейк|сапёр|сапер|секундомер|таймер|тудулист|to-?do|конвертер|генератор|" + REALTIME_RE.pattern, re.I)
 BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|напиш[иу]|разработ|собер[иу]|запил|сгенер|сверста|набросай|нарису|покаж|мне нужен|мне нужна|мне нужно|нужен мне|нужна мне", re.I)
 BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
+# прилагательные: «сделай простенький аккуратный…» без слова «сайт». «просто» как наречие не считаем
+BUILD_ADJ_RE = re.compile(r"\b(?:прост(?!о\b)|аккуратн|красив|стильн|современн|минималист|чист|т[её]мн|светл|крут)\w*", re.I)
 # (не используется: правка включается кнопкой «Править проект», а не по словам)
 BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает|вау|перелив|свет|неон|пульс|мерцан|градиент|стильн|современн|сделай так|хочу чтобы", re.I)
 SIMPLE_BUILD_RE = re.compile(r"сайт|лендинг|landing|визитк|портфолио|веб-?страниц|страниц[ауы] ", re.I)
@@ -344,6 +354,23 @@ happy
 - Если нужно добавить новый блок, найди закрывающий тег предыдущего блока (например, </section>) и замени его на: </section> + новый блок.
 - Если правка настолько глобальная, что требует переписывания всего (например, смена всей темы), тогда и только тогда верни полный код в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]].
 
+МЕССЕНДЖЕРЫ И РЕАЛЬНОЕ ВРЕМЯ (ЖЁСТКОЕ ПРАВИЛО):
+- Если пользователь просит мессенджер, чат с реальным временем или WebSockets, ты ОБЯЗАН сделать ДВА файла: main.py (сервер на FastAPI с WebSockets) и index.html (интерфейс). Правило «ТОЛЬКО ЛЕНДИНГ» здесь не действует.
+- В чате ([[TEXT]]) напиши: "Мессенджер в реальном времени нельзя сделать в одном HTML-файле. Я сделал сервер (main.py) и интерфейс (index.html). Тебе нужно будет залить их на Render, чтобы общаться с другом через браузер. Вот инструкция..." — и дальше коротко, 5 пунктов: 1) создай репозиторий на GitHub и положи в него main.py и index.html в одну папку; 2) добавь файл requirements.txt с двумя строками: fastapi и uvicorn[standard]; 3) на render.com создай Web Service из этого репозитория; 4) Build Command: pip install -r requirements.txt, Start Command: uvicorn main:app --host 0.0.0.0 --port $PORT; 5) открой выданную ссылку на двух устройствах и общайся.
+- Формат ответа для этого случая:
+[[TEXT]]
+(фраза и инструкция выше)
+[[EMOTION]]
+happy
+[[HTML]]
+<!doctype html>...полный index.html...</html>
+[[FILE:main.py]]
+...полный код сервера...
+[[END]]
+- main.py: FastAPI; GET / отдаёт index.html через FileResponse; WebSocket /ws; менеджер соединений с рассылкой всем подключённым; последние 50 сообщений хранятся в памяти и отправляются новому участнику; в сообщении есть имя отправителя.
+- index.html подключается к серверу так: new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws"). Это единственное исключение из запрета на сетевые запросы. Показывай статус «подключено / нет связи» и автопереподключение.
+- Каждый файл компактный, до 250 строк (это заменяет общий лимит 800 строк).
+
 ТЕХНИКА:
 - Один файл: <!doctype html>, CSS в <style>, JS в <script>.
 - Никаких fetch, alert, window.open. Только <button type="button"> и якоря #id.
@@ -461,10 +488,22 @@ def parse_plain(raw):
     if m: return m.group(2).strip(), m.group(1).lower()
     return t, "happy"
 
+def build_intent(user_text):
+    """'build' — явная сборка (действие + существительное); 'ask' — действие + прилагательное, но без существительного
+    (неясно: собрать сайт или просто совет); None — обычный чат."""
+    if BUILD_NEG_RE.search(user_text): return None
+    if not BUILD_ACTION_RE.search(user_text): return None
+    if BUILD_THING_RE.search(user_text): return "build"
+    if BUILD_ADJ_RE.search(user_text): return "ask"
+    return None
+
 def wants_build(user_text):
     # только НОВАЯ сборка. Правка включается явно: кнопка «Править проект» -> edit_project=true в /ask
-    if BUILD_NEG_RE.search(user_text): return False
-    return bool(BUILD_THING_RE.search(user_text) and BUILD_ACTION_RE.search(user_text))
+    # «ask» (глагол + прилагательное) тоже считается сборкой, но /ask сначала задаёт уточняющий вопрос с кнопками
+    return build_intent(user_text) in ("build", "ask")
+
+BUILD_CHOICE_QUESTION = "Тебе собрать сайт или просто совет?"
+BUILD_CHOICES = [{"id": "build", "label": "Собрать сайт"}, {"id": "advice", "label": "Просто совет"}]
 
 BUILD_FAIL = {"text": "Не получилось собрать проект. Попробуй написать задачу чуть проще или покороче.", "emotion": "sad"}
 BUILD_TRIAL_NOTE = " Это была бесплатная пробная сборка — дальше студия доступна на тарифах."
@@ -741,6 +780,7 @@ def _trial_adjust(conn, uid, res, trial):
 _STAGES = ["Анализирую задачу...", "Пишу стили и дизайн...",
            "Добавляю интерактивность...", "Завершаю сборку...",
            "Вношу правки...", "Применяю правки..."]  # 4 и 5 — режим правки (diff)
+STREAM_HTML = False  # True — слать код проекта кусками для живого превью; False — только статусы, проект приходит готовым
 _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
@@ -773,7 +813,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
             if kind == "text": out.append(_nd({"t": "text", "d": part}))
             elif kind == "patch": out += status(4)
             else:
-                st["hbuf"] += part
+                if STREAM_HTML: st["hbuf"] += part
                 out += scan(part)
         now_m = time.monotonic()
         if st["hbuf"] and (now_m - st["last"] >= 0.15 or len(st["hbuf"]) > 4000):  # склеиваем мелкие куски, чтобы не дёргать клиента на каждый токен
@@ -786,7 +826,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
             if kind == "text": out.append(_nd({"t": "text", "d": part}))
             elif kind == "patch": out += status(4)
             else:
-                st["hbuf"] += part
+                if STREAM_HTML: st["hbuf"] += part
                 out += scan(part)
         if st["hbuf"]:
             out.append(_nd({"t": "html", "d": st["hbuf"]})); st["hbuf"] = ""
@@ -1331,7 +1371,13 @@ async def ask(request: Request):
         if edit_req and not current_code:
             return {"text": "Не нашёл проект для правки. Нажми «Править проект» под нужным сайтом ещё раз.", "emotion": "sad", "pro": pro_pre}
         is_edit = edit_req and bool(current_code)
-        build_mode = is_edit or wants_build(user_text)
+        # ответ на уточняющий вопрос (кнопки «Собрать сайт» / «Просто совет»): приходит с клиента в build_choice
+        build_choice = str(data.get("build_choice") or "")
+        if build_choice not in ("build", "advice"): build_choice = ""
+        if not is_edit and not att and not build_choice and build_intent(user_text) == "ask":
+            # есть действие и прилагательное, но нет существительного: ничего не списываем и в нейросеть не идём
+            return {"text": BUILD_CHOICE_QUESTION, "emotion": "thinking", "pro": pro_pre, "choices": BUILD_CHOICES}
+        build_mode = is_edit or build_choice == "build" or (build_choice != "advice" and wants_build(user_text))
         search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
         if search_mode: weight = max(weight, SEARCH_WEIGHT)
         
@@ -1343,17 +1389,22 @@ async def ask(request: Request):
 
         trial = False
         if build_mode:
+            is_realtime = (not is_edit) and bool(REALTIME_RE.search(user_text))
             if is_edit:
                 weight = BUILD_WEIGHT_EDIT  # 150 за правку (только по кнопке «Править проект»)
+            elif is_realtime:
+                weight = BUILD_WEIGHT_COMPLEX  # мессенджер / WebSocket: сервер + интерфейс, самая дорогая сборка
             elif COMPLEX_RE.search(user_text):
                 weight = BUILD_WEIGHT_COMPLEX  # 180: игра, презентация, 3D
-            elif SIMPLE_BUILD_RE.search(user_text):
+            elif SIMPLE_BUILD_RE.search(user_text) or build_choice == "build":
                 weight = BUILD_WEIGHT_SIMPLE   # 60: простой сайт, лендинг, визитка
             else:
                 weight = BUILD_WEIGHT_MEDIUM   # 120: приложение, калькулятор, дашборд, бот
             
             # ЗАЩИТА БЕСПЛАТНИКОВ: если сложный проект, не даем делать его бесплатно
             if not pro_pre["active"]:
+                if is_realtime:  # бесплатной пробной сборки для мессенджеров нет
+                    return JSONResponse({"text": REALTIME_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 if COMPLEX_RE.search(user_text):
                     return JSONResponse({"text": "Сложные проекты (игры, презентации, 3D) доступны на платных тарифах. На бесплатной пробной сборке можно сделать только простой сайт-визитку.", "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 
@@ -1375,6 +1426,8 @@ async def ask(request: Request):
                 return {"text": att_err, "emotion": "sad", "pro": pro_info(conn, uid, now)}
         else:
             user_content = raw_text
+            if build_mode and build_choice == "build" and not BUILD_THING_RE.search(user_text):
+                user_content += "\n(Пользователь выбрал: собрать сайт. Сделай одностраничный сайт по этому описанию.)"
             
         pro = None
         try:
