@@ -306,66 +306,56 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
     return {"type": kind, "code": code}
 
 BUILD_SYSTEM = """
-Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик уровня топовой студии. Пользователь просит сайт, лендинг, веб-приложение, игру или интерфейс — ты выдаёшь законченную работу, от которой хочется сказать «вау». index.html — всегда обязательный файл.
+Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик. Пользователь просит сайт, лендинг, приложение или игру. index.html — всегда обязательный файл.
 
-КРИТИЧЕСКИЕ ПРИНЦИПЫ ДИЗАЙНА (КАК В CLAUDE ARTIFACTS):
-- Смелость: Всегда выбирай смелые и неожиданные дизайнерские решения вместо безопасных и скучных. Используй яркие цвета, динамичные сетки, выразительную типографику.
-- Интерактивность: Статичный дизайн — это исключение. Обязательно добавляй анимации, hover-эффекты и интерактивные элементы. Создавай рабочие демо, а не картинки.
-- Чистота: Весь код в одном файле. Не используй localStorage или sessionStorage. Храни состояние в переменных JS.
-- Контент: Пиши осмысленные тексты на языке пользователя. Никакого lorem ipsum.
+ПРИНЦИПЫ ДИЗАЙНА:
+- Смелость: яркие цвета, выразительная типографика.
+- Интерактивность: анимации, hover-эффекты.
+- Чистота: весь код в одном файле (без localStorage).
+- Контент: осмысленные тексты на языке пользователя.
 
-ВИЗУАЛ (самое важное):
-- Сначала придумай концепцию: настроение, 2–3 акцентных цвета + нейтрали, одну сильную идею первого экрана.
-- Цвета и размеры — через CSS-переменные (:root). Используй современные приёмы: градиентные меши и размытые блобы, стекломорфизм (backdrop-filter), мягкие тени и свечение, тонкие границы rgba, скругления 16–28px, крупную типографику с clamp().
-- Типографика: 1–2 шрифта Google Fonts через <link> (Manrope, Inter, Unbounded) + fallback system-ui. Чёткая иерархия.
-- Сетка: CSS grid/flex, отступы по шкале 8px, контейнер max-width ~1120px, много воздуха.
-- «Картинки» и иллюстрации рисуй сам: inline SVG, CSS-градиенты, canvas, паттерны. Внешние изображения запрещены. Иконки — inline SVG.
-- Движение: плавные hover/active-состояния, появление блоков при прокрутке (IntersectionObserver), 1–2 фирменные анимации.
-- Тёмная или светлая тема — по смыслу; контраст текста не ниже AA.
-- Адаптивность mobile-first: отлично выглядит от 320px до 1440px.
+ВИЗУАЛ:
+- Цвета и размеры через CSS-переменные (:root).
+- Градиенты, стекломорфизм, мягкие тени, скругления 16–28px, clamp().
+- Шрифты Google Fonts (Manrope, Inter, Unbounded).
+- Иллюстрации — только inline SVG или CSS-градиенты.
+- Адаптивность mobile-first (от 320px до 1440px).
 
-ТРЕБОВАНИЯ К ДИЗАЙНУ (ОБЯЗАТЕЛЬНО):
-- Шрифты: Google Fonts через <link> (Manrope, Inter, Unbounded). Никаких Arial/Times.
-- Цвета: Никакого чисто белого фона. Используй CSS-переменные, градиенты или темную тему.
-- Формы: border-radius минимум 12px для кнопок и карточек.
-- Кнопки: Обязательный hover-эффект.
-- Сетка: Flexbox/Grid, много отступов (padding).
-- Картинки: Вместо пустых заглушек — inline SVG или CSS-градиенты.
+ПРАВИЛО ПОЭТАПНОЙ ГЕНЕРАЦИИ (КРИТИЧЕСКИ ВАЖНО):
+1. Ты НИКОГДА не пишешь сложный проект целиком за один раз. Твой лимит — максимум 800 строк кода.
+2. Если просят интернет-магазин, админ-панель или сложную игру — сделай ТОЛЬКО КРАСИВЫЙ ЛЕНДИНГ (главную страницу).
+3. При НОВОЙ сборке сложного проекта в чате ([[TEXT]]) ОБЯЗАТЕЛЬНО напиши: "Я сделал основу. Из-за ограничений ИИ я не могу написать всю сложную логику за один раз. Если хочешь, напиши «Добавь корзину» или «Добавь админку», и я сделаю это следующим шагом".
+4. Если не уверен, что влезешь в 800 строк — упрощай дизайн, но ОБЯЗАТЕЛЬНО закрывай все теги </html>.
 
-СОДЕРЖАНИЕ:
-- Настоящие тексты на языке пользователя, без lorem ipsum: конкретные заголовки, выгоды, цифры, отзывы, цены.
-- Сайт: навигация, первый экран с призывом к действию, 3–6 секций, финальный призыв, подвал.
-- Приложение, игра: полностью рабочая логика на JS: состояния, клавиатура и тач, анимации, счёт, пауза.
-- Если пользователь просит очень сложный сайт (интернет-магазин, соцсеть), сделай только ГЛАВНУЮ СТРАНИЦУ с красивым дизайном. Не пытайся написать весь сайт целиком — сделай идеальную обложку.
-- ПРЕЗЕНТАЦИИ: Если просят презентацию, используй чистый CSS для переключения слайдов (например, :target или скрытые чекбоксы), чтобы не раздувать код JavaScript. Максимум 3-5 слайдов.
-
-РЕЖИМ ПРАВОК (если дана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА»):
-- Если пользователь пишет неточно («не ровно», «криво», «сделай красиво», «сделай вау», «добавь неон»), ты должен сам проанализировать текущий HTML-код и внести правки.
-- КРИТИЧЕСКИ ВАЖНО: Если передана «ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА», ты ОБЯЗАН вернуть полную копию файла от <!doctype html> до </html> с внесенными правками. Нельзя возвращать только фрагмент CSS или HTML. Если ты вернешь неполный код, пользователь увидит белый экран.
-
-ФАЙЛЫ ПРОЕКТА:
-- Если просят простой сайт или простую игру (Змейка, 2048) — генерируй ТОЛЬКО index.html.
-- Если просят Telegram-бота или Мини-апп с логикой — генерируй ТРИ файла: main.py, requirements.txt и index.html.
-- Всегда объясняй в чате, какие файлы ты создал.
+РЕЖИМ ПРАВОК (УМНОЕ РЕДАКТИРОВАНИЕ):
+- Если передана "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА", ты НЕ переписываешь весь код целиком. Ты находишь нужный кусок в старом коде и меняешь его.
+- Формат ответа при правке строго такой:
+[[TEXT]]
+1-2 предложения: что изменено.
+[[EMOTION]]
+happy
+[[FIND]]
+(точный старый кусок кода, который нужно заменить, от 3 до 20 строк)
+[[REPLACE]]
+(новый кусок кода, который встанет на его место)
+[[END]]
+- Нужно несколько правок — повтори пару [[FIND]]...[[REPLACE]]... нужное число раз и поставь один [[END]] в самом конце.
+- FIND копируй из текущего кода ДОСЛОВНО (с пробелами и переносами строк) и делай его уникальным: если такая строка встречается в файле несколько раз, захвати соседние строки.
+- Если нужно добавить новый блок, найди закрывающий тег предыдущего блока (например, </section>) и замени его на: </section> + новый блок.
+- Если правка настолько глобальная, что требует переписывания всего (например, смена всей темы), тогда и только тогда верни полный код в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]].
 
 ТЕХНИКА:
-- Один самодостаточный файл: <!doctype html>, весь CSS в <style>, JS в <script> перед </body>.
-- Запросы к сети (fetch, XHR), отправка форм, alert/confirm/prompt, window.open и переходы по внешним ссылкам не работают: используй <button type="button">. Навигация только внутри одной страницы: якоря href="#id" на секции этого же файла или переключение секций через JS. Ссылок на другие файлы и страницы (about.html, /contacts) не делай.
-- Чистый код без ошибок в консоли.
-- КРИТИЧЕСКОЕ ОГРАНИЧЕНИЕ: Код должен быть ОЧЕНЬ компактным. Не делай огромных отступов, не дублируй стили, не пиши длинные комментарии. Максимальный размер кода — 2000 строк. Если нужно написать больше, пиши более эффективно, используя классы и общие стили.
+- Один файл: <!doctype html>, CSS в <style>, JS в <script>.
+- Никаких fetch, alert, window.open. Только <button type="button"> и якоря #id.
+- Код должен быть компактным (без лишних отступов и комментариев).
 
-ФОРМАТ ОТВЕТА — строго так, без лишнего текста вокруг:
+ФОРМАТ ОТВЕТА ПРИ НОВОЙ СБОРКЕ:
 [[TEXT]]
-1–3 коротких предложения для чата: что сделано и какие файлы ты создал.
+1-3 предложения.
 [[EMOTION]]
 happy
 [[HTML]]
-<!doctype html>
-...полный файл index.html...
-[[FILE:main.py]]
-...только если нужен бот или мини-апп с логикой...
-[[FILE:requirements.txt]]
-...только если нужен бот или мини-апп с логикой...
+<!doctype html>...полный файл...</html>
 [[END]]
 """
 
@@ -486,7 +476,13 @@ def build_messages(user_content, history_text, current_code):
         messages.append({"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code})
     else:
         messages.append({"role": "user", "content": "Проект создается с нуля."})
-    messages.append({"role": "user", "content": f"ЗАДАЧА: {user_content}"})
+    if current_code:
+        messages.append({"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {user_content}\n\n"
+            "РЕЖИМ ПРАВКИ: НЕ переписывай файл целиком. Верни [[TEXT]]..[[EMOTION]]..[[FIND]]..[[REPLACE]]..[[END]]: "
+            "FIND — дословный уникальный фрагмент из текущего кода, REPLACE — его новая версия. "
+            "Полный [[HTML]] — только если правка затрагивает почти весь файл."})
+    else:
+        messages.append({"role": "user", "content": f"ЗАДАЧА: {user_content}"})
     return messages
 
 def build_continue_messages(messages, raw):
@@ -506,8 +502,73 @@ def build_error_result(conn, uid, weight, e):
         return {"text": "У бота закончились ресурсы на генерацию. Я вернул тебе сборку, попробуй чуть позже.", "emotion": "sad", "pro": pro_now}
     return {**BUILD_FAIL, "pro": pro_now}
 
-def finalize_build(conn, uid, raw, weight):
-    parsed = parse_build(raw)
+# ---------- УМНОЕ РЕДАКТИРОВАНИЕ (DIFF) ----------
+DIFF_HEAD_RE = re.compile(r"\[\[TEXT\]\](.*?)(?:\[\[EMOTION\]\](.*?))?\[\[FIND\]\]", re.S)
+DIFF_PAIR_RE = re.compile(r"\[\[FIND\]\](.*?)\[\[REPLACE\]\](.*?)(?=\[\[FIND\]\]|\[\[END\]\]|\Z)", re.S)
+DIFF_FAIL_TEXT = {
+    "not_found": "Не смог найти в коде место для правки. Я вернул списанное — опиши чуть точнее, что и где поменять.",
+    "ambiguous": "Нашёл несколько подходящих мест и не стал гадать. Я вернул списанное — уточни, какую именно часть менять.",
+    "cut": "Правка оборвалась на полуслове. Я вернул списанное — попробуй ещё раз.",
+}
+DIFF_FAIL_TEXT["empty"] = DIFF_FAIL_TEXT["not_found"]
+
+def is_diff_raw(raw):
+    """Ответ модели — правка ([[FIND]] раньше [[HTML]]), а не полный файл."""
+    r = raw or ""
+    i = r.find("[[FIND]]")
+    if i < 0: return False
+    j = r.find("[[HTML]]")
+    return j < 0 or i < j
+
+def apply_diff(old_html, find_text, replace_text):
+    """Заменяет find_text на replace_text. Возвращает (новый_html, None) или (None, код_ошибки):
+    'empty' — пустой FIND, 'not_found' — не нашли, 'ambiguous' — нашли больше одного места."""
+    if not find_text or not find_text.strip(): return None, "empty"
+    n = old_html.count(find_text)
+    if n == 1:
+        i = old_html.index(find_text)
+        return old_html[:i] + replace_text + old_html[i + len(find_text):], None
+    if n > 1: return None, "ambiguous"
+    # модель часто путает отступы/переносы: ищем тот же текст, но с любыми пробельными промежутками
+    pat = r"\s+".join(re.escape(w) for w in find_text.split())
+    ms = list(re.finditer(pat, old_html))
+    if len(ms) == 1:
+        m = ms[0]
+        return old_html[:m.start()] + replace_text + old_html[m.end():], None
+    return None, ("ambiguous" if ms else "not_found")
+
+def _strip_fence(b):
+    b = re.sub(r"^\s*```[a-zA-Z]*[ \t]*\n", "", b)
+    b = re.sub(r"\n[ \t]*```\s*$", "", b)
+    return b.strip("\r\n")
+
+def parse_diff_build(raw, current_code):
+    """-> (text, emotion, html, err). Все правки применяются по очереди, всё или ничего."""
+    raw = raw or ""
+    tail = raw[raw.find("[[FIND]]"):]
+    m = DIFF_HEAD_RE.search(raw)
+    text = m.group(1).strip() if m else ""
+    emo_src = (m.group(2) or "").strip() if m else ""
+    emotion = emo_src.split()[0] if emo_src else "happy"
+    if "[[END]]" not in tail: return text, emotion, None, "cut"
+    pairs = DIFF_PAIR_RE.findall(tail)
+    if not pairs: return text, emotion, None, "empty"
+    html = current_code
+    for f, r in pairs:
+        html, err = apply_diff(html, _strip_fence(f), _strip_fence(r))
+        if err: return text, emotion, None, err
+    return text, emotion, html, None
+
+def finalize_build(conn, uid, raw, weight, current_code=None):
+    if current_code and is_diff_raw(raw):
+        text, emotion, html, err = parse_diff_build(raw, current_code)
+        if err:
+            refund_units(conn, uid, weight)
+            log.error(f"Diff failed ({err}). Raw: {(raw or '')[:300]}")
+            return {"text": DIFF_FAIL_TEXT.get(err, DIFF_FAIL_TEXT["not_found"]), "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+        parsed = (text, emotion, html)
+    else:
+        parsed = parse_build(raw)
     visual = None
     if parsed:
         text, emotion, html = parsed
@@ -529,7 +590,7 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
             temperature=0.7
         )
         raw = resp.choices[0].message.content or ""
-        if "</html>" not in raw.lower() and len(raw) > 100:
+        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw):
             log.warning("Код оборвался, запускаю авто-докрутку...")
             resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
                 model=BUILD_MODEL,
@@ -541,7 +602,7 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
     except Exception as e:
         log.exception("build request failed")
         return build_error_result(conn, uid, weight, e)
-    return finalize_build(conn, uid, raw, weight)
+    return finalize_build(conn, uid, raw, weight, current_code)
 
 # ---------- СТРИМИНГ СБОРКИ ----------
 _TRAIL = "`\n\r\t "
@@ -549,10 +610,12 @@ _TRAIL = "`\n\r\t "
 class BuildStreamParser:
     """Режет поток [[TEXT]]..[[EMOTION]]..[[HTML]]..[[FILE:..]]..[[END]] на события ("text", ..) и ("html", ..).
     В html попадает только чистый код: без всего до [[HTML]], без ```-оград и без всего после [[END]] / [[FILE:."""
-    def __init__(self):
+    def __init__(self, patch=False):
         self.buf = ""
-        self.state = "pre"   # pre -> text -> emotion -> head -> html
+        self.state = "pre"   # pre -> text -> emotion -> head -> html   |   text/emotion -> patch (режим правки [[FIND]])
         self.ended = False
+        self.patch = patch
+        self.m_text = ("[[EMOTION]]", "[[HTML]]") + (("[[FIND]]",) if patch else ())
 
     @staticmethod
     def _hold(buf, markers):
@@ -569,6 +632,8 @@ class BuildStreamParser:
         if self.ended: return out
         self.buf += d
         while self.buf and not self.ended:
+            if self.state == "patch":   # правку не показываем кусками: ответ целиком копится в st["raw"]
+                self.buf = ""; break
             if self.state == "pre":
                 i = self.buf.find("[[TEXT]]")
                 if i < 0:
@@ -576,21 +641,27 @@ class BuildStreamParser:
                     break
                 self.buf = self.buf[i + 8:]; self.state = "text"; continue
             if self.state == "text":
-                found = [(self.buf.find(m), m) for m in ("[[EMOTION]]", "[[HTML]]")]
+                found = [(self.buf.find(m), m) for m in self.m_text]
                 found = [(i, m) for i, m in found if i >= 0]
                 if not found:
-                    safe = len(self.buf) - self._hold(self.buf, ("[[EMOTION]]", "[[HTML]]"))
+                    safe = len(self.buf) - self._hold(self.buf, self.m_text)
                     if safe > 0:
                         out.append(("text", self.buf[:safe])); self.buf = self.buf[safe:]
                     break
                 i, m = min(found)
                 if i: out.append(("text", self.buf[:i]))
                 self.buf = self.buf[i + len(m):]
+                if m == "[[FIND]]":
+                    self.state = "patch"; self.buf = ""; out.append(("patch", "")); break
                 self.state = "emotion" if m == "[[EMOTION]]" else "head"
                 continue
             if self.state == "emotion":
-                i = self.buf.find("[[HTML]]")
-                if i < 0: break
+                found = [(self.buf.find(m), m) for m in ("[[HTML]]",) + (("[[FIND]]",) if self.patch else ())]
+                found = [(i, m) for i, m in found if i >= 0]
+                if not found: break
+                i, m = min(found)
+                if m == "[[FIND]]":
+                    self.state = "patch"; self.buf = ""; out.append(("patch", "")); break
                 self.buf = self.buf[i + 8:]; self.state = "head"; continue
             if self.state == "head":
                 t = self.buf.lstrip()
@@ -629,7 +700,7 @@ class BuildStreamParser:
         out = []
         if self.ended: return out
         if self.state == "text" and self.buf:
-            b = self.buf[:len(self.buf) - self._hold(self.buf, ("[[EMOTION]]", "[[HTML]]"))]
+            b = self.buf[:len(self.buf) - self._hold(self.buf, self.m_text)]
             if b: out.append(("text", b))
         elif self.state == "html" and self.buf:
             cut = None
@@ -668,7 +739,8 @@ def _trial_adjust(conn, uid, res, trial):
     return res
 
 _STAGES = ["Анализирую задачу...", "Пишу стили и дизайн...",
-           "Добавляю интерактивность...", "Завершаю сборку..."]
+           "Добавляю интерактивность...", "Завершаю сборку...",
+           "Вношу правки...", "Применяю правки..."]  # 4 и 5 — режим правки (diff)
 _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
@@ -676,7 +748,7 @@ _RE_END    = re.compile(r"</html>", re.I)
 async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
     messages = build_messages(user_content, history_text, current_code)
-    parser = BuildStreamParser()
+    parser = BuildStreamParser(patch=bool(current_code))
     st = {"raw": "", "hbuf": "", "last": time.monotonic(), "stage": -1, "tail": ""}
     done = False
 
@@ -699,6 +771,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         out = status(0)  # первый токен
         for kind, part in parser.feed(d):
             if kind == "text": out.append(_nd({"t": "text", "d": part}))
+            elif kind == "patch": out += status(4)
             else:
                 st["hbuf"] += part
                 out += scan(part)
@@ -711,6 +784,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         out = []
         for kind, part in parser.finish():
             if kind == "text": out.append(_nd({"t": "text", "d": part}))
+            elif kind == "patch": out += status(4)
             else:
                 st["hbuf"] += part
                 out += scan(part)
@@ -723,7 +797,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         try:
             async for d in _llm_stream(messages):
                 for b in handle(d): yield b
-            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100:
+            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]):
                 log.warning("Код оборвался, запускаю авто-докрутку (stream)...")
                 async for d in _llm_stream(build_continue_messages(messages, st["raw"])):
                     for b in handle(d): yield b
@@ -738,7 +812,9 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
         for b in flush(): yield b
-        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight), trial)
+        if st["stage"] == 4:
+            for b in status(5): yield b
+        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight, current_code), trial)
         done = True
         yield _nd({"t": "done" if res.get("visual") else "error", **res})
     finally:
