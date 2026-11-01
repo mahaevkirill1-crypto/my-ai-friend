@@ -667,19 +667,41 @@ def _trial_adjust(conn, uid, res, trial):
                 log.exception("trial rollback failed")
     return res
 
+_STAGES = ["Анализирую задачу...", "Пишу стили и дизайн...",
+           "Добавляю интерактивность...", "Завершаю сборку..."]
+_RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
+_RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
+_RE_END    = re.compile(r"</html>", re.I)
+
 async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
     messages = build_messages(user_content, history_text, current_code)
     parser = BuildStreamParser()
-    st = {"raw": "", "hbuf": "", "last": time.monotonic()}
+    st = {"raw": "", "hbuf": "", "last": time.monotonic(), "stage": -1, "tail": ""}
     done = False
+
+    def status(i):
+        if i <= st["stage"]: return []  # этапы только вперёд, без повторов
+        st["stage"] = i
+        return [_nd({"t": "status", "d": _STAGES[i]})]
+
+    def scan(part):  # ищем теги в html-части с запасом на разрез по чанкам
+        win = st["tail"] + part
+        st["tail"] = win[-300:]
+        out = []
+        if _RE_STYLE.search(win):  out += status(1)
+        if _RE_SCRIPT.search(win): out += status(2)
+        if _RE_END.search(win):    out += status(3)
+        return out
 
     def handle(d):
         st["raw"] += d
-        out = []
+        out = status(0)  # первый токен
         for kind, part in parser.feed(d):
             if kind == "text": out.append(_nd({"t": "text", "d": part}))
-            else: st["hbuf"] += part
+            else:
+                st["hbuf"] += part
+                out += scan(part)
         now_m = time.monotonic()
         if st["hbuf"] and (now_m - st["last"] >= 0.15 or len(st["hbuf"]) > 4000):  # склеиваем мелкие куски, чтобы не дёргать клиента на каждый токен
             out.append(_nd({"t": "html", "d": st["hbuf"]})); st["hbuf"] = ""; st["last"] = now_m
@@ -689,7 +711,9 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         out = []
         for kind, part in parser.finish():
             if kind == "text": out.append(_nd({"t": "text", "d": part}))
-            else: st["hbuf"] += part
+            else:
+                st["hbuf"] += part
+                out += scan(part)
         if st["hbuf"]:
             out.append(_nd({"t": "html", "d": st["hbuf"]})); st["hbuf"] = ""
         return out
