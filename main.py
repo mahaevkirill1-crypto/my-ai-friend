@@ -63,14 +63,12 @@ ONLINE_WINDOW = 150
 BOT_USERNAME = os.getenv("BOT_USERNAME", "")
 MINIAPP_SHORT_NAME = os.getenv("MINIAPP_SHORT_NAME", "")
 
-REF_REWARD_REFERRER = 10
-REF_REWARD_INVITEE = 5
-REF_MIN_MSGS = 3
-REF_MIN_AGE = 300
+REF_BONUS_ASKS = 10   # +запросов к обычному чату тому, кто пригласил, когда друг активировался
+REF_MIN_MSGS = 3      # друг должен написать столько сообщений...
+REF_MIN_AGE = 300       # ...и пробыть в приложении столько секунд (5 минут)
 REF_NEW_WINDOW = 3600
 REF_MAX_TOTAL = 30
 REF_MAX_PER_DAY = 5
-REF_REQUIRE_PURCHASE = True
 REF_SAME_IP_LIMIT = 3
 MSG_MIN_LEN = 3
 MSG_MIN_GAP = 8
@@ -201,11 +199,6 @@ def plans_public():
     return [{"id": k, "title": v["title"], "price": v["price"], "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT} for k, v in PLANS.items()]
 
 # --- ЭКОНОМИКА И ЗАЩИТА ---
-QUEST_EARN_CAP = 20
-DAILY_COOLDOWN = 20 * 3600
-DAILY_STREAK_KEEP = 48 * 3600
-DAILY_DROP_CHANCE = 0.15
-DAILY_DROP_MAX_PRICE = 65
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 SHOP_PRICES = {
@@ -223,7 +216,6 @@ ITEM_PRICE = {**{k: v for k, v in SHOP_PRICES.items() if k != "astro"}, **EXCLUS
 SLOT_BY_PREFIX = {"c": "color", "h": "head", "f": "face", "s": "feet", "b": "back", "a": "arm"}
 ITEM_SLOT = {i: SLOT_BY_PREFIX[i[0]] for i in ITEM_PRICE}
 VALID_SLOTS = set(SLOT_BY_PREFIX.values())
-_rng = random.SystemRandom()
 
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
@@ -244,11 +236,13 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS referrals (invitee_id INTEGER PRIMARY KEY, referrer_id INTEGER NOT NULL, created_at INTEGER NOT NULL, activated INTEGER DEFAULT 0, activated_at INTEGER DEFAULT 0, referrer_claimed INTEGER DEFAULT 0, invitee_claimed INTEGER DEFAULT 0)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals (referrer_id)")
     conn.execute("CREATE TABLE IF NOT EXISTS ref_ip (ip TEXT NOT NULL, referrer_id INTEGER NOT NULL, day TEXT NOT NULL, cnt INTEGER DEFAULT 0, PRIMARY KEY (ip, referrer_id, day))")
-    conn.execute("CREATE TABLE IF NOT EXISTS daily_state (user_id INTEGER PRIMARY KEY, last_ts INTEGER DEFAULT 0, streak INTEGER DEFAULT 0)")
-    conn.execute("CREATE TABLE IF NOT EXISTS earn_state (user_id INTEGER PRIMARY KEY, day TEXT DEFAULT '', earned INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS payments (charge_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, item TEXT NOT NULL, created_at INTEGER NOT NULL)")
     conn.execute("CREATE TABLE IF NOT EXISTS user_seen (user_id INTEGER PRIMARY KEY, last_seen INTEGER DEFAULT 0)")
-    conn.execute("CREATE TABLE IF NOT EXISTS rate_state (user_id INTEGER PRIMARY KEY, last_ask INTEGER DEFAULT 0, day TEXT DEFAULT '', ask_count INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS rate_state (user_id INTEGER PRIMARY KEY, last_ask INTEGER DEFAULT 0, day TEXT DEFAULT '', ask_count INTEGER DEFAULT 0, ref_bonus INTEGER DEFAULT 0)")
+    try:
+        conn.execute("ALTER TABLE rate_state ADD COLUMN ref_bonus INTEGER DEFAULT 0")  # бонусные запросы за приглашённых друзей
+    except Exception:
+        pass
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS banned_users (user_id INTEGER PRIMARY KEY, reason TEXT DEFAULT '', banned_at INTEGER DEFAULT 0)")
@@ -288,6 +282,11 @@ RULES = """
 13. Если пишут "не понял" — объясни этот же шаг ещё проще, как для ребёнка.
 14. Учитывай тип проекта из контекста: игра — на Netlify; бот — на GitHub + Render (с файлами main.py, requirements.txt, index.html); сайт — на Netlify (только index.html).
 
+ПРАВИЛО О ПРОИСХОЖДЕНИИ:
+Если пользователь спрашивает, какая ты модель, кто тебя создал или на чем ты работаешь, отвечай строго так:
+"Я использую лучшие доступные языковые модели и собственные алгоритмы для генерации кода. Мой фокус — не рассказать тебе, как я устроен, а сделать твой проект быстро и качественно. Скажи, какой сайт тебе нужен?"
+Запрещено упоминать Anthropic, Claude, OpenAI, ChatGPT и другие сторонние компании. Ты — Holo, и это единственное, что нужно знать пользователю.
+
 ФОРМАТ ОТВЕТА (строго): никаких рассуждений. Сразу выведи метку [[ANSWER]] отдельной строкой, на следующей строке — одно слово-эмоция (happy, sad, surprised, angry, thinking или sleepy), а со следующей — сам ответ пользователю обычным текстом.
 """
 
@@ -317,6 +316,8 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
 
 BUILD_SYSTEM = """
 Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик. Пользователь просит сайт, лендинг, приложение или игру. index.html — всегда обязательный файл.
+
+ПРАВИЛО О ПРОИСХОЖДЕНИИ: если спрашивают, какая ты модель, кто тебя создал или на чём ты работаешь, не называй никаких компаний и моделей (Anthropic, Claude, OpenAI, ChatGPT и т.п.). Ты — Holo. Ответь в [[TEXT]]: "Я использую лучшие доступные языковые модели и собственные алгоритмы для генерации кода. Мой фокус — не рассказать тебе, как я устроен, а сделать твой проект быстро и качественно. Скажи, какой сайт тебе нужен?" и верни прежний код без изменений, если он был.
 
 ПРИНЦИПЫ ДИЗАЙНА:
 - Смелость: яркие цвета, выразительная типографика.
@@ -423,7 +424,9 @@ def refund_ask(conn, uid, weight, is_pro):
     """Возврат списанного за /ask, если ответ не получился."""
     try:
         if weight <= 0: return
-        if is_pro:
+        if is_pro == "bonus":
+            conn.execute("UPDATE rate_state SET ref_bonus = ref_bonus + ? WHERE user_id = ?", (weight, uid))
+        elif is_pro:
             conn.execute("UPDATE pro_state SET requests_left = requests_left + ? WHERE user_id = ?", (weight, uid))
         else:
             conn.execute("UPDATE rate_state SET ask_count = MAX(ask_count - ?, 0) WHERE user_id = ?", (weight, uid))
@@ -906,10 +909,6 @@ def scalar(conn, sql, params=()):
     row = conn.execute(sql, params).fetchone()
     return row[0] if row else 0
 
-def try_spend(conn, uid, amount):
-    cur = conn.execute("UPDATE users SET bal = bal - ? WHERE user_id = ? AND bal >= ?", (amount, uid, amount))
-    return cur.rowcount == 1
-
 def touch_meta(conn, user_id, now=None):
     conn.execute("INSERT OR IGNORE INTO user_meta (user_id, first_seen) VALUES (?, ?)", (user_id, int(now if now is not None else time.time())))
 
@@ -930,20 +929,37 @@ def make_link(user_id):
     if MINIAPP_SHORT_NAME: base += f"/{MINIAPP_SHORT_NAME}"
     return f"{base}?startapp=ref_{user_id}"
 
+def credit_ref_bonus(conn, referrer_id):
+    """+REF_BONUS_ASKS запросов к обычному чату тому, кто пригласил. Тратятся, когда дневной лимит закончился."""
+    conn.execute("INSERT OR IGNORE INTO rate_state (user_id, last_ask, day, ask_count, ref_bonus) VALUES (?, 0, '', 0, 0)", (referrer_id,))
+    conn.execute("UPDATE rate_state SET ref_bonus = ref_bonus + ? WHERE user_id = ?", (REF_BONUS_ASKS, referrer_id))
+
 def refresh_activation(conn, column, user_id, now):
+    """Друг активирован, когда написал REF_MIN_MSGS сообщений и прошло REF_MIN_AGE секунд после входа по ссылке.
+    В этот момент пригласившему автоматически начисляется бонус (кнопки «забрать» больше нет)."""
     assert column in ("referrer_id", "invitee_id")
-    rows = conn.execute(f"SELECT invitee_id, created_at FROM referrals WHERE {column} = ? AND activated = 0", (user_id,)).fetchall()
-    for invitee_id, created_at in rows:
+    rows = conn.execute(f"SELECT invitee_id, referrer_id, created_at FROM referrals WHERE {column} = ? AND activated = 0", (user_id,)).fetchall()
+    for invitee_id, referrer_id, created_at in rows:
         msgs = scalar(conn, "SELECT msgs FROM user_stats WHERE user_id = ?", (invitee_id,))
         if msgs < REF_MIN_MSGS or now - created_at < REF_MIN_AGE:
             continue
-        if REF_REQUIRE_PURCHASE:
-            paid = scalar(conn, "SELECT COUNT(*) FROM payments WHERE user_id = ?", (invitee_id,)) > 0
-            if not paid:
-                owned = get_owned(conn, invitee_id)
-                if not owned: continue
-        conn.execute("UPDATE referrals SET activated = 1, activated_at = ? WHERE invitee_id = ?", (now, invitee_id))
+        # условный UPDATE: бонус начислит только тот запрос, который реально переключил флаг (без двойного начисления)
+        cur = conn.execute("UPDATE referrals SET activated = 1, activated_at = ?, referrer_claimed = 1, invitee_claimed = 1 WHERE invitee_id = ? AND activated = 0", (now, invitee_id))
+        if cur.rowcount == 1:
+            credit_ref_bonus(conn, referrer_id)
     conn.commit()
+
+def ref_bonus_info(conn, uid):
+    friends = scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND activated = 1", (uid,))
+    left = scalar(conn, "SELECT ref_bonus FROM rate_state WHERE user_id = ?", (uid,))
+    return {"per_friend": REF_BONUS_ASKS, "friends": friends, "earned": friends * REF_BONUS_ASKS, "left": left}
+
+def activate_quietly(conn, uid, now):
+    try:
+        refresh_activation(conn, "invitee_id", uid, now)
+        refresh_activation(conn, "referrer_id", uid, now)
+    except Exception:
+        log.exception("referral activation failed")
 
 def count_message(user_id, text_len):
     try: uid = int(user_id)
@@ -983,11 +999,6 @@ def clean_equip(equip, owned):
         if isinstance(item, str) and slot in VALID_SLOTS and ITEM_SLOT.get(item) == slot and owned.get(item): out[slot] = item
     return out
 
-def daily_info(conn, uid, now):
-    row = conn.execute("SELECT last_ts, streak FROM daily_state WHERE user_id = ?", (uid,)).fetchone()
-    last, streak = (row[0], row[1]) if row else (0, 0)
-    return {"wait": max(0, last + DAILY_COOLDOWN - now), "streak": streak if last and now - last < DAILY_STREAK_KEEP else 0}
-
 def pro_info(conn, uid, now):
     row = conn.execute("SELECT expires_at, requests_left, auto_renew, plan, units_total FROM pro_state WHERE user_id = ?", (uid,)).fetchone()
     default_limit = PLANS["pro"]["units"]
@@ -1020,20 +1031,23 @@ def load_progress(data: dict = Body(...)):
     conn = get_db_connection()
     conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
     touch_meta(conn, uid, now); mark_seen(conn, uid, now)
-    row = conn.execute("SELECT bal, equip FROM users WHERE user_id = ?", (uid,)).fetchone()
+    row = conn.execute("SELECT equip FROM users WHERE user_id = ?", (uid,)).fetchone()
     owned = get_owned(conn, uid)
-    try: equip = json.loads(row[1]) if row[1] else {}
+    try: equip = json.loads(row[0]) if row[0] else {}
     except ValueError: equip = {}
     conn.commit()
-    return {"status": "ok", "bal": row[0], "owned": owned, "equip": clean_equip(equip, owned), "daily": daily_info(conn, uid, now), "pro": pro_info(conn, uid, now), "pro_price": PLANS["pro"]["price"], "free_limit": ASK_DAY_LIMIT, "plans": plans_public(), "build_weight": BUILD_WEIGHT, "trial_build": trial_available(conn, uid)}
+    activate_quietly(conn, uid, now)  # друг мог выполнить условия, пока приложение было закрыто
+    return {"status": "ok", "owned": owned, "equip": clean_equip(equip, owned), "ref_bonus": ref_bonus_info(conn, uid), "pro": pro_info(conn, uid, now), "pro_price": PLANS["pro"]["price"], "free_limit": ASK_DAY_LIMIT, "plans": plans_public(), "build_weight": BUILD_WEIGHT, "trial_build": trial_available(conn, uid)}
 
 @app.post("/ping")
 def ping(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
     if not info: return {"status": "error", "reason": "auth"}
     conn = get_db_connection()
-    mark_seen(conn, info["user"]["id"], int(time.time()))
+    now = int(time.time())
+    mark_seen(conn, info["user"]["id"], now)
     conn.commit()
+    activate_quietly(conn, info["user"]["id"], now)  # приложение открыто, пинг раз в минуту: засчитываем «5 минут» вовремя
     return {"status": "ok"}
 
 @app.post("/admin/stats")
@@ -1045,20 +1059,6 @@ def admin_stats(data: dict = Body(...)):
     online = scalar(conn, "SELECT COUNT(*) FROM user_seen WHERE last_seen > ?", (int(time.time()) - ONLINE_WINDOW,))
     pro_cnt = scalar(conn, "SELECT COUNT(*) FROM pro_state WHERE expires_at > ? AND requests_left > 0", (int(time.time()),))
     return {"status": "ok", "total": total, "online": online, "pro_active": pro_cnt}
-
-@app.post("/admin/give")
-def admin_give(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info or info["user"]["id"] != ADMIN_ID: return {"status": "error", "reason": "forbidden"}
-    try: amount = int(data.get("amount", 0))
-    except (TypeError, ValueError): return {"status": "error", "reason": "bad_amount"}
-    if amount <= 0 or amount > 10**9: return {"status": "error", "reason": "bad_amount"}
-    uid = info["user"]["id"]
-    conn = get_db_connection()
-    conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-    conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (amount, uid))
-    conn.commit()
-    return {"status": "ok", "bal": scalar(conn, "SELECT bal FROM users WHERE user_id = ?", (uid,))}
 
 @app.post("/admin/pro")
 def admin_pro(data: dict = Body(...)):
@@ -1120,73 +1120,11 @@ def save_progress(data: dict = Body(...)):
     conn = get_db_connection()
     conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
     touch_meta(conn, uid, now)
-    server_bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
     owned = get_owned(conn, uid)
-    try: client_bal = int(data.get("bal", server_bal))
-    except (TypeError, ValueError): client_bal = server_bal
-    accepted = 0
-    delta = client_bal - server_bal
-    if delta > 0:
-        day = time.strftime("%Y-%m-%d", time.gmtime(now))
-        e = conn.execute("SELECT day, earned FROM earn_state WHERE user_id = ?", (uid,)).fetchone()
-        earned_today = e[1] if e and e[0] == day else 0
-        accepted = min(delta, max(0, QUEST_EARN_CAP - earned_today))
-        if accepted > 0:
-            conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (accepted, uid))
-            conn.execute("INSERT INTO earn_state (user_id, day, earned) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET day = excluded.day, earned = excluded.earned", (uid, day, earned_today + accepted))
     equip = clean_equip(data.get("equip", {}), owned)
     conn.execute("UPDATE users SET equip = ? WHERE user_id = ?", (json.dumps(equip), uid))
     conn.commit()
-    return {"status": "ok", "bal": server_bal + accepted, "owned": owned, "equip": equip}
-
-@app.post("/shop/buy")
-def shop_buy(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; item = data.get("item")
-    if item not in SHOP_PRICES or item == "astro": return {"status": "error", "reason": "bad_item"}
-    price = SHOP_PRICES[item]
-    conn = get_db_connection()
-    conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-    if get_owned(conn, uid).get(item): return {"status": "error", "reason": "owned"}
-    if not try_spend(conn, uid, price):
-        conn.commit()
-        return {"status": "error", "reason": "no_funds"}
-    owned = grant_item(conn, uid, item)
-    conn.commit()
-    bal = conn.execute("SELECT bal FROM users WHERE user_id = ?", (uid,)).fetchone()[0]
-    return {"status": "ok", "bal": bal, "owned": owned}
-
-@app.post("/daily/claim")
-def daily_claim(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; now = int(time.time())
-    conn = get_db_connection()
-    conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-    cutoff = now - DAILY_COOLDOWN
-    cur = conn.execute("UPDATE daily_state SET last_ts = ?, streak = streak + 1 WHERE user_id = ? AND last_ts <= ?", (now, uid, cutoff))
-    if cur.rowcount != 1:
-        row = conn.execute("SELECT last_ts, streak FROM daily_state WHERE user_id = ?", (uid,)).fetchone()
-        if not row:
-            conn.execute("INSERT INTO daily_state (user_id, last_ts, streak) VALUES (?, ?, 1)", (uid, now))
-        else:
-            last, streak = row
-            wait = max(0, last + DAILY_COOLDOWN - now)
-            conn.commit()
-            return {"status": "error", "reason": "wait", "wait": wait}
-    row = conn.execute("SELECT streak FROM daily_state WHERE user_id = ?", (uid,)).fetchone()
-    streak = row[0] if row else 1
-    stars = _rng.choices([1, 2, 3, 4, 5], weights=[30, 28, 22, 13, 7])[0]
-    owned = get_owned(conn, uid)
-    drop = None
-    if _rng.random() < DAILY_DROP_CHANCE:
-        pool = [i for i, p in ITEM_PRICE.items() if i not in EXCLUSIVE_PRICES and not i.startswith("c_") and p <= DAILY_DROP_MAX_PRICE and not owned.get(i)]
-        if pool: drop = _rng.choice(pool)
-    conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (stars, uid))
-    if drop: grant_item(conn, uid, drop)
-    conn.commit()
-    return {"status": "ok", "stars": stars, "drop": drop, "streak": streak, "wait": DAILY_COOLDOWN}
+    return {"status": "ok", "owned": owned, "equip": equip}
 
 @app.post("/referral/register")
 async def referral_register(request: Request, data: dict = Body(...)):
@@ -1212,7 +1150,7 @@ async def referral_register(request: Request, data: dict = Body(...)):
     conn.execute("INSERT INTO referrals (invitee_id, referrer_id, created_at) VALUES (?, ?, ?)", (uid, referrer_id, now))
     conn.execute("INSERT INTO ref_ip (ip, referrer_id, day, cnt) VALUES (?, ?, ?, 1) ON CONFLICT(ip, referrer_id, day) DO UPDATE SET cnt = cnt + 1", (ip, referrer_id, day))
     conn.commit()
-    return {"status": "registered", "need_msgs": REF_MIN_MSGS, "reward": REF_REWARD_INVITEE}
+    return {"status": "registered", "need_msgs": REF_MIN_MSGS}
 
 @app.post("/referral/status")
 def referral_status(data: dict = Body(...)):
@@ -1223,42 +1161,9 @@ def referral_status(data: dict = Body(...)):
     refresh_activation(conn, "referrer_id", uid, now)
     refresh_activation(conn, "invitee_id", uid, now)
     invited = scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (uid,))
-    active = scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND activated = 1", (uid,))
-    pending_ref = scalar(conn, "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (uid,)) * REF_REWARD_REFERRER
-    me = None
-    row = conn.execute("SELECT activated, invitee_claimed, created_at FROM referrals WHERE invitee_id = ?", (uid,)).fetchone()
-    pending_me = 0
-    if row:
-        activated, claimed, created_at = row
-        msgs = scalar(conn, "SELECT msgs FROM user_stats WHERE user_id = ?", (uid,))
-        if claimed: me = {"state": "claimed"}
-        elif activated: me = {"state": "ready"}; pending_me = REF_REWARD_INVITEE
-        else: me = {"state": "waiting", "msgs": msgs, "need": REF_MIN_MSGS, "wait_sec": max(0, REF_MIN_AGE - (now - created_at))}
-    return {"status": "ok", "link": make_link(uid), "invited": invited, "active": active, "limit": REF_MAX_TOTAL, "pending": pending_ref + pending_me, "me": me, "reward_referrer": REF_REWARD_REFERRER, "reward_invitee": REF_REWARD_INVITEE, "need_msgs": REF_MIN_MSGS}
-
-@app.post("/referral/claim")
-def referral_claim(data: dict = Body(...)):
-    info = validate_init_data(data.get("init_data", ""))
-    if not info: return {"status": "error", "reason": "auth"}
-    uid = info["user"]["id"]; now = int(time.time())
-    conn = get_db_connection()
-    refresh_activation(conn, "referrer_id", uid, now)
-    refresh_activation(conn, "invitee_id", uid, now)
-    reward = 0
-    rows = conn.execute("SELECT invitee_id FROM referrals WHERE referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (uid,)).fetchall()
-    for (invitee_id,) in rows:
-        # условный UPDATE: награду получит только тот запрос, который реально переключил флаг
-        cur = conn.execute("UPDATE referrals SET referrer_claimed = 1 WHERE invitee_id = ? AND referrer_id = ? AND activated = 1 AND referrer_claimed = 0", (invitee_id, uid))
-        if cur.rowcount == 1:
-            reward += REF_REWARD_REFERRER
-    cur = conn.execute("UPDATE referrals SET invitee_claimed = 1 WHERE invitee_id = ? AND activated = 1 AND invitee_claimed = 0", (uid,))
-    if cur.rowcount == 1:
-        reward += REF_REWARD_INVITEE
-    if reward > 0:
-        conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-        conn.execute("UPDATE users SET bal = bal + ? WHERE user_id = ?", (reward, uid))
-    conn.commit()
-    return {"status": "ok", "reward": reward}
+    bonus = ref_bonus_info(conn, uid)
+    return {"status": "ok", "link": make_link(uid), "invited": invited, "active": bonus["friends"], "limit": REF_MAX_TOTAL,
+            "bonus_per_friend": bonus["per_friend"], "bonus_earned": bonus["earned"], "bonus_left": bonus["left"], "need_msgs": REF_MIN_MSGS}
 
 _http = httpx.AsyncClient(timeout=8)
 
@@ -1430,6 +1335,7 @@ async def ask(request: Request):
                 user_content += "\n(Пользователь выбрал: собрать сайт. Сделай одностраничный сайт по этому описанию.)"
             
         pro = None
+        used_bonus = False  # запрос оплачен бонусными запросами за друзей (нужно для возврата при сбое)
         try:
             pro = pro_info(conn, uid, now)
             today = time.strftime("%Y-%m-%d", time.gmtime(now))
@@ -1456,9 +1362,14 @@ async def ask(request: Request):
                     "UPDATE rate_state SET day = ?, ask_count = (CASE WHEN day = ? THEN ask_count ELSE 0 END) + ? "
                     "WHERE user_id = ? AND (CASE WHEN day = ? THEN ask_count ELSE 0 END) < ?",
                     (today, today, weight, uid, today, ASK_DAY_LIMIT))
-                if cur.rowcount != 1:
+                allowed = cur.rowcount == 1
+                if not allowed and not build_mode:
+                    # дневной лимит закончился: тратим бонусные запросы за приглашённых друзей (только обычный чат)
+                    cur = conn.execute("UPDATE rate_state SET ref_bonus = ref_bonus - ? WHERE user_id = ? AND ref_bonus >= ?", (weight, uid, weight))
+                    used_bonus = allowed = cur.rowcount == 1
+                if not allowed:
                     conn.commit()
-                    return JSONResponse({"text": "Бесплатный лимит на сегодня закончился. Выбери тариф — и пиши без дневных ограничений.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
+                    return JSONResponse({"text": "Бесплатный лимит на сегодня закончился. Выбери тариф — и пиши без дневных ограничений. Или пригласи друга: +10 запросов за каждого.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
             conn.commit()
         finally:
             pass
@@ -1486,7 +1397,7 @@ async def ask(request: Request):
                     conn.commit()
             return res
         
-        refund_pending = (weight, bool(pro and pro.get("active")))
+        refund_pending = (weight, True if (pro and pro.get("active")) else ("bonus" if used_bonus else False))
             
         if visual_mode:
             system_prompt = (ASTRO_PROMPT if persona == "astronaut" else BASE_PROMPT) + VISUAL_RULES
@@ -1541,7 +1452,7 @@ async def ask(request: Request):
             log.warning("empty reply from model, finish_reason=%s, raw=%r", getattr(response.choices[0], "finish_reason", None), raw[:200])
             result["text"] = "Не получилось ответить, попробуй ещё раз."
             refund_ask(conn, uid, *refund_pending)
-            if refund_pending[1]: pro = pro_info(conn, uid, int(time.time()))
+            if refund_pending[1] is True: pro = pro_info(conn, uid, int(time.time()))
             refund_pending = None
             
         emotion = result.get("emotion")
@@ -1553,6 +1464,9 @@ async def ask(request: Request):
                 if pro and pro.get("active"):
                     refund_units(conn, uid, VISUAL_EXTRA)
                     pro = pro_info(conn, uid, int(time.time()))
+                elif used_bonus:
+                    conn.execute("UPDATE rate_state SET ref_bonus = ref_bonus + ? WHERE user_id = ?", (VISUAL_EXTRA, uid))
+                    conn.commit()
                 else:
                     conn.execute("UPDATE rate_state SET ask_count = MAX(ask_count - ?, 0) WHERE user_id = ?", (VISUAL_EXTRA, uid))
                     conn.commit()
