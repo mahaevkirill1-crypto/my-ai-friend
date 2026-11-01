@@ -3424,7 +3424,6 @@ function showConsent(){
     tryBtn.addEventListener('click', () => {
         if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         finish();
-        setTimeout(() => { input.value = 'Сделай лендинг для кофейни'; $('cnt').textContent = input.value.length + ' / 500'; input.focus(); }, 450);
     });
 
     render();
