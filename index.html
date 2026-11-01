@@ -2677,6 +2677,8 @@ async function sendMessage(text) {
             let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
             let outText = data.text;
             if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
+            // режим правки (diff): живого iframe не было, итог приходит целиком, поэтому заменяем черновой пузырь готовым
+            if (live && vis && !live.vis){ if (live.row.parentNode) live.row.parentNode.removeChild(live.row); live = null; }
             if (live) liveFinish(live, outText, vis); else addToHistory(outText, 'bot', undefined, null, vis, true);
             chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
             chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
