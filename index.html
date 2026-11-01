@@ -2073,6 +2073,13 @@ function showTyping(stages, ms){
     chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row;
 }
 function hideTyping(){ clearInterval(typingT); if (typingRow){ typingRow.remove(); typingRow = null; } }
+function setTypingStatus(s){
+    clearInterval(typingT);  // выключаем «фейковые» этапы по таймеру
+    if (!typingRow) return;
+    const sp = typingRow.querySelector('.shimmer');
+    if (!sp || sp.textContent === s) return;
+    sp.textContent = s; sp.classList.remove('stg'); void sp.offsetWidth; sp.classList.add('stg');
+}
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 const refOk = () => !!(tg && tg.initData);
 async function tgPost(path, extra){
@@ -2690,11 +2697,18 @@ async function sendMessage(text) {
         });
 
         if (response.ok && (response.headers.get('content-type') || '').indexOf('ndjson') >= 0){
-            let live = null, fin = null;
+            let live = null, fin = null, real = false;
+            const ensureLive = () => {
+                if (live) return;
+                if (!real) hideTyping();  // старый сервер без status: поведение прежнее
+                live = startLive();
+                if (real && typingRow) chatHistory.appendChild(typingRow);  // плашка под пузырём
+            };
             try {
                 await readNdjson(response, ev => {
-                    if (ev.t === 'text'){ if (!live){ hideTyping(); live = startLive(); } liveText(live, ev.d); }
-                    else if (ev.t === 'html'){ if (!live){ hideTyping(); live = startLive(); } liveHtml(live, ev.d); }
+                    if (ev.t === 'status'){ real = true; setTypingStatus(ev.d); }
+                    else if (ev.t === 'text'){ ensureLive(); liveText(live, ev.d); }
+                    else if (ev.t === 'html'){ ensureLive(); liveHtml(live, ev.d); }
                     else if (ev.t === 'done' || ev.t === 'error') fin = ev;
                 });
             } catch (e) { /* обрыв соединения: ниже покажем ошибку */ }
