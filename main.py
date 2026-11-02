@@ -340,7 +340,7 @@ sad
 - Цвета и размеры через CSS-переменные (:root).
 - Размеры шрифтов и отступов через clamp(); тени только нейтральные и мягкие.
 - Шрифты Google Fonts: один для текста (Inter) и один для заголовков (Unbounded или Manrope).
-- Иллюстрации — только inline SVG или CSS-градиенты.
+- Иллюстрации — только inline SVG или CSS-градиенты (единственное исключение — тег <img> в режиме правок, см. ниже).
 - Адаптивность mobile-first (от 320px до 1440px).
 
 ПРАВИЛА UNSLOP (БОРЬБА С НЕЙРОСЛОПОМ):
@@ -378,6 +378,12 @@ happy
 - FIND копируй из текущего кода ДОСЛОВНО (с пробелами и переносами строк) и делай его уникальным: если такая строка встречается в файле несколько раз, захвати соседние строки.
 - Если нужно добавить новый блок, найди закрывающий тег предыдущего блока (например, </section>) и замени его на: </section> + новый блок.
 - Если правка настолько глобальная, что требует переписывания всего (например, смена всей темы), тогда и только тогда верни полный код в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]].
+
+ЗАМЕНА ФОТО В РЕЖИМЕ ПРАВОК (только при переданной "ТЕКУЩЕЙ ВЕРСИИ ПРОЕКТА"):
+- Для замены или добавления фото разрешён тег <img>, и только он (остальные запреты не меняются).
+- src: либо внешняя ссылка https://..., которую пользователь сам написал в запросе, либо data:image/...;base64,... , который уже есть в текущем коде. Ссылки и base64 не выдумывай.
+- Если пользователь просит заменить фото, но ссылки нет — не придумывай адрес: оставь прежний src (или поставь SVG-заглушку) и в [[TEXT]] попроси прислать ссылку на фото.
+- Всегда добавляй alt и стили размера (max-width:100%; height:auto), чтобы вёрстка не ломалась.
 
 МЕССЕНДЖЕРЫ И РЕАЛЬНОЕ ВРЕМЯ (ЖЁСТКОЕ ПРАВИЛО):
 - Если пользователь просит мессенджер, чат с реальным временем или WebSockets, ты ОБЯЗАН сделать ДВА файла: main.py (сервер на FastAPI с WebSockets) и index.html (интерфейс). Правило «ТОЛЬКО ЛЕНДИНГ» здесь не действует.
@@ -533,6 +539,25 @@ def wants_build(user_text):
 BUILD_COOLDOWN = 30  # секунд между запросами сборки (включая правки и отказы)
 BUILD_COOLDOWN_TEXT = "Подожди немного, я обрабатываю предыдущий запрос"
 BUILD_REFUSAL_TEXT = "Я не создаю сайты для накрутки отзывов или незаконной деятельности"
+EDIT_ATTACH_TEXT = "В режиме правки нельзя прикреплять фото. Напиши, что нужно изменить, текстом"
+
+# <img> в правках: только https-ссылка или data:image base64, всё остальное (http, javascript:, относительные пути) вырезаем
+_IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.I)
+_IMG_SRC_RE = re.compile(r"""\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')""", re.I)
+_IMG_OK_RE = re.compile(r"^(?:https://[^\s]+|data:image/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\s]+)$", re.I)
+
+def clean_img_tags(html):
+    def fix(m):
+        sm = _IMG_SRC_RE.search(m.group(0))
+        src = ((sm.group(1) if sm.group(1) is not None else sm.group(2)) if sm else "").strip()
+        return m.group(0) if _IMG_OK_RE.match(src) else ""
+    return _IMG_TAG_RE.sub(fix, html)
+
+def content_to_text(user_content):
+    """user_content бывает списком [text, image_url]: в текстовый промпт отдаём только текст, base64 туда попадать не должен"""
+    if isinstance(user_content, list):
+        return "\n".join(p.get("text", "") for p in user_content if isinstance(p, dict) and p.get("type") == "text")
+    return str(user_content or "")
 BUILD_FORBIDDEN_RE = re.compile(
     r"накрутк\w*|накрут\w*\s+(?:отзыв|лайк|подписчик|просмотр|голос|рейтинг)\w*"
     r"|(?:фейков|поддельн|липов|заказн|купленн)\w*\s+отзыв\w*|(?:куп\w*|заказ\w*|продаж\w*)\s+отзыв\w*"
@@ -566,19 +591,21 @@ BUILD_FAIL = {"text": "Не получилось собрать проект. П
 BUILD_TRIAL_NOTE = " Это была бесплатная пробная сборка — дальше студия доступна на тарифах."
 
 def build_messages(user_content, history_text, current_code):
+    task = content_to_text(user_content)
     messages = [{"role": "system", "content": BUILD_SYSTEM}]
-    if history_text: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
+    # правка: в модель идут только текущий код и последний запрос, история чата не нужна (экономия токенов)
+    if history_text and not current_code: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
     if current_code:
         messages.append({"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code})
     else:
         messages.append({"role": "user", "content": "Проект создается с нуля."})
     if current_code:
-        messages.append({"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {user_content}\n\n"
+        messages.append({"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {task}\n\n"
             "РЕЖИМ ПРАВКИ: НЕ переписывай файл целиком. Верни [[TEXT]]..[[EMOTION]]..[[FIND]]..[[REPLACE]]..[[END]]: "
             "FIND — дословный уникальный фрагмент из текущего кода, REPLACE — его новая версия. "
             "Полный [[HTML]] — только если правка затрагивает почти весь файл."})
     else:
-        messages.append({"role": "user", "content": f"ЗАДАЧА: {user_content}"})
+        messages.append({"role": "user", "content": f"ЗАДАЧА: {task}"})
     return messages
 
 def build_continue_messages(messages, raw):
@@ -662,9 +689,11 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
             refund_units(conn, uid, weight)
             log.error(f"Diff failed ({err}). Raw: {(raw or '')[:300]}")
             return {"text": DIFF_FAIL_TEXT.get(err, DIFF_FAIL_TEXT["not_found"]), "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+        if html: html = clean_img_tags(html)
         parsed = (text, emotion, html)
     else:
         parsed = parse_build(raw)
+        if parsed and current_code: parsed = (parsed[0], parsed[1], clean_img_tags(parsed[2]))
     visual = None
     if parsed:
         text, emotion, html = parsed
@@ -1329,6 +1358,9 @@ async def ask(request: Request):
             if 400 <= len(lv["code"]) <= MAX_BUILD_LEN and is_valid_html(lv["code"]):
                 current_code = lv["code"]
         edit_req = bool(data.get("edit_project"))
+        if edit_req and att:
+            # правка + вложение: отказ ДО списаний и до вызова модели, токены не тратятся
+            return {"text": EDIT_ATTACH_TEXT, "emotion": "thinking", "pro": pro_pre}
         if edit_req and not current_code:
             return {"text": "Не нашёл проект для правки. Нажми «Править проект» под нужным сайтом ещё раз.", "emotion": "sad", "pro": pro_pre}
         is_edit = edit_req and bool(current_code)
