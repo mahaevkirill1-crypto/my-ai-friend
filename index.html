@@ -1103,7 +1103,12 @@
     .stbar.fin.open .st-row { display: flex; }
     .stbar.fin.open .st-sum .chev { transform: rotate(180deg); }
     @keyframes stRowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { .stbar .st-row { animation: none; } }
+    /* текущий шаг: круг вращается, как будто думает; готовый шаг: на его месте появляется галочка */
+    .stbar .st-row.now .st-dot { border-color: var(--ui-line-hi); border-top-color: var(--ui-gold-hi); animation: stSpin .8s linear infinite; }
+    .stbar .st-ck path { stroke-dasharray: 16; stroke-dashoffset: 16; animation: stCk .3s ease-out forwards; }
+    @keyframes stSpin { to { transform: rotate(360deg); } }
+    @keyframes stCk { to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) { .stbar .st-row { animation: none; } .stbar .st-row.now .st-dot { animation-duration: 2s; } .stbar .st-ck path { animation: none; stroke-dashoffset: 0; } }
 </style>
 </head>
 <body>
@@ -2727,7 +2732,7 @@ async function sendMessage(text, opts) {
             try {
                 await readNdjson(response, ev => {
                     if (ev.t === 'status'){ real = true; setTypingStatus(ev.d); }
-                    else if (ev.t === 'text'){ ensureLive(); liveText(live, ev.d); }
+                    else if (ev.t === 'text'){ if (!real){ ensureLive(); liveText(live, ev.d); } }  // со сводкой текст не показываем заранее: он придёт один раз вместе с готовым сайтом
                     // ev.t === 'html' игнорируем: проект показываем только готовым, без белого поля и «допечатывания»
                     else if (ev.t === 'done' || ev.t === 'error') fin = ev;
                 });
