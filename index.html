@@ -7,7 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
 <style>
     /* SPLASH */
     #splash { position: fixed; inset: 0; z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(520px 380px at 50% 45%, rgba(255,255,255,.08), transparent 70%), #1E1F22; transition: opacity .5s ease, visibility 0s linear .5s; animation: splashHide .5s ease 1.8s forwards; }
@@ -1084,6 +1084,23 @@
     #consent .cs-no { border: 1px solid var(--ui-line-hi); background: transparent; color: var(--ui-tx-hi); }
     #consent .cs-deny p { margin-bottom: 28px; }
     #consent [hidden] { display: none; }
+
+    /* ---- Сводка действий (статус-бар сборки), стиль Unslop: тёмный фон, Inter, белые галочки, серый текст ---- */
+    .msg-row.stp { max-width: 100%; }
+    .stbar { display: flex; flex-direction: column; gap: 2px; min-width: 220px; max-width: 100%; padding: 8px 12px; border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-bg-1); font: 400 13px/1.4 'Inter', system-ui, sans-serif; color: var(--ui-tx-lo); }
+    .stbar .st-row { display: flex; align-items: center; gap: 10px; min-height: 24px; animation: stRowIn .15s ease-out; }
+    .stbar .st-row.now { color: var(--ui-tx-mid); }
+    .stbar .st-row.done { color: var(--ui-tx-lo); }
+    .stbar .st-dot { flex: none; width: 14px; height: 14px; box-sizing: border-box; border: 1.5px solid var(--ui-tx-lo); border-radius: 50%; }
+    .stbar .st-ck { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--ui-gold-hi); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .stbar .st-sum { display: none; align-items: center; gap: 10px; width: 100%; min-height: 24px; padding: 0; border: 0; background: none; color: var(--ui-tx-lo); font: inherit; text-align: left; cursor: pointer; }
+    .stbar .st-sum .chev { margin-left: auto; width: 14px; height: 14px; fill: none; stroke: var(--ui-tx-lo); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s ease; }
+    .stbar.fin .st-sum { display: flex; }
+    .stbar.fin .st-row { display: none; }
+    .stbar.fin.open .st-row { display: flex; }
+    .stbar.fin.open .st-sum .chev { transform: rotate(180deg); }
+    @keyframes stRowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .stbar .st-row { animation: none; } }
 </style>
 </head>
 <body>
@@ -2017,7 +2034,7 @@ chatHistory.addEventListener('scroll', updDown, { passive: true });
 new MutationObserver(() => setTimeout(updDown, 120)).observe(chatHistory, { childList: true });
 downBtn.addEventListener('click', () => { userScrolled = false; stick = true; chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }); });
 if (window.ResizeObserver) new ResizeObserver(() => { syncBody(); if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe($('hud-panel'));
-let typingRow = null, typingT = 0;
+let typingRow = null, typingT = 0, stepsMode = false, stT0 = 0;
 function showTyping(stages, ms){
     hideTyping();
     const list = stages && stages.length ? stages : ['Анализирую...', 'Думаю над ответом...', 'Формулирую...'];
@@ -2027,13 +2044,41 @@ function showTyping(stages, ms){
     typingT = setInterval(() => { if (n < list.length - 1){ n++; sp.textContent = list[n]; sp.classList.remove('stg'); void sp.offsetWidth; sp.classList.add('stg'); } }, ms || 2500);
     chatHistory.appendChild(row); chatHistory.scrollTop = chatHistory.scrollHeight; typingRow = row;
 }
-function hideTyping(){ clearInterval(typingT); if (typingRow){ typingRow.remove(); typingRow = null; } }
+function hideTyping(){ clearInterval(typingT); stepsMode = false; if (typingRow){ typingRow.remove(); typingRow = null; } }
+// ---- сводка действий: реальные этапы сборки списком, выполненные с галочкой ----
+const ST_CK = '<svg class="st-ck" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
+function stepRow(label){
+    const r = document.createElement('div'); r.className = 'st-row now'; r.dataset.t = label;
+    r.innerHTML = '<i class="st-dot"></i><span></span>'; r.lastChild.textContent = label.replace(/\.{2,}$/, '');
+    return r;
+}
+function stepDone(r){ r.classList.remove('now'); r.classList.add('done'); const d = r.querySelector('.st-dot'); if (d) d.outerHTML = ST_CK; }
+function startSteps(){
+    typingRow.className = 'msg-row bot stp';
+    typingRow.innerHTML = '<div class="col"><div class="stbar" role="status" aria-live="polite"></div></div>';
+    stepsMode = true; stT0 = Date.now();
+}
 function setTypingStatus(s){
     clearInterval(typingT);  // выключаем «фейковые» этапы по таймеру
     if (!typingRow) return;
-    const sp = typingRow.querySelector('.shimmer');
-    if (!sp || sp.textContent === s) return;
-    sp.textContent = s; sp.classList.remove('stg'); void sp.offsetWidth; sp.classList.add('stg');
+    if (!stepsMode) startSteps();
+    const bar = typingRow.querySelector('.stbar'), rows = bar.querySelectorAll('.st-row');
+    if (rows.length && rows[rows.length - 1].dataset.t === s) return;
+    rows.forEach(stepDone);
+    bar.appendChild(stepRow(s));
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+function finishSteps(){   // успех: все шаги с галочкой, плашка остаётся в чате одной строкой (по тапу раскрывается)
+    const row = typingRow, bar = row && row.querySelector('.stbar');
+    clearInterval(typingT); typingRow = null; stepsMode = false;
+    if (!bar) return;
+    const rows = bar.querySelectorAll('.st-row'); rows.forEach(stepDone);
+    const sec = Math.max(1, Math.round((Date.now() - stT0) / 1000));
+    const sum = document.createElement('button'); sum.type = 'button'; sum.className = 'st-sum';
+    sum.innerHTML = ST_CK + '<span></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    sum.querySelector('span').textContent = 'Готово · шагов: ' + rows.length + ' · ' + sec + ' с';
+    sum.addEventListener('click', () => bar.classList.toggle('open'));
+    bar.insertBefore(sum, bar.firstChild); bar.classList.add('fin');
 }
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 const refOk = () => !!(tg && tg.initData);
@@ -2625,7 +2670,7 @@ async function sendMessage(text, opts) {
             if (data.pro){ Object.assign(PRO, data.pro); renderPro(); }
             if (editing) setEditTarget(null);
 
-            hideTyping();
+            if (stepsMode && data.visual) finishSteps(); else hideTyping();
 
             if (char === 'astro') {
                 hideBubble();
