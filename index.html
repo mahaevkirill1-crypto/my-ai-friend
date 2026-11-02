@@ -802,6 +802,9 @@
     :root:root body .msg-row.bot .message { font-family: 'Manrope', system-ui, sans-serif; font-size: 17px; line-height: 1.62; color: var(--ui-tx-hi); background: none; border: 0; box-shadow: none; letter-spacing: 0; }
     :root:root body .msg-row.user .message { background: var(--cl-user); border: 1px solid var(--ui-line); border-radius: 18px; color: var(--ui-tx-hi); box-shadow: none; font-size: 16px; }
     :root:root body .message.has-img .cap { background: var(--cl-user); }
+    /* фото пользователя и подпись прижаты вправо, как и обычный пузырь */
+    :root:root body .msg-row.user .message.has-img { display: flex; flex-direction: column; align-items: flex-end; }
+    :root:root body .msg-row.user .message.has-img .cap { text-align: left; }
     :root:root body .tm { color: var(--ui-tx-lo); }
     :root:root body .typing span { background: var(--ui-tx-lo); }
     :root:root body .message.has-file::after { color: var(--cl-acc); }
