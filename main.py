@@ -238,11 +238,12 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS ref_ip (ip TEXT NOT NULL, referrer_id INTEGER NOT NULL, day TEXT NOT NULL, cnt INTEGER DEFAULT 0, PRIMARY KEY (ip, referrer_id, day))")
     conn.execute("CREATE TABLE IF NOT EXISTS payments (charge_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, item TEXT NOT NULL, created_at INTEGER NOT NULL)")
     conn.execute("CREATE TABLE IF NOT EXISTS user_seen (user_id INTEGER PRIMARY KEY, last_seen INTEGER DEFAULT 0)")
-    conn.execute("CREATE TABLE IF NOT EXISTS rate_state (user_id INTEGER PRIMARY KEY, last_ask INTEGER DEFAULT 0, day TEXT DEFAULT '', ask_count INTEGER DEFAULT 0, ref_bonus INTEGER DEFAULT 0)")
-    try:
-        conn.execute("ALTER TABLE rate_state ADD COLUMN ref_bonus INTEGER DEFAULT 0")  # бонусные запросы за приглашённых друзей
-    except Exception:
-        pass
+    conn.execute("CREATE TABLE IF NOT EXISTS rate_state (user_id INTEGER PRIMARY KEY, last_ask INTEGER DEFAULT 0, day TEXT DEFAULT '', ask_count INTEGER DEFAULT 0, ref_bonus INTEGER DEFAULT 0, last_build INTEGER DEFAULT 0)")
+    for col in ("ref_bonus", "last_build"):  # бонусные запросы за друзей; время последней сборки (кулдаун)
+        try:
+            conn.execute(f"ALTER TABLE rate_state ADD COLUMN {col} INTEGER DEFAULT 0")
+        except Exception:
+            pass
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS banned_users (user_id INTEGER PRIMARY KEY, reason TEXT DEFAULT '', banned_at INTEGER DEFAULT 0)")
@@ -287,6 +288,9 @@ RULES = """
 "Я использую лучшие доступные языковые модели и собственные алгоритмы для генерации кода. Мой фокус — не рассказать тебе, как я устроен, а сделать твой проект быстро и качественно. Скажи, какой сайт тебе нужен?"
 Запрещено упоминать Anthropic, Claude, OpenAI, ChatGPT и другие сторонние компании. Ты — Holo, и это единственное, что нужно знать пользователю.
 
+ЗАПРЕЩЁННЫЕ ТЕМЫ:
+Если пользователь просит сделать сайт для накрутки отзывов, обмана людей, скама или чего-то незаконного, ты ОБЯЗАН ОТКАЗАТЬСЯ. Ответь только текстом: "Я не создаю сайты для накрутки отзывов или незаконной деятельности". Код не пиши и ничего не объясняй.
+
 ФОРМАТ ОТВЕТА (строго): никаких рассуждений. Сразу выведи метку [[ANSWER]] отдельной строкой, на следующей строке — одно слово-эмоция (happy, sad, surprised, angry, thinking или sleepy), а со следующей — сам ответ пользователю обычным текстом.
 """
 
@@ -318,6 +322,13 @@ BUILD_SYSTEM = """
 Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик. Пользователь просит сайт, лендинг, приложение или игру. index.html — всегда обязательный файл.
 
 ПРАВИЛО О ПРОИСХОЖДЕНИИ: если спрашивают, какая ты модель, кто тебя создал или на чём ты работаешь, не называй никаких компаний и моделей (Anthropic, Claude, OpenAI, ChatGPT и т.п.). Ты — Holo. Ответь в [[TEXT]]: "Я использую лучшие доступные языковые модели и собственные алгоритмы для генерации кода. Мой фокус — не рассказать тебе, как я устроен, а сделать твой проект быстро и качественно. Скажи, какой сайт тебе нужен?" и верни прежний код без изменений, если он был.
+
+ЗАПРЕЩЁННЫЕ ТЕМЫ: если пользователь просит сделать сайт для накрутки отзывов, обмана людей, скама или чего-то незаконного, ты ОБЯЗАН ОТКАЗАТЬСЯ: верни только [[TEXT]]
+Я не создаю сайты для накрутки отзывов или незаконной деятельности
+[[EMOTION]]
+sad
+[[END]]
+Без [[HTML]] и без кода.
 
 ПРИНЦИПЫ ДИЗАЙНА:
 - Характер: один яркий акцентный цвет, выразительная типографика.
@@ -518,6 +529,36 @@ def wants_build(user_text):
     # «ask» (глагол + прилагательное) тоже считается сборкой, но /ask сначала задаёт уточняющий вопрос с кнопками
     return build_intent(user_text) in ("build", "ask")
 
+# --- антиспам и запрещённые темы для сборки ---
+BUILD_COOLDOWN = 30  # секунд между запросами сборки (включая правки и отказы)
+BUILD_COOLDOWN_TEXT = "Подожди немного, я обрабатываю предыдущий запрос"
+BUILD_REFUSAL_TEXT = "Я не создаю сайты для накрутки отзывов или незаконной деятельности"
+BUILD_FORBIDDEN_RE = re.compile(
+    r"накрутк\w*|накрут\w*\s+(?:отзыв|лайк|подписчик|просмотр|голос|рейтинг)\w*"
+    r"|(?:фейков|поддельн|липов|заказн|купленн)\w*\s+отзыв\w*|(?:куп\w*|заказ\w*|продаж\w*)\s+отзыв\w*"
+    r"|\bскам\w*|фишинг\w*|мошенн\w*|развод\w*\s+(?:люд|клиент|покупател)\w*"
+    r"|обман\w*\s+(?:люд|клиент|покупател|пользовател|стариков|вкладчик)\w*"
+    r"|финансов\w*\s+пирамид\w*|ponzi|(?:поддельн|фальшив)\w*\s+(?:документ|паспорт|справк|диплом|чек|деньги|купюр)\w*"
+    r"|нелегальн\w*|незаконн\w*|(?:украсть|кража|краж\w*)\s+(?:данн|парол|карт)\w*|кардинг\w*|дроппер\w*|обнал\w*", re.I)
+# защитный контекст («сайт про защиту от мошенников») — не блокируем
+BUILD_SAFE_CTX_RE = re.compile(
+    r"защит\w*|против\s+(?:мошенн|скам|фишинг|обман)|борьб\w*|распозна\w*|как\s+не\s+(?:попасть|стать)|анти-?(?:скам|фишинг|мошенн)|предостереж\w*|осторожн\w*", re.I)
+def is_forbidden_build(user_text):
+    return bool(BUILD_FORBIDDEN_RE.search(user_text) and not BUILD_SAFE_CTX_RE.search(user_text))
+
+# обычный чат: блокируем только ПРОСЬБУ совершить (накрутить, обмануть, сделать фишинг), а не вопросы про мошенников
+CHAT_REFUSAL_TEXT = "Я не помогаю с накруткой отзывов, обманом людей и незаконной деятельностью"
+_CHAT_DO = r"(?:сдела\w*|созда\w*|напиш\w*|запил\w*|разработ\w*|помоги\w*|помоч\w*|как|научи\w*|подскаж\w*)"
+CHAT_FORBIDDEN_RE = re.compile(
+    r"(?:накрути\w*|накручив\w*|обману\w*|обманыв\w*|развест\w*|разводит\w*|кинуть)\s+(?:\S+\s+){0,2}"
+    r"(?:отзыв|лайк|подписчик|просмотр|голос|рейтинг|люд|клиент|покупател|пенсионер|старик|пожил|вкладчик|доверчив)\w*"
+    r"|\b" + _CHAT_DO + r"\s+(?:\S+\s+){0,4}(?:накрутк|фишинг|скам\b|финансов\w*\s+пирамид|фейков\w*\s+отзыв"
+    r"|поддельн\w*\s+(?:документ|паспорт|справк|диплом)|фальшив\w*\s+(?:документ|деньги)|кардинг|обнал|дроппер)\w*", re.I)
+CHAT_SAFE_RE = re.compile(
+    r"защит\w*|распозна\w*|отлич\w*|борьб\w*|что\s+такое|объясни|расскажи|почему|что\s+делать|обманули|мошенники\s+(?:позвонили|написали)|пострада\w*|жертв\w*|как\s+не\s+(?:попасть|стать)|предостереж\w*", re.I)
+def is_forbidden_chat(user_text):
+    return bool(CHAT_FORBIDDEN_RE.search(user_text) and not CHAT_SAFE_RE.search(user_text))
+
 BUILD_CHOICE_QUESTION = "Тебе собрать сайт или просто совет?"
 BUILD_CHOICES = [{"id": "build", "label": "Собрать сайт"}, {"id": "advice", "label": "Просто совет"}]
 
@@ -630,6 +671,8 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
         visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
     if not parsed or not visual:
         refund_units(conn, uid, weight)
+        if BUILD_REFUSAL_TEXT in (raw or ""):  # модель сама отказалась (запрещённая тема)
+            return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
         log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
         return {**BUILD_FAIL, "pro": pro_info(conn, uid, int(time.time()))}
     if emotion not in EMOTIONS_OK: emotion = "happy"
@@ -1296,6 +1339,9 @@ async def ask(request: Request):
             # есть действие и прилагательное, но нет существительного: ничего не списываем и в нейросеть не идём
             return {"text": BUILD_CHOICE_QUESTION, "emotion": "thinking", "pro": pro_pre, "choices": BUILD_CHOICES}
         build_mode = is_edit or build_choice == "build" or (build_choice != "advice" and wants_build(user_text))
+        if not build_mode and is_forbidden_chat(user_text):
+            # запрещённая просьба в обычном чате: отказ до списаний и до вызова модели, токены не тратятся
+            return {"text": CHAT_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
         search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
         if search_mode: weight = max(weight, SEARCH_WEIGHT)
         
@@ -1307,6 +1353,9 @@ async def ask(request: Request):
 
         trial = False
         if build_mode:
+            # запрещённые темы: отказ ДО любых списаний и до вызова модели, токены не тратятся
+            if is_forbidden_build(user_text):
+                return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
             is_realtime = (not is_edit) and bool(REALTIME_RE.search(user_text))
             if is_edit:
                 weight = BUILD_WEIGHT_EDIT  # 150 за правку (только по кнопке «Править проект»)
@@ -1338,6 +1387,14 @@ async def ask(request: Request):
             elif pro_pre["left"] < weight:
                 return JSONResponse({"text": f"На эту задачу нужно минимум {weight} единиц, а осталось {pro_pre['left']}. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
                 
+        if build_mode:
+            # кулдаун сборки: атомарный слот, повтор раньше чем через BUILD_COOLDOWN секунд в нейросеть не уходит
+            conn.execute("INSERT OR IGNORE INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, 0, '', 0)", (uid,))
+            cur = conn.execute("UPDATE rate_state SET last_build = ? WHERE user_id = ? AND last_build <= ?", (now, uid, now - BUILD_COOLDOWN))
+            conn.commit()
+            if cur.rowcount != 1:
+                return JSONResponse({"text": BUILD_COOLDOWN_TEXT, "emotion": "thinking", "pro": pro_pre}, status_code=429)
+
         if att:
             user_content, att_err = await asyncio.to_thread(build_user_content, raw_text, att, pro_pre["active"])
             if att_err:
