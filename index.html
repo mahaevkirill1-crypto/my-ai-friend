@@ -1804,7 +1804,7 @@ function refocus(){ if (kb && document.activeElement !== input) input.focus(); }
 let stick = true;
 chatHistory.addEventListener('scroll', () => { stick = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 40; }, { passive: true });
 if (window.ResizeObserver) new ResizeObserver(() => { if (stick) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe(chatHistory);
-const VIS_CSP = "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data:; font-src https://fonts.gstatic.com data:; base-uri 'none'; form-action 'none'";
+const VIS_CSP = "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: https:; font-src https://fonts.gstatic.com data:; base-uri 'none'; form-action 'none'";
 // Ссылки внутри собранного сайта не должны уводить iframe (srcdoc резолвит href относительно адреса приложения -> грузится Holo Friend)
 function visNav(){
     document.addEventListener('click', function(e){
@@ -2473,6 +2473,7 @@ async function sendMessage(text, opts) {
     opts = opts || {};
     const silent = !!opts.silent;
     if ((!text && !ATT) || isSending) return;
+    if (!silent && ATT && editTarget){ botSay('В режиме правки нельзя прикреплять фото. Напиши, что нужно изменить, текстом'); return; }  // не шлём вложение в правке: сервер всё равно откажет
     const att = silent ? null : ATT; if (!silent){ ATT = null; renderAtt(); }
     const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
 
@@ -2657,7 +2658,7 @@ async function sendMessage(text, opts) {
     if (char === 'astro') say('Listening to the stars...', 20000);
     else Hologram.react('thinking', 'think');
 
-    const hs = chatHistoryForServer.slice(-40);
+    const hs = editTarget ? [] : chatHistoryForServer.slice(-40);  // в правке история серверу не нужна
     const historyText = hs.map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
     let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, чтобы обычный чат не считался правкой (150)
 
