@@ -1109,6 +1109,51 @@
     @keyframes stSpin { to { transform: rotate(360deg); } }
     @keyframes stCk { to { stroke-dashoffset: 0; } }
     @media (prefers-reduced-motion: reduce) { .stbar .st-row { animation: none; } .stbar .st-row.now .st-dot { animation-duration: 2s; } .stbar .st-ck path { animation: none; stroke-dashoffset: 0; } }
+#empty-logo { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; pointer-events: none; opacity: 0; translate: var(--push, 0px) 0; transition: opacity .3s ease, translate .32s cubic-bezier(.2,.8,.2,1); }
+body.logo-play #empty-logo { opacity: 1; }
+#empty-logo .el-mark { width: 10px; height: 10px; border-radius: 50%; background: var(--cl-acc); box-shadow: 0 0 24px 4px var(--cl-acc-soft); }
+#empty-logo .el-word { font: 700 14px 'Manrope', system-ui, sans-serif; letter-spacing: .38em; padding-left: .38em; color: var(--ui-tx-lo); }
+/* Стеклянные кнопки-меню (как на iPhone): лёгкая прозрачность, пружинистое нажатие */
+#hist-btn, #menu-btn { width: 44px !important; height: 44px !important; border-radius: 50% !important; color: var(--ui-tx-hi) !important; border: 1px solid rgba(255,255,255,.1) !important; background: rgba(118,122,135,.2) !important; -webkit-backdrop-filter: blur(18px) saturate(160%) !important; backdrop-filter: blur(18px) saturate(160%) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 18px -8px rgba(0,0,0,.4) !important; transform: scale(1) !important; transition: transform .45s cubic-bezier(.34,1.7,.64,1), translate .32s cubic-bezier(.2,.8,.2,1), background-color .2s ease !important; will-change: transform; }
+#hist-btn:active, #menu-btn:active { transform: scale(.86) !important; background: rgba(118,122,135,.32) !important; transition: transform .08s ease-out, translate .32s cubic-bezier(.2,.8,.2,1), background-color .08s ease !important; opacity: 1 !important; scale: 1 !important; }
+#hist-btn svg, #menu-btn svg { width: 20px; height: 20px; }
+body.light-theme #hist-btn, body.light-theme #menu-btn { color: #111214 !important; border: 1px solid rgba(0,0,0,.06) !important; background: rgba(120,124,135,.16) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 6px 18px -10px rgba(22,23,26,.3) !important; }
+body.light-theme #hist-btn:active, body.light-theme #menu-btn:active { background: rgba(120,124,135,.28) !important; }
+/* Настройки переехали в левую панель: правая кнопка убрана, шестерёнка рядом с названием */
+#topbar { display: none !important; }
+:root:root body .hp-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
+:root:root body .hp-top .hp-brand { padding-bottom: 0; }
+.hp-gear { flex: none; width: 44px; height: 44px; margin-right: 2px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--ui-line); background: rgba(118,122,135,.16); color: var(--ui-tx-hi); transform: scale(1); transition: transform .45s cubic-bezier(.34,1.7,.64,1), background-color .2s ease; }
+.hp-gear:active { transform: scale(.86); background: rgba(118,122,135,.3); transition: transform .08s ease-out, background-color .08s ease; }
+#empty-logo .el-svg { width: 84px; height: auto; color: var(--ui-tx-hi); }
+#empty-logo .el-word { color: var(--ui-tx-hi); font-size: 15px; }
+/* Логотип: анимация появления 1.5 с, приглушённые цвета */
+#empty-logo { gap: 26px; }
+#empty-logo .el-logo { position: relative; width: 72px; height: 64px; color: var(--ui-tx-mid); }
+#empty-logo .el-logo i { position: absolute; display: block; background: currentColor; }
+#empty-logo .el-b { top: 4px; width: 8px; height: 56px; border-radius: 4px; }
+#empty-logo .el-l { left: 4px; }
+#empty-logo .el-r { left: 60px; }
+#empty-logo .el-ln { top: 31px; width: 11px; height: 1.6px; opacity: .45; }
+#empty-logo .el-lnl { left: 12px; }
+#empty-logo .el-lnr { left: 49px; }
+#empty-logo .el-ring { left: 23px; top: 19px; width: 26px; height: 26px; border-radius: 50%; background: none !important; border: 1.6px solid currentColor; opacity: .4; box-sizing: border-box; }
+#empty-logo .el-dot { left: 31px; top: 27px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 16px 3px var(--cl-acc-soft); }
+#empty-logo .el-txt { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#empty-logo .el-word { font-size: 14px; color: var(--ui-tx-lo); }
+#empty-logo .el-hint { font: 500 14px 'Manrope', system-ui, sans-serif; color: var(--ui-tx-lo); opacity: .8; }
+body.logo-play #empty-logo .el-l { animation: elInL .8s cubic-bezier(.2,.8,.2,1) both; }
+body.logo-play #empty-logo .el-r { animation: elInR .8s cubic-bezier(.2,.8,.2,1) both; }
+body.logo-play #empty-logo .el-ln { animation: elFade .5s ease .5s both; }
+body.logo-play #empty-logo .el-ring { animation: elRing .5s ease .5s both; }
+body.logo-play #empty-logo .el-dot { animation: elDot .8s cubic-bezier(.2,.8,.2,1) .7s both; }
+body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
+@keyframes elInL { from { opacity: 0; transform: translateX(-34px); } to { opacity: 1; transform: none; } }
+@keyframes elInR { from { opacity: 0; transform: translateX(34px); } to { opacity: 1; transform: none; } }
+@keyframes elFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes elRing { from { opacity: 0; transform: scale(.6); } to { opacity: .4; transform: none; } }
+@keyframes elDot { 0% { opacity: 0; transform: scale(.2); box-shadow: 0 0 0 0 transparent; } 60% { opacity: 1; transform: scale(1.25); box-shadow: 0 0 20px 5px var(--cl-acc-soft); } 100% { opacity: 1; transform: none; box-shadow: 0 0 16px 3px var(--cl-acc-soft); } }
+@media (prefers-reduced-motion: reduce) { body.logo-play #empty-logo * { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -1164,10 +1209,10 @@
   </div>
 </div>
 
-<button class="ibtn" id="hist-btn" aria-label="История"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h11M4 17h16"/></svg></button>
+<button class="ibtn" id="hist-btn" aria-label="История"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <div id="hist-bg"></div>
 <aside id="hist-panel" aria-label="Чаты">
-  <div class="hp-brand">Holo Friend</div>
+  <div class="hp-top"><div class="hp-brand">Holo Friend</div><button type="button" class="hp-gear" id="hp-gear" aria-label="Настройки"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
   <div class="hp-nav">
     <button type="button" class="hp-item" id="hn-invite"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg><span>Пригласить друга</span></button>
     <button type="button" class="hp-item" id="hn-pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span>Premium</span></button>
@@ -1271,6 +1316,7 @@
   <g id="fx2"></g>
 </svg>
 <div id="bub"></div>
+<div id="empty-logo"><div class="el-logo" aria-hidden="true"><i class="el-b el-l"></i><i class="el-b el-r"></i><i class="el-ln el-lnl"></i><i class="el-ln el-lnr"></i><i class="el-ring"></i><i class="el-dot"></i></div><div class="el-txt"><div class="el-word">HOLO FRIEND</div><div class="el-hint">Опиши идею</div></div></div>
 <div id="chat-history"></div>
 <button id="down-btn" type="button" aria-label="Вниз"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
 <div id="hud-panel">
@@ -2963,7 +3009,7 @@ function newChat(){
     if (isSending){ toast('Подожди, ответ ещё печатается'); return; }
     if (!chatHistoryForServer.some(m => m.sender === 'user')){ closeHist(); return; }
     saveChats(archiveCurrent(loadChats()));
-    showChat([], 'Новый чат. О чём поговорим?');
+    showChat([]);
     renderHistList();
     closeHist();
 }
@@ -3034,7 +3080,7 @@ function drawSnd(){ if(!sndBtn) return; sndBtn.innerHTML = Snd.on() ? ICON_ON : 
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
 
 // СКРЫТЬ / ПОКАЗАТЬ БОТА
-let botHidden = store.get('bot_hidden', false);
+let botHidden = store.get('bot_hidden', true);
 const botBtn = $('bot-btn');
 const EYE_ON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 19c-6.5 0-10-7-10-7a17.6 17.6 0 0 1 4.1-4.9M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.2 3.2"/><path d="M3 3l18 18"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
@@ -3072,6 +3118,7 @@ applyTheme();
 $('hn-invite').addEventListener('click', () => { closeHist(); openInvite(); });
 $('hn-pro').addEventListener('click', () => { closeHist(); $('pro-btn').click(); });
 $('hn-privacy').addEventListener('click', () => { closeHist(); openPrivacy(); });
+$('hp-gear').addEventListener('click', () => { closeHist(); openDrawer(); });
 $('st-close').addEventListener('click', closeDrawer);
 $('st-acc').addEventListener('click', () => drTab('prof'));
 $('st-prof-row').addEventListener('click', () => drTab('prof'));
@@ -3094,7 +3141,6 @@ $('st-up-btn').addEventListener('click', () => $('pro-btn').click());
     if (o.contains('hp')) { side = 'l'; mode = 'close'; }
     else if (o.contains('dr')) { side = 'r'; mode = 'close'; }
     else if (t.clientX <= EDGE) { side = 'l'; mode = 'open'; }
-    else if (t.clientX >= W - EDGE) { side = 'r'; mode = 'open'; }
     if (!side) { g = null; return; }
     g = { side, mode, x0: t.clientX, y0: t.clientY, t0: Date.now(), lock: null, p: side === 'l' ? hp : dp, bg: side === 'l' ? hbg : dbg, w: (side === 'l' ? hp : dp).offsetWidth || 320, prog: 0 };
   }, { passive: true });
@@ -3168,7 +3214,13 @@ $('support-send').addEventListener('click', async () => {
 
 const q = new URLSearchParams(location.search);
 applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
-setTimeout(() => { Hologram.react('happy', 'wave', 3500); const hour = new Date().getHours(); let greeting = GREET[char]; if (chatHistoryForServer.length === 0) { if (hour >= 5 && hour < 12) greeting = "Доброе утро! Как спалось?"; else if (hour >= 12 && hour < 18) greeting = "Добрый день! Чем займемся?"; else if (hour >= 18 && hour < 23) greeting = "Добрый вечер! Как прошел день?"; else greeting = "Ты чего не спишь? Давай поболтаем."; } addToHistory(greeting, 'bot'); }, 500);
+setTimeout(() => { Hologram.react('happy', 'wave', 3500); }, 500);
+let logoT = 0;
+function logoBlocked(){ const sp = $('splash'); return (sp && !sp.classList.contains('hide')) || $('welcome').classList.contains('open') || $('consent').classList.contains('open'); }
+function logoTry(){ clearTimeout(logoT); logoT = setTimeout(function chk(){ if (!document.body.classList.contains('chat-empty')) return; if (logoBlocked()){ logoT = setTimeout(chk, 150); return; } logoT = setTimeout(() => { if (document.body.classList.contains('chat-empty') && !logoBlocked()) document.body.classList.add('logo-play'); }, 600); }, 200); }
+function updEmpty(){ const e = !chatHistory.querySelector('.msg-row'); document.body.classList.toggle('chat-empty', e); if (!e){ clearTimeout(logoT); document.body.classList.remove('logo-play'); } else if (!document.body.classList.contains('logo-play')) logoTry(); }
+new MutationObserver(updEmpty).observe(chatHistory, { childList: true });
+updEmpty();
 registerReferral();
 loadProgress().finally(() => { refreshRef(); });
 setTimeout(refreshPro, 1500);
