@@ -2400,7 +2400,7 @@ function loadScript(url){ return _scr[url] || (_scr[url] = new Promise((res, rej
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const FV_CSS = '<meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:16px;line-height:1.5;color:#111;background:#fff}img{max-width:100%}table{border-collapse:collapse;margin-bottom:16px}td,th{border:1px solid #ccc;padding:4px 8px;font-size:13px}h3{margin:16px 0 8px}</style>';
 function attToBlob(a){
-    if (a.kind === 'text') return new Blob([a.text], { type: 'text/plain;charset=utf-8' });
+    if (a.kind === 'text' || a.kind === 'html') return new Blob([a.text], { type: 'text/plain;charset=utf-8' });
     const bin = atob(a.data), u = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     const type = a.kind === 'pdf' ? 'application/pdf' : a.kind === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -2500,12 +2500,25 @@ attInput.addEventListener('change', async () => {
             ATT = { kind: ext, name, data: await readB64(f) };
         } else if (ext === 'doc' || ext === 'xls'){
             toast('Старые форматы .doc и .xls не поддерживаются. Сохрани как .docx или .xlsx'); return;
+        } else if (ext === 'html' || ext === 'htm'){
+            if (f.size > 400 * 1024){ toast('HTML больше 400 КБ'); return; }
+            ATT = { kind: 'html', name, text: (await f.text()).slice(0, 100001) };
         } else if (f.type.startsWith('text/') || TEXT_EXT.includes(ext)){
             if (f.size > 1024 * 1024){ toast('Файл больше 1 МБ'); return; }
             ATT = { kind: 'text', name, text: (await f.text()).slice(0, 30000) };
         } else { toast('Поддерживаются фото, PDF, Word, Excel и текстовые файлы'); return; }
         renderAtt();
     } catch(e){ toast('Не удалось прочитать файл'); }
+});
+
+// вставка длинного HTML-кода в поле ввода (maxlength=500) -> превращаем в вложение для импорта
+input.addEventListener('paste', e => {
+    const t = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if (t.length > 500 && /^\s*(```html\s*)?<(!doctype html|html)/i.test(t)){
+        e.preventDefault();
+        ATT = { kind: 'html', name: 'вставленный-код.html', text: t.slice(0, 100001) };
+        renderAtt();
+    }
 });
 
 // кнопки уточняющего вопроса («Собрать сайт» / «Просто совет»): повторно шлём тот же текст с выбором, без нового пузыря пользователя
@@ -2544,7 +2557,7 @@ async function sendMessage(text, opts) {
     isSending = true;
     const imgInfo = att && att.kind === 'image' ? { id: att.id, thumb: att.thumb } : null;
     if (imgInfo) IMGDB.put(att.id, att.view);
-    const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind } : null;
+    const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind === 'html' ? 'text' : att.kind } : null;
     if (fileInfo) IMGDB.put(fileInfo.id, attToBlob(att));
     if (!silent){ addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo); input.value = ''; $('cnt').textContent = '0 / 500'; syncHud(); }
     input.readOnly = true;
@@ -2752,6 +2765,7 @@ async function sendMessage(text, opts) {
             if (live && vis && !live.vis){ if (live.row.parentNode) live.row.parentNode.removeChild(live.row); live = null; }
             if (live) liveFinish(live, outText, vis); else addToHistory(outText, 'bot', undefined, null, vis, true);
             if (Array.isArray(data.choices) && data.choices.length) addChoices(data.choices, text);
+            if (data.imported && vis) setEditTarget(vis);  // после импорта следующее сообщение — правка этого проекта
             if (!silent) chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
             chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
             saveHistory();
@@ -2765,7 +2779,7 @@ async function sendMessage(text, opts) {
                 last_visual: editing ? { type: editing.type, code: editing.code } : lastVisual,
                 edit_project: !!editing,
                 build_choice: silent ? (opts.choice || '') : '',
-                attachment: att ? (att.kind === 'image' ? { kind: 'image', mime: att.mime, name: att.name, data: att.data } : (att.kind === 'pdf' || att.kind === 'docx' || att.kind === 'xlsx') ? { kind: att.kind, name: att.name, data: att.data } : { kind: 'text', name: att.name, text: att.text }) : null,
+                attachment: att ? (att.kind === 'image' ? { kind: 'image', mime: att.mime, name: att.name, data: att.data } : att.kind === 'html' ? { kind: 'html', name: att.name, text: att.text } : (att.kind === 'pdf' || att.kind === 'docx' || att.kind === 'xlsx') ? { kind: att.kind, name: att.name, data: att.data } : { kind: 'text', name: att.name, text: att.text }) : null,
                 history: historyText,
                 init_data: (tg && tg.initData) || ''
             })
