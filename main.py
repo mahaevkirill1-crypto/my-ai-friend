@@ -171,6 +171,14 @@ MIN_IMPORT_LEN = 100
 IMPORT_TOO_BIG_TEXT = "Проект слишком большой. Разбей его на части"
 IMPORT_OK_TEXT = "Проект загружен. Что изменить?"
 IMPORT_MAX_PER_MIN = 3
+# защита от потерь на API: правка — это короткий diff, поэтому токенов на ответ мало и температура низкая (меньше промахов FIND)
+EDIT_MAX_TOKENS = 8000
+EDIT_TEMPERATURE = 0.2
+BIG_CODE_NO_REWRITE = 25_000      # для большого кода полный [[HTML]] запрещён: только FIND/REPLACE
+# возвраты за «оплаченные» сбои (diff не нашёл место, обрыв, отключение клиента): не более N в час на пользователя
+REFUND_BILLED_MAX = 5
+REFUND_BILLED_WINDOW = 3600
+NOREFUND_TEXT = "Правка не получилась, а лимит возвратов за сбои на этот час исчерпан. Опиши задачу точнее и попробуй чуть позже."
 IMPORT_WINDOW = 60
 IMPORT_RATE_TEXT = "Слишком много загрузок. Подожди минуту и попробуй снова."
 
@@ -288,6 +296,8 @@ def init_db():
         except Exception:
             pass
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS refund_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_refund_log_user ON refund_log (user_id, ts)")
     conn.execute("CREATE TABLE IF NOT EXISTS import_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_import_log_user ON import_log (user_id, ts)")
     conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
@@ -509,6 +519,26 @@ def refund_ask(conn, uid, weight, is_pro):
     except Exception:
         log.exception("ask refund failed")
 
+def refund_billed(conn, uid, units):
+    """Возврат за сбой, когда модель УЖЕ потратила токены (владелец за них платит).
+    Не более REFUND_BILLED_MAX возвратов в час. True — вернули, False — лимит возвратов исчерпан.
+    Ошибки самого API (429/402/таймаут) сюда не идут: они не тарифицируются и возвращаются всегда."""
+    if units <= 0: return True
+    try:
+        now = int(time.time())
+        conn.execute("DELETE FROM refund_log WHERE user_id = ? AND ts <= ?", (uid, now - REFUND_BILLED_WINDOW))
+        n = scalar(conn, "SELECT COUNT(*) FROM refund_log WHERE user_id = ?", (uid,))
+        if n >= REFUND_BILLED_MAX:
+            conn.commit()
+            log.warning("refund denied uid=%s units=%s (budget exhausted)", uid, units)
+            return False
+        conn.execute("INSERT INTO refund_log (user_id, ts) VALUES (?, ?)", (uid, now))
+        conn.commit()
+    except Exception:
+        log.exception("refund budget check failed")
+    refund_units(conn, uid, units)
+    return True
+
 def trial_available(conn, uid):
     return scalar(conn, "SELECT COUNT(*) FROM trial_build WHERE user_id = ?", (uid,)) == 0
 
@@ -648,7 +678,8 @@ def build_messages(user_content, history_text, current_code):
         messages.append({"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {task}\n\n"
             "РЕЖИМ ПРАВКИ: НЕ переписывай файл целиком. Верни [[TEXT]]..[[EMOTION]]..[[FIND]]..[[REPLACE]]..[[END]]: "
             "FIND — дословный уникальный фрагмент из текущего кода, REPLACE — его новая версия. "
-            "Полный [[HTML]] — только если правка затрагивает почти весь файл."})
+            + ("Полный [[HTML]] — только если правка затрагивает почти весь файл." if len(current_code) <= BIG_CODE_NO_REWRITE
+               else "Полный [[HTML]] ЗАПРЕЩЁН: файл большой. Отвечай только парами FIND/REPLACE.")})
     else:
         messages.append({"role": "user", "content": f"ЗАДАЧА: {task}"})
     return messages
@@ -731,9 +762,10 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
     if current_code and is_diff_raw(raw):
         text, emotion, html, err = parse_diff_build(raw, current_code)
         if err:
-            refund_units(conn, uid, weight)
-            log.error(f"Diff failed ({err}). Raw: {(raw or '')[:300]}")
-            return {"text": DIFF_FAIL_TEXT.get(err, DIFF_FAIL_TEXT["not_found"]), "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+            refunded = refund_billed(conn, uid, weight)
+            log.error(f"Diff failed ({err}), refunded={refunded}. Raw: {(raw or '')[:300]}")
+            txt = DIFF_FAIL_TEXT.get(err, DIFF_FAIL_TEXT["not_found"]) if refunded else NOREFUND_TEXT
+            return {"text": txt, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
         if html: html = clean_img_tags(html)
         parsed = (text, emotion, html)
     else:
@@ -742,9 +774,11 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
     visual = None
     if parsed:
         text, emotion, html = parsed
-        visual = clean_visual({"type": "html", "code": html}, MAX_EDIT_CODE_LEN if current_code else MAX_BUILD_LEN)
+        visual = clean_visual({"type": "html", "code": html}, (MAX_EDIT_CODE_LEN + 20_000) if current_code else MAX_BUILD_LEN)
     if not parsed or not visual:
-        refund_units(conn, uid, weight)
+        refunded = refund_billed(conn, uid, weight)
+        if not refunded:
+            return {"text": NOREFUND_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
         if BUILD_REFUSAL_TEXT in (raw or ""):  # модель сама отказалась (запрещённая тема)
             return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
         log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
@@ -758,11 +792,12 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
         resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
             model=BUILD_MODEL,
             messages=messages,
-            max_tokens=BUILD_MAX_TOKENS,
-            temperature=0.7
+            max_tokens=EDIT_MAX_TOKENS if current_code else BUILD_MAX_TOKENS,
+            temperature=EDIT_TEMPERATURE if current_code else 0.7
         )
         raw = resp.choices[0].message.content or ""
-        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw):
+        # в правке авто-докрутку не делаем: оборванный полный файл = сбой, а не второй платный запрос
+        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code:
             log.warning("Код оборвался, запускаю авто-докрутку...")
             resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
                 model=BUILD_MODEL,
@@ -891,9 +926,10 @@ class BuildStreamParser:
 def _nd(obj):
     return (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
-async def _llm_stream(messages):
+async def _llm_stream(messages, edit=False):
     stream = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-        model=BUILD_MODEL, messages=messages, max_tokens=BUILD_MAX_TOKENS, temperature=0.7, stream=True)
+        model=BUILD_MODEL, messages=messages, max_tokens=(EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS),
+        temperature=(EDIT_TEMPERATURE if edit else 0.7), stream=True)
     async for chunk in stream:
         if not chunk.choices: continue
         d = chunk.choices[0].delta.content
@@ -968,9 +1004,9 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
     try:
         yield _nd({"t": "start"})
         try:
-            async for d in _llm_stream(messages):
+            async for d in _llm_stream(messages, edit=bool(current_code)):
                 for b in handle(d): yield b
-            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]):
+            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]) and not current_code:
                 log.warning("Код оборвался, запускаю авто-докрутку (stream)...")
                 async for d in _llm_stream(build_continue_messages(messages, st["raw"])):
                     for b in handle(d): yield b
@@ -991,8 +1027,8 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         done = True
         yield _nd({"t": "done" if res.get("visual") else "error", **res})
     finally:
-        if not done:  # клиент ушёл / поток оборвался: возвращаем списанное и пробную попытку
-            refund_units(conn, uid, weight)
+        if not done:  # клиент ушёл / поток оборвался: возвращаем списанное (в рамках бюджета возвратов) и пробную попытку
+            refund_billed(conn, uid, weight)
             if trial:
                 try:
                     conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
