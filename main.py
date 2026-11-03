@@ -165,6 +165,49 @@ HISTORY_LONG_EXTRA = 10
 
 MAX_BUILD_LEN = 70000
 
+# --- ИМПОРТ ГОТОВОГО КОДА И ЦЕНА ПРАВКИ ---
+MAX_EDIT_CODE_LEN = 100_000   # больше — "проект слишком большой", лимиты не списываются
+MIN_IMPORT_LEN = 100
+IMPORT_TOO_BIG_TEXT = "Проект слишком большой. Разбей его на части"
+IMPORT_OK_TEXT = "Проект загружен. Что изменить?"
+IMPORT_MAX_PER_MIN = 3
+IMPORT_WINDOW = 60
+IMPORT_RATE_TEXT = "Слишком много загрузок. Подожди минуту и попробуй снова."
+
+def import_rate_ok(conn, uid, now):
+    """Не более IMPORT_MAX_PER_MIN импортов в минуту на пользователя. Считаются все попытки."""
+    conn.execute("DELETE FROM import_log WHERE user_id = ? AND ts <= ?", (uid, now - IMPORT_WINDOW))
+    n = scalar(conn, "SELECT COUNT(*) FROM import_log WHERE user_id = ?", (uid,))
+    if n >= IMPORT_MAX_PER_MIN:
+        conn.commit()
+        return False
+    conn.execute("INSERT INTO import_log (user_id, ts) VALUES (?, ?)", (uid, now))
+    conn.commit()
+    return True
+
+class ProjectTooLargeError(ValueError):
+    pass
+
+def calc_edit_weight(code_length: int) -> int:
+    """Сколько единиц лимита списать за правку, по размеру кода в символах."""
+    if code_length <= 10_000: return 50
+    if code_length <= 50_000: return 150
+    if code_length <= MAX_EDIT_CODE_LEN: return 300
+    raise ProjectTooLargeError(IMPORT_TOO_BIG_TEXT)
+
+_FENCE_RE = re.compile(r"^\s*```[a-zA-Z]*[ \t]*\n(.*?)\n?```\s*$", re.S)
+
+def extract_import_code(att, text):
+    """.html-вложение или код текстом -> строка кода, иначе None."""
+    if isinstance(att, dict) and att.get("kind") == "html":
+        body = att.get("text")
+        return body if isinstance(body, str) else None
+    t = (text or "").strip()
+    m = _FENCE_RE.match(t)
+    if m: t = m.group(1).strip()
+    head = t[:300].lower()
+    return t if head.startswith(("<!doctype html", "<html")) else None
+
 # мессенджеры / чаты / realtime / WebSocket: нужен сервер, поэтому только платные тарифы
 REALTIME_RE = re.compile(
     r"мес{1,2}енджер|messenger|web-?socket|веб-?сокет|вэб-?сокет"
@@ -245,6 +288,8 @@ def init_db():
         except Exception:
             pass
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS import_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_import_log_user ON import_log (user_id, ts)")
     conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS banned_users (user_id INTEGER PRIMARY KEY, reason TEXT DEFAULT '', banned_at INTEGER DEFAULT 0)")
     for col in ("plan TEXT DEFAULT ''", "units_total INTEGER DEFAULT 0"):
@@ -697,7 +742,7 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
     visual = None
     if parsed:
         text, emotion, html = parsed
-        visual = clean_visual({"type": "html", "code": html}, MAX_BUILD_LEN)
+        visual = clean_visual({"type": "html", "code": html}, MAX_EDIT_CODE_LEN if current_code else MAX_BUILD_LEN)
     if not parsed or not visual:
         refund_units(conn, uid, weight)
         if BUILD_REFUSAL_TEXT in (raw or ""):  # модель сама отказалась (запрещённая тема)
@@ -1328,7 +1373,8 @@ async def ask(request: Request):
         except ValueError:
             pass
         data = await request.json()
-        raw_text = str(data.get("text", "") or "").strip()[:MAX_TEXT_LEN]
+        full_text = str(data.get("text", "") or "")  # полный текст нужен для импорта кода
+        raw_text = full_text.strip()[:MAX_TEXT_LEN]
         user_text = raw_text.lower()
         history_raw = str(data.get("history", "") or "")
         history_len = len(history_raw)
@@ -1347,6 +1393,19 @@ async def ask(request: Request):
             return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro_info(conn, uid, now)}
         user_content = None
         pro_pre = pro_info(conn, uid, now)
+        # ИМПОРТ ГОТОВОГО КОДА: .html-вложение или код текстом. Модель не вызывается, лимиты не трогаем.
+        if not data.get("edit_project"):
+            imported = extract_import_code(att, full_text)
+            if imported is not None:
+                if not import_rate_ok(conn, uid, now):
+                    return JSONResponse({"text": IMPORT_RATE_TEXT, "emotion": "thinking", "pro": pro_pre}, status_code=429)
+                imported = imported.strip()
+                if len(imported) > MAX_EDIT_CODE_LEN:
+                    return {"text": IMPORT_TOO_BIG_TEXT, "emotion": "sad", "pro": pro_pre}
+                if len(imported) < MIN_IMPORT_LEN or not is_valid_html(imported):
+                    return {"text": "Не похоже на HTML-проект. Пришли файл целиком.", "emotion": "sad", "pro": pro_pre}
+                return {"text": IMPORT_OK_TEXT, "emotion": "happy", "imported": True,
+                        "visual": {"type": "html", "code": imported}, "pro": pro_pre}
         visual_mode = bool(VISUAL_RE.search(user_text))
         weight = ask_weight(att, visual_mode)
         if visual_mode:
@@ -1355,7 +1414,7 @@ async def ask(request: Request):
         current_code = None
         if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str):
             # Проверяем длину И то, что это реально HTML-код, а не мусор
-            if 400 <= len(lv["code"]) <= MAX_BUILD_LEN and is_valid_html(lv["code"]):
+            if MIN_IMPORT_LEN <= len(lv["code"]) <= 1_000_000 and is_valid_html(lv["code"]):  # верхний предел проверяет calc_edit_weight
                 current_code = lv["code"]
         edit_req = bool(data.get("edit_project"))
         if edit_req and att:
@@ -1390,7 +1449,10 @@ async def ask(request: Request):
                 return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
             is_realtime = (not is_edit) and bool(REALTIME_RE.search(user_text))
             if is_edit:
-                weight = BUILD_WEIGHT_EDIT  # 150 за правку (только по кнопке «Править проект»)
+                try:
+                    weight = calc_edit_weight(len(current_code))  # 50 / 150 / 300 по размеру кода
+                except ProjectTooLargeError as e:
+                    return {"text": str(e), "emotion": "sad", "pro": pro_pre}  # до списаний
             elif is_realtime:
                 weight = BUILD_WEIGHT_COMPLEX  # мессенджер / WebSocket: сервер + интерфейс, самая дорогая сборка
             elif COMPLEX_RE.search(user_text):
