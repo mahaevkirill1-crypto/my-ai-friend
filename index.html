@@ -2360,7 +2360,10 @@ function saveHistory(){
     let nv = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && ++nv > 5) delete chatHistoryForServer[i].vis; }
     let imgs = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].img && ++imgs > 15) delete chatHistoryForServer[i].img; }
     let fls = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].file && ++fls > 10) delete chatHistoryForServer[i].file; }
-    localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer));
+    try { localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer)); }
+    catch (e) {  // квота (большие импортированные проекты): убираем код из старых сообщений и пробуем ещё раз
+        try { chatHistoryForServer.forEach((m, i) => { if (m.vis && i < chatHistoryForServer.length - 1) delete m.vis; }); localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer)); } catch (e2) {}
+    }
 }
 
 const botSay = t => addToHistory(t, 'bot');
@@ -2544,6 +2547,7 @@ async function sendMessage(text, opts) {
     opts = opts || {};
     const silent = !!opts.silent;
     if ((!text && !ATT) || isSending) return;
+    if (!silent && ATT && ATT.kind === 'html' && editTarget) setEditTarget(null);  // новый html в режиме правки = новый импорт
     if (!silent && ATT && editTarget){ botSay('В режиме правки нельзя прикреплять фото. Напиши, что нужно изменить, текстом'); return; }  // не шлём вложение в правке: сервер всё равно откажет
     const att = silent ? null : ATT; if (!silent){ ATT = null; renderAtt(); }
     const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
