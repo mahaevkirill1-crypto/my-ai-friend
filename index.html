@@ -1154,6 +1154,10 @@ body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
 @keyframes elRing { from { opacity: 0; transform: scale(.6); } to { opacity: .4; transform: none; } }
 @keyframes elDot { 0% { opacity: 0; transform: scale(.2); box-shadow: 0 0 0 0 transparent; } 60% { opacity: 1; transform: scale(1.25); box-shadow: 0 0 20px 5px var(--cl-acc-soft); } 100% { opacity: 1; transform: none; box-shadow: 0 0 16px 3px var(--cl-acc-soft); } }
 @media (prefers-reduced-motion: reduce) { body.logo-play #empty-logo * { animation: none !important; } }
+/* Левая панель поверх экрана: экран больше не сдвигается */
+#chat-history, #hud-panel, #sv, #topbar, #bub, #stage, #hist-btn, #down-btn, #hist-bg, #empty-logo { translate: 0 0 !important; }
+:root:root body #hist-bg { border-radius: 0; box-shadow: none; background: rgba(22,23,26,.5); }
+:root:root body #hist-panel { box-shadow: 12px 0 40px -12px rgba(0,0,0,.5); }
 </style>
 </head>
 <body>
