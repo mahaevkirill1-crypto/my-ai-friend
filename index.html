@@ -378,10 +378,16 @@
     .vis { width: min(300px, calc(100vw - 100px)); }
     .vis-frame { position: relative; width: 100%; aspect-ratio: 800 / 520; background: #fff; border: 1px solid var(--ui-line-hi); border-radius: 12px; overflow: hidden; cursor: zoom-in; }
     .vis-frame iframe { position: absolute; top: 0; left: 0; width: 800px; height: 520px; border: 0; background: #fff; transform-origin: 0 0; pointer-events: none; }
-    .vis-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-    .vis-bar .vis-edit { flex-basis: 100%; border-color: var(--ui-line-hi); color: var(--ui-tx-hi); }
+    /* карточка проекта: [Открыть] [Править] [⋯] в один ряд, остальное в меню */
+    .vis-bar { display: flex; gap: 6px; margin-top: 8px; }
+    .vis-bar .vis-open { background: var(--ui-gold, #fff); color: #111214; border-color: transparent; }
+    #vis-pop { display: none; position: fixed; z-index: 1000; min-width: 200px; padding: 6px; border-radius: 14px; background: var(--cl-card, #1C2230); border: 1px solid var(--ui-line-hi, rgba(255,255,255,.14)); box-shadow: 0 14px 36px rgba(0,0,0,.45); }
+    #vis-pop.open { display: block; }
+    #vis-pop button { display: flex; align-items: center; gap: 12px; width: 100%; height: 42px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--ui-tx-hi, #EAF0FA); font: 600 14px 'Manrope', system-ui, sans-serif; text-align: left; cursor: pointer; }
+    #vis-pop button:active { background: rgba(255,255,255,.1); }
     body.editing #user-input { box-shadow: 0 0 0 1px #FFD166 inset; }
-    .vis-bar .txtbtn { flex: 1; padding: 8px 10px; font-size: 12px; }
+    .vis-bar .txtbtn { flex: 1 1 0; min-width: 0; height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
+    .vis-bar .vis-more { flex: 0 0 40px; padding: 0; }
     #visview { position: fixed; inset: 0; z-index: 1100; background: #2A2B2F; display: none; }
     #visview.open { display: block; }
     #vv-bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; color: #EAF0FA; font: 600 15px 'Manrope', system-ui, sans-serif; }
@@ -893,7 +899,8 @@
     :root:root body #vv-bar { color: var(--ui-tx-hi); background: rgba(var(--cl-rgb),.92); }
     :root:root body #vv-bar .pill, :root:root body #vv-close, :root:root body #vv-menu-btn { background: var(--cl-btn); color: var(--ui-tx-hi); }
     :root:root body #vv-bar #vv-apply { background: var(--cl-acc); color: var(--cl-acc-fg); }
-    :root:root body .vis-frame { border-color: var(--ui-line-hi); border-radius: 12px; }
+    :root:root body .vis-frame { border-color: var(--ui-line); border-radius: 12px; }
+    :root:root body .vis-bar .vis-open { background: var(--cl-acc); color: var(--cl-acc-fg); border-color: transparent; }
 
     /* выбор плана (Pro): теперь следует теме */
     :root:root body #pro { background: var(--ui-bg-0); }
@@ -1825,6 +1832,7 @@ function revealAnimate(root, row){
     root.addEventListener('click', finish);
     requestAnimationFrame(tick);
 }
+const MORE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
 function attachVis(row, msg, visual, opts){
     opts = opts || {};
         row.classList.add('has-vis'); msg.classList.add('has-vis');
@@ -1833,7 +1841,7 @@ function attachVis(row, msg, visual, opts){
         const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = opts.doc || visDoc(visual);
         fr.appendChild(ifr); vis._ifr = ifr;
         const bar = document.createElement('div'); bar.className = 'vis-bar';
-        bar.innerHTML = '<button type="button" class="txtbtn" data-vis="open">Открыть</button><button type="button" class="txtbtn" data-vis="copy">Копировать код</button><button type="button" class="txtbtn" data-vis="help">Как запустить?</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править проект</button>' : '');
+        bar.innerHTML = '<button type="button" class="txtbtn vis-open" data-vis="open">Открыть</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править</button>' : '') + '<button type="button" class="txtbtn vis-more" data-vis="more" aria-label="Ещё" aria-haspopup="true">' + MORE_ICON + '</button>';
         if (opts.live) bar.style.display = 'none';
         vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis); vis._bar = bar;
         const fit = () => { const w = fr.clientWidth; const f = vis._ifr || ifr; if (w) f.style.transform = 'scale(' + (w / 800) + ')'; };
@@ -2082,9 +2090,35 @@ function setEditTarget(v){
     document.body.classList.toggle('editing', !!v);
     input.placeholder = v ? 'Опиши, что изменить… (или «отмена»)' : 'Опиши идею или вопрос…';
 }
+// ---- меню «⋯» карточки проекта: Скопировать код / Как запустить / Скачать ----
+const visPop = document.createElement('div'); visPop.id = 'vis-pop'; visPop.setAttribute('role', 'menu');
+visPop.innerHTML = '<button type="button" role="menuitem" data-a="copy"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать код</span></button>'
+    + '<button type="button" role="menuitem" data-a="help"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg><span>Как запустить</span></button>'
+    + '<button type="button" role="menuitem" data-a="dl"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button>';
+document.body.appendChild(visPop);
+let visPopFor = null;
+function visPopClose(){ visPop.classList.remove('open'); visPopFor = null; }
+function visPopOpen(vis, btn){
+    visPopFor = vis; visPop.classList.add('open');
+    const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;
+    let top = r.bottom + 6; if (top + hh > innerHeight - 8) top = r.top - hh - 6;
+    visPop.style.top = Math.max(8, top) + 'px';
+    visPop.style.left = Math.min(Math.max(8, r.right - w), innerWidth - w - 8) + 'px';
+}
+visPop.addEventListener('click', e => {
+    const b = e.target.closest('button[data-a]'); if (!b || !visPopFor) return;
+    const vis = visPopFor, v = vis._v, a = b.dataset.a; visPopClose(); if (!v) return;
+    if (a === 'copy') copyText(v.code, document.createElement('span'));
+    else if (a === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); }
+    else if (a === 'dl'){ curVis = { v, el: vis }; dlVis(); curVis = null; }  // dlVis читает curVis синхронно, до первого await
+});
+document.addEventListener('click', e => { if (visPopFor && !visPop.contains(e.target) && !e.target.closest('[data-vis="more"]')) visPopClose(); });
+chatHistory.addEventListener('scroll', visPopClose, { passive: true });
+addEventListener('resize', visPopClose); addEventListener('blur', visPopClose);
 chatHistory.addEventListener('click', e => {
     const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
     const b = e.target.closest('button[data-vis]');
+    if (b && b.dataset.vis === 'more'){ if (visPopFor === vis) visPopClose(); else visPopOpen(vis, b); return; }
     if (b && b.dataset.vis === 'copy'){ copyText(vis._v.code, b); return; }
     if (b && b.dataset.vis === 'edit'){
         if (isSending) return;
