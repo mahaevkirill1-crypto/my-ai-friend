@@ -174,6 +174,8 @@ IMPORT_MAX_PER_MIN = 3
 # защита от потерь на API: правка — это короткий diff, поэтому токенов на ответ мало и температура низкая (меньше промахов FIND)
 EDIT_MAX_TOKENS = 8000
 EDIT_TEMPERATURE = 0.2
+REWRITE_MAX_CODE_LEN = 30_000     # пересобирать целиком при сбое правки можно только небольшие проекты (ответ должен влезть в BUILD_MAX_TOKENS)
+REWRITE_MAX_PER_HOUR = 6          # защита от затрат: не более N автопересборок в час на пользователя
 BIG_CODE_NO_REWRITE = 25_000      # для большого кода полный [[HTML]] запрещён: только FIND/REPLACE
 # возвраты за «оплаченные» сбои (diff не нашёл место, обрыв, отключение клиента): не более N в час на пользователя
 REFUND_BILLED_MAX = 5
@@ -299,6 +301,8 @@ def init_db():
         except Exception:
             pass
     conn.execute("CREATE TABLE IF NOT EXISTS pro_state (user_id INTEGER PRIMARY KEY, expires_at INTEGER DEFAULT 0, requests_left INTEGER DEFAULT 0, last_charge_id TEXT DEFAULT '', auto_renew INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS rewrite_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_rewrite_log_user ON rewrite_log (user_id, ts)")
     conn.execute("CREATE TABLE IF NOT EXISTS refund_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_refund_log_user ON refund_log (user_id, ts)")
     conn.execute("CREATE TABLE IF NOT EXISTS import_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
@@ -388,6 +392,16 @@ sad
 [[END]]
 Без [[HTML]] и без кода.
 
+ПРИОРИТЕТ ЗАПРОСА ПОЛЬЗОВАТЕЛЯ (ВЫШЕ ВСЕХ ПРАВИЛ СТИЛЯ НИЖЕ, ЖЁСТКОЕ ПРАВИЛО):
+- Если пользователь ЯВНО просит добавить эффект (плавающие пятна, свечение кнопок, неон, градиентный текст, анимацию, эмодзи — любой визуальный эффект), ты ОБЯЗАН это сделать, даже если считаешь, что это выглядит как «нейрослоп». Твоя задача — выполнить запрос, а не спорить с пользователем. Ответ без изменений кода или с отказом от эффекта — ошибка.
+- КАК ДОБАВЛЯТЬ ЭФФЕКТЫ ТОЧЕЧНО (якоря всегда есть в файле и уникальны, поэтому FIND не промахивается; это правило важнее требования «3–20 строк» для FIND):
+  • новые CSS-стили: FIND = </head> → REPLACE = <style>…новые стили…</style></head>
+  • плавающие пятна на фоне (div с position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; внутри размытые круги с animation: float): FIND = </body> → REPLACE = <div class='blobs'>…</div></body>
+  • свечение кнопок: правило с box-shadow / filter: drop-shadow в том же новом <style>, селектор по классу или тегу существующих кнопок.
+- Правила блока UNSLOP ниже — это стиль ПО УМОЛЧАНИЮ, пока пользователь не попросил иного. Любая явная просьба пользователя отменяет соответствующее правило.
+- Запрещено писать в [[TEXT]], что ты «не стал» делать запрошенное, и подменять запрошенный эффект «более спокойным» вариантом. Сначала выполни запрос полностью; альтернативу можно предложить одним предложением после выполнения.
+- Если ты не можешь применить правку точечно (не находишь место для [[FIND]]), не отказывайся и не возвращай код без изменений: просто перегенерируй ВЕСЬ проект с нуля с этим эффектом в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]].
+
 ПРИНЦИПЫ ДИЗАЙНА:
 - Характер: один яркий акцентный цвет, выразительная типографика.
 - Интерактивность: быстрые hover-эффекты.
@@ -401,16 +415,16 @@ sad
 - Иллюстрации — только inline SVG или CSS-градиенты (единственное исключение — тег <img> в режиме правок, см. ниже).
 - Адаптивность mobile-first (от 320px до 1440px).
 
-ПРАВИЛА UNSLOP (БОРЬБА С НЕЙРОСЛОПОМ):
-1. Тишина в интерфейсе: Никаких светящихся кнопок, неоновых границ, цветных теней и размытых пятен (блобов) на фоне. Фон должен быть спокойным (темным или светлым), а цвет — аккуратным.
-2. Запрет на эмодзи: В интерфейсе сайта не должно быть эмодзи (🚀, ✨, 🔥). Вместо них используй строгие inline SVG-иконки (например, из набора Lucide), одного размера и цвета.
-3. Никаких градиентных текстов: Заголовки должны быть однотонными. Запрещены градиенты на тексте.
+ПРАВИЛА UNSLOP (БОРЬБА С НЕЙРОСЛОПОМ — ТОЛЬКО ПО УМОЛЧАНИЮ, ЯВНАЯ ПРОСЬБА ПОЛЬЗОВАТЕЛЯ ВАЖНЕЕ):
+1. Тишина в интерфейсе (по умолчанию): Никаких светящихся кнопок, неоновых границ, цветных теней и размытых пятен (блобов) на фоне. Фон должен быть спокойным (темным или светлым), а цвет — аккуратным.
+2. Запрет на эмодзи (по умолчанию, отменяется явной просьбой): В интерфейсе сайта не должно быть эмодзи (🚀, ✨, 🔥). Вместо них используй строгие inline SVG-иконки (например, из набора Lucide), одного размера и цвета.
+3. Никаких градиентных текстов (по умолчанию, отменяется явной просьбой): Заголовки должны быть однотонными. Запрещены градиенты на тексте.
 4. Отступы по сетке: Все отступы (padding, margin, gap) должны быть кратны 4px или 8px. Никаких случайных значений вроде padding: 13px.
 5. Один акцент: Выбери один яркий цвет для кнопок и ссылок. Остальное — оттенки серого или нейтральные тона. Не делай сайт разноцветным.
 6. Текст по делу: Заголовки должны быть короткими и конкретными. Никаких восклицательных знаков. Никакого текста-заглушки (lorem ipsum). Только реальные факты и выгоды.
 7. Шрифты: Используй один шрифт для текста и один для заголовков (например, Inter и Unbounded). Никаких дефолтных Arial.
 8. Скругления: Радиусы должны быть аккуратными (12-24px), а не везде по 50px (pill).
-9. Анимации: Только быстрые hover-эффекты (изменение цвета или легкое всплытие). Запрещены бесконечные пульсации, вращения и летающие элементы.
+9. Анимации (по умолчанию): Только быстрые hover-эффекты (изменение цвета или легкое всплытие). Запрещены бесконечные пульсации, вращения и летающие элементы.
 10. Реальные картинки: Вместо пустых цветных квадратов используй красивые inline SVG-иллюстрации или CSS-градиенты (но не в качестве фона, а как акцентный элемент).
 Главное правило: Сайт должен выглядеть так, будто его сделал профессиональный дизайнер, а не сгенерировала нейросеть за 5 секунд.
 
@@ -435,7 +449,7 @@ happy
 - Нужно несколько правок — повтори пару [[FIND]]...[[REPLACE]]... нужное число раз и поставь один [[END]] в самом конце.
 - FIND копируй из текущего кода ДОСЛОВНО (с пробелами и переносами строк) и делай его уникальным: если такая строка встречается в файле несколько раз, захвати соседние строки.
 - Если нужно добавить новый блок, найди закрывающий тег предыдущего блока (например, </section>) и замени его на: </section> + новый блок.
-- Если правка настолько глобальная, что требует переписывания всего (например, смена всей темы), тогда и только тогда верни полный код в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]].
+- Если правка настолько глобальная, что требует переписывания всего (например, смена всей темы), тогда и только тогда верни полный код в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]]. Так же поступай, если не получается точно найти место для правки: перегенерируй весь проект с запрошенным эффектом, но не отказывайся от него.
 
 ЗАМЕНА ФОТО В РЕЖИМЕ ПРАВОК (только при переданной "ТЕКУЩЕЙ ВЕРСИИ ПРОЕКТА"):
 - Для замены или добавления фото разрешён тег <img>, и только он (остальные запреты не меняются).
@@ -725,7 +739,8 @@ def build_messages(user_content, history_text, current_code):
         messages.append({"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {task}\n\n"
             "РЕЖИМ ПРАВКИ: НЕ переписывай файл целиком. Верни [[TEXT]]..[[EMOTION]]..[[FIND]]..[[REPLACE]]..[[END]]: "
             "FIND — дословный уникальный фрагмент из текущего кода, REPLACE — его новая версия. "
-            + ("Полный [[HTML]] — только если правка затрагивает почти весь файл." if len(current_code) <= BIG_CODE_NO_REWRITE
+            "Явно запрошенный эффект (пятна, свечение, анимацию) делай обязательно: не отказывайся и не подменяй его. "
+            + ("Полный [[HTML]] — только если правка затрагивает почти весь файл или не получается точно найти место для правки." if len(current_code) <= BIG_CODE_NO_REWRITE
                else "Полный [[HTML]] ЗАПРЕЩЁН: файл большой. Отвечай только парами FIND/REPLACE.")})
     else:
         messages.append({"role": "user", "content": f"ЗАДАЧА: {task}"})
@@ -738,7 +753,7 @@ def build_continue_messages(messages, raw):
         {"role": "user", "content": f"Ты оборвался на полуслове: ...{tail}\nПродолжи генерацию ровно с этого места и закончи код тегом </html>. Не пиши ничего лишнего, только продолжение кода."}
     ]
 
-def build_error_result(conn, uid, weight, e):
+def build_error_result(conn, uid, weight, e, current_code=None):
     refund_units(conn, uid, weight)
     err_text = str(e).lower()
     pro_now = pro_info(conn, uid, int(time.time()))
@@ -746,6 +761,8 @@ def build_error_result(conn, uid, weight, e):
         return {"text": "Сейчас огромный спрос, сервера перегружены. Я вернул тебе сборку, попробуй через пару минут.", "emotion": "sleepy", "pro": pro_now}
     if "402" in err_text or "insufficient" in err_text or "balance" in err_text:
         return {"text": "У бота закончились ресурсы на генерацию. Я вернул тебе сборку, попробуй чуть позже.", "emotion": "sad", "pro": pro_now}
+    if current_code:  # правка: понятное сообщение вместо общей отписки
+        return {"text": "Не успел применить правку: сервер слишком долго отвечал. Я вернул списанное — попробуй ещё раз или опиши эффект покороче.", "emotion": "sad", "pro": pro_now}
     return {**BUILD_FAIL, "pro": pro_now}
 
 # ---------- УМНОЕ РЕДАКТИРОВАНИЕ (DIFF) ----------
@@ -805,6 +822,37 @@ def parse_diff_build(raw, current_code):
         if err: return text, emotion, None, err
     return text, emotion, html, None
 
+EDIT_FAIL_TEXT = "Не смог применить правку. Я вернул списанное — опиши чуть конкретнее, что и где поменять."
+
+def edit_needs_rewrite(raw, current_code):
+    """Правка не применилась: diff не нашёл место / оборвался, либо модель ответила текстом без кода (отказалась от эффекта)."""
+    if not current_code or BUILD_REFUSAL_TEXT in (raw or ""): return False
+    if is_diff_raw(raw): return parse_diff_build(raw, current_code)[3] is not None
+    return parse_build(raw) is None
+
+def rewrite_allowed(conn, uid, current_code):
+    """Можно ли пересобрать проект целиком: небольшой проект и не больше REWRITE_MAX_PER_HOUR раз в час."""
+    if not current_code or len(current_code) > REWRITE_MAX_CODE_LEN: return False
+    try:
+        now = int(time.time())
+        conn.execute("DELETE FROM rewrite_log WHERE user_id = ? AND ts <= ?", (uid, now - 3600))
+        if scalar(conn, "SELECT COUNT(*) FROM rewrite_log WHERE user_id = ?", (uid,)) >= REWRITE_MAX_PER_HOUR:
+            conn.commit(); return False
+        conn.execute("INSERT INTO rewrite_log (user_id, ts) VALUES (?, ?)", (uid, now)); conn.commit()
+        return True
+    except Exception:
+        log.exception("rewrite budget check failed")
+        return False
+
+def rewrite_messages(user_content, current_code):
+    task = content_to_text(user_content)
+    return [{"role": "system", "content": BUILD_SYSTEM},
+            {"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code},
+            {"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {task}\n\n"
+                "Точечная правка не применилась. ПЕРЕГЕНЕРИРУЙ ВЕСЬ ПРОЕКТ ЦЕЛИКОМ с этим изменением, сохранив остальной дизайн и тексты. "
+                "Формат строго [[TEXT]]..[[EMOTION]]..[[HTML]]..[[END]], без [[FIND]]/[[REPLACE]]. "
+                "Запрошенный эффект обязателен: не отказывайся от него и не подменяй его другим."}]
+
 def finalize_build(conn, uid, raw, weight, current_code=None):
     if current_code and is_diff_raw(raw):
         text, emotion, html, err = parse_diff_build(raw, current_code)
@@ -829,6 +877,8 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
         if BUILD_REFUSAL_TEXT in (raw or ""):  # модель сама отказалась (запрещённая тема)
             return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
         log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
+        if current_code:  # правка: ясное сообщение вместо общей отписки
+            return {"text": EDIT_FAIL_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
         return {**BUILD_FAIL, "pro": pro_info(conn, uid, int(time.time()))}
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
@@ -853,9 +903,24 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
                 temperature=0.7
             )
             raw = raw + (resp2.choices[0].message.content or "")
+        if current_code and edit_needs_rewrite(raw, current_code) and rewrite_allowed(conn, uid, current_code):
+            log.warning("Правка не применилась — пересобираю проект целиком")
+            first_raw = raw
+            try:
+                rw = rewrite_messages(user_content, current_code)
+                resp3 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+                    model=BUILD_MODEL, messages=rw, max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
+                raw = resp3.choices[0].message.content or ""
+                if "</html>" not in raw.lower() and len(raw) > 100:
+                    resp4 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+                        model=BUILD_MODEL, messages=build_continue_messages(rw, raw), max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
+                    raw = raw + (resp4.choices[0].message.content or "")
+            except Exception:
+                log.exception("rewrite failed")
+                raw = first_raw  # финализируем исходный ответ: вернётся понятная ошибка и возврат
     except Exception as e:
         log.exception("build request failed")
-        return build_error_result(conn, uid, weight, e)
+        return build_error_result(conn, uid, weight, e, current_code)
     return finalize_build(conn, uid, raw, weight, current_code)
 
 # ---------- СТРИМИНГ СБОРКИ ----------
@@ -973,10 +1038,10 @@ class BuildStreamParser:
 def _nd(obj):
     return (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
-async def _llm_stream(messages, edit=False):
+async def _llm_stream(messages, edit=False, temperature=None):
     stream = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
         model=BUILD_MODEL, messages=messages, max_tokens=(EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS),
-        temperature=(EDIT_TEMPERATURE if edit else 0.7), stream=True)
+        temperature=(temperature if temperature is not None else (EDIT_TEMPERATURE if edit else 0.7)), stream=True)
     async for chunk in stream:
         if not chunk.choices: continue
         d = chunk.choices[0].delta.content
@@ -1026,7 +1091,8 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         st["raw"] += d
         out = status(0)  # первый токен
         for kind, part in parser.feed(d):
-            if kind == "text": out.append(_nd({"t": "text", "d": part}))
+            if kind == "text":
+                if not st.get("mute"): out.append(_nd({"t": "text", "d": part}))
             elif kind == "patch": out += status(4)
             else:
                 if STREAM_HTML: st["hbuf"] += part
@@ -1039,7 +1105,8 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
     def flush():
         out = []
         for kind, part in parser.finish():
-            if kind == "text": out.append(_nd({"t": "text", "d": part}))
+            if kind == "text":
+                if not st.get("mute"): out.append(_nd({"t": "text", "d": part}))
             elif kind == "patch": out += status(4)
             else:
                 if STREAM_HTML: st["hbuf"] += part
@@ -1060,13 +1127,30 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         except Exception as e:
             if st["raw"]:
                 log.exception("build stream failed mid-way")
-                res = _trial_adjust(conn, uid, build_error_result(conn, uid, weight, e), trial)
+                res = _trial_adjust(conn, uid, build_error_result(conn, uid, weight, e, current_code), trial)
                 done = True
                 yield _nd({"t": "error", **res}); return
             log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
             res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight), trial)
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
+        if current_code and edit_needs_rewrite(st["raw"], current_code) and rewrite_allowed(conn, uid, current_code):
+            # точечная правка не применилась (или модель отказалась от эффекта текстом) — пересобираем проект целиком
+            log.warning("Правка не применилась — пересобираю проект целиком (stream)")
+            first_raw = st["raw"]
+            yield _nd({"t": "status", "d": "Правка не легла, пересобираю проект целиком..."})
+            st.update(raw="", hbuf="", tail="", stage=0, mute=True)
+            parser = BuildStreamParser(patch=False)
+            try:
+                rw = rewrite_messages(user_content, current_code)
+                async for d in _llm_stream(rw, temperature=0.4):
+                    for b in handle(d): yield b
+                if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100:
+                    async for d in _llm_stream(build_continue_messages(rw, st["raw"]), temperature=0.4):
+                        for b in handle(d): yield b
+            except Exception:
+                log.exception("rewrite stream failed")
+                st["raw"] = first_raw  # финализируем исходный ответ: вернётся понятная ошибка и возврат
         for b in flush(): yield b
         if st["stage"] == 4:
             for b in status(5): yield b
