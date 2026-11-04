@@ -385,6 +385,28 @@
     #vis-pop.open { display: block; }
     #vis-pop button { display: flex; align-items: center; gap: 12px; width: 100%; height: 42px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--ui-tx-hi, #EAF0FA); font: 600 14px 'Manrope', system-ui, sans-serif; text-align: left; cursor: pointer; }
     #vis-pop button:active { background: rgba(255,255,255,.1); }
+    /* iOS-стиль: раскрытие от кнопки с лёгкой пружиной, размытый полупрозрачный фон, разделители */
+    #vv-menu, #vis-pop {
+        display: block; visibility: hidden; opacity: 0; pointer-events: none;
+        transform: scale(.5); transform-origin: var(--ox, 100%) var(--oy, 0%);
+        padding: 0; overflow: hidden; border-radius: 14px; border: .5px solid rgba(255,255,255,.14);
+        background: rgba(44,46,52,.74); -webkit-backdrop-filter: blur(28px) saturate(1.8); backdrop-filter: blur(28px) saturate(1.8);
+        box-shadow: 0 18px 50px rgba(0,0,0,.5);
+        transition: transform .16s cubic-bezier(.4,0,.6,1), opacity .12s ease, visibility 0s linear .16s;
+        will-change: transform, opacity;
+    }
+    #vv-menu.open, #vis-pop.open {
+        visibility: visible; opacity: 1; pointer-events: auto; transform: scale(1);
+        transition: transform .38s cubic-bezier(.2,1.15,.3,1), opacity .18s ease, visibility 0s;
+    }
+    #vv-menu button, #vis-pop button { border-radius: 0; height: 46px; }
+    #vv-menu button + button, #vis-pop button + button { border-top: .5px solid rgba(255,255,255,.1); }
+    #vv-menu button:active, #vis-pop button:active { background: rgba(255,255,255,.14); }
+    body.light-theme #vis-pop { background: rgba(250,250,252,.78); border-color: rgba(0,0,0,.08); box-shadow: 0 18px 50px rgba(0,0,0,.18); }
+    body.light-theme #vis-pop button { color: #0F172A; }
+    body.light-theme #vis-pop button + button { border-top-color: rgba(0,0,0,.08); }
+    body.light-theme #vis-pop button:active { background: rgba(0,0,0,.07); }
+    @media (prefers-reduced-motion: reduce) { #vv-menu, #vis-pop { transform: none !important; transition: opacity .12s ease, visibility 0s linear .12s; } #vv-menu.open, #vis-pop.open { transition: opacity .12s ease, visibility 0s; } }
     body.editing #user-input { box-shadow: 0 0 0 1px #FFD166 inset; }
     .vis-bar .txtbtn { flex: 1 1 0; min-width: 0; height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
     .vis-bar .vis-more { flex: 0 0 40px; padding: 0; }
@@ -2035,6 +2057,7 @@ const VV_CODE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" str
 function vvMenuToggle(on){
     const m = $('vv-menu'), open = on === undefined ? !m.classList.contains('open') : !!on;
     m.classList.toggle('open', open); $('vv-menu-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 function vvMode(edit){
     vvEditing = !!edit;
@@ -2099,11 +2122,17 @@ document.body.appendChild(visPop);
 let visPopFor = null;
 function visPopClose(){ visPop.classList.remove('open'); visPopFor = null; }
 function visPopOpen(vis, btn){
-    visPopFor = vis; visPop.classList.add('open');
-    const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;
-    let top = r.bottom + 6; if (top + hh > innerHeight - 8) top = r.top - hh - 6;
-    visPop.style.top = Math.max(8, top) + 'px';
-    visPop.style.left = Math.min(Math.max(8, r.right - w), innerWidth - w - 8) + 'px';
+    visPopFor = vis;
+    const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;  // меню скрыто, но размеры известны
+    const below = r.bottom + 6 + hh <= innerHeight - 8;
+    const top = Math.max(8, below ? r.bottom + 6 : r.top - hh - 6);
+    const left = Math.min(Math.max(8, r.right - w), innerWidth - w - 8);
+    visPop.style.top = top + 'px'; visPop.style.left = left + 'px';
+    // точка, из которой «вырастает» меню: центр кнопки ⋯ (как в iOS)
+    visPop.style.setProperty('--ox', Math.min(Math.max(((r.left + r.width / 2) - left) / w * 100, 0), 100) + '%');
+    visPop.style.setProperty('--oy', below ? '0%' : '100%');
+    visPop.classList.add('open');
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 visPop.addEventListener('click', e => {
     const b = e.target.closest('button[data-a]'); if (!b || !visPopFor) return;
