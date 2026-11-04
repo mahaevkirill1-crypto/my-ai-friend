@@ -203,18 +203,21 @@ def calc_edit_weight(code_length: int) -> int:
     if code_length <= MAX_EDIT_CODE_LEN: return 300
     raise ProjectTooLargeError(IMPORT_TOO_BIG_TEXT)
 
-_FENCE_RE = re.compile(r"^\s*```[a-zA-Z]*[ \t]*\n(.*?)\n?```\s*$", re.S)
+_FENCE_RE = re.compile(r"```[a-zA-Z]*[ \t]*\n(.*?)```", re.S)
 
 def extract_import_code(att, text):
-    """.html-вложение или код текстом -> строка кода, иначе None."""
+    """.html-вложение или код текстом -> строка кода, иначе None.
+    В тексте код может идти после слов («вот мой сайт:») и/или в блоке ```html ... ```."""
     if isinstance(att, dict) and att.get("kind") == "html":
         body = att.get("text")
         return body if isinstance(body, str) else None
     t = (text or "").strip()
-    m = _FENCE_RE.match(t)
+    m = _FENCE_RE.search(t)
     if m: t = m.group(1).strip()
-    head = t[:300].lower()
-    return t if head.startswith(("<!doctype html", "<html")) else None
+    low = t.lower()
+    idx = [x for x in (low.find("<!doctype html"), low.find("<html")) if x >= 0]
+    if not idx or min(idx) > 2000: return None
+    return t[min(idx):]
 
 # мессенджеры / чаты / realtime / WebSocket: нужен сервер, поэтому только платные тарифы
 REALTIME_RE = re.compile(
@@ -519,11 +522,11 @@ def refund_ask(conn, uid, weight, is_pro):
     except Exception:
         log.exception("ask refund failed")
 
-def refund_billed(conn, uid, units):
+def refund_billed(conn, uid, units, trial=False):
     """Возврат за сбой, когда модель УЖЕ потратила токены (владелец за них платит).
     Не более REFUND_BILLED_MAX возвратов в час. True — вернули, False — лимит возвратов исчерпан.
     Ошибки самого API (429/402/таймаут) сюда не идут: они не тарифицируются и возвращаются всегда."""
-    if units <= 0: return True
+    if units <= 0 and not trial: return True
     try:
         now = int(time.time())
         conn.execute("DELETE FROM refund_log WHERE user_id = ? AND ts <= ?", (uid, now - REFUND_BILLED_WINDOW))
@@ -536,7 +539,7 @@ def refund_billed(conn, uid, units):
         conn.commit()
     except Exception:
         log.exception("refund budget check failed")
-    refund_units(conn, uid, units)
+    if units > 0: refund_units(conn, uid, units)
     return True
 
 def trial_available(conn, uid):
@@ -983,7 +986,7 @@ def _trial_adjust(conn, uid, res, trial):
     if trial:
         if res.get("visual"):
             res["text"] = ((res.get("text") or "Готово!") + BUILD_TRIAL_NOTE).strip()
-        else:
+        elif refund_billed(conn, uid, 0, trial=True):  # пробную попытку возвращаем в рамках бюджета возвратов
             try:
                 conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
             except Exception:
@@ -1073,7 +1076,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
     finally:
         if not done:  # клиент ушёл / поток оборвался: возвращаем списанное (в рамках бюджета возвратов) и пробную попытку
             refund_billed(conn, uid, weight)
-            if trial:
+            if trial and refund_billed(conn, uid, 0, trial=True):
                 try:
                     conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
                 except Exception:
@@ -1476,6 +1479,11 @@ async def ask(request: Request):
         # ИМПОРТ ГОТОВОГО КОДА: .html-вложение или код текстом. Модель не вызывается, лимиты не трогаем.
         if not data.get("edit_project"):
             imported = extract_import_code(att, full_text)
+            if imported is not None and not isinstance(att, dict):
+                # код текстом: если это не похоже на настоящий HTML-документ (вопрос про тег <html> и т.п.) — это обычный чат
+                imp = imported.strip()
+                if len(imp) < MIN_IMPORT_LEN or not is_valid_html(imp):
+                    imported = None
             if imported is not None:
                 if not import_rate_ok(conn, uid, now):
                     return JSONResponse({"text": IMPORT_RATE_TEXT, "emotion": "thinking", "pro": pro_pre}, status_code=429)
