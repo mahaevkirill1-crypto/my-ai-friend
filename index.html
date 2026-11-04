@@ -489,6 +489,13 @@
     #vv-bar .pill:active { transform: scale(.96); }
     #vv-bar #vv-apply { background: linear-gradient(180deg, var(--ui-gold-hi), var(--ui-gold)); color: #111214; }
     #vv-close { flex: none; }
+    #vv-menu-btn { width: 40px; height: 40px; flex: none; border: none; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    #vv-menu { display: none; position: absolute; z-index: 5; top: calc(56px + env(safe-area-inset-top)); right: 14px; min-width: 210px; padding: 6px; border-radius: 14px; background: var(--cl-card, #1C2230); border: 1px solid var(--ui-line-hi, rgba(255,255,255,.14)); box-shadow: 0 14px 36px rgba(0,0,0,.45); }
+    #vv-menu.open { display: block; }
+    #vv-menu button { display: flex; align-items: center; gap: 12px; width: 100%; height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--ui-tx-hi, #EAF0FA); font: 600 15px 'Manrope', system-ui, sans-serif; text-align: left; cursor: pointer; }
+    #vv-menu button:active { background: rgba(255,255,255,.1); }
+    #vv-menu button svg { flex: none; }
+    #vv-code-i { display: flex; flex: none; }
     #vv-edit { display: none; position: absolute; left: 0; right: 0; bottom: 0; top: calc(60px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 60px - env(safe-area-inset-top)); box-sizing: border-box; padding: 12px; border: 0; outline: none; resize: none; background: #2A2B2F; color: #EAF0FA; font: 12px/1.5 ui-monospace, Menlo, monospace; tab-size: 2; -webkit-text-fill-color: #EAF0FA; caret-color: var(--ui-cyan); }
     /* Просмотр вложений */
     .message.has-file { cursor: pointer; }
@@ -884,7 +891,7 @@
     :root:root body #support-modal textarea { background: var(--ui-bg-0); border-color: var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 12px; }
     #visview { background: var(--ui-bg-0); }
     :root:root body #vv-bar { color: var(--ui-tx-hi); background: rgba(var(--cl-rgb),.92); }
-    :root:root body #vv-bar .pill, :root:root body #vv-close { background: var(--cl-btn); color: var(--ui-tx-hi); }
+    :root:root body #vv-bar .pill, :root:root body #vv-close, :root:root body #vv-menu-btn { background: var(--cl-btn); color: var(--ui-tx-hi); }
     :root:root body #vv-bar #vv-apply { background: var(--cl-acc); color: var(--cl-acc-fg); }
     :root:root body .vis-frame { border-color: var(--ui-line-hi); border-radius: 12px; }
 
@@ -1425,7 +1432,7 @@ body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
-<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-code" type="button">Код</button><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><button class="pill" id="vv-dl" type="button">Скачать</button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
+<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><button id="vv-menu-btn" type="button" aria-label="Меню" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><div id="vv-menu" role="menu"><button id="vv-dl" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button><button id="vv-copy" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать</span></button><button id="vv-code" type="button" role="menuitem"><span id="vv-code-i"></span><span id="vv-code-t">Показать код</span></button></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
 <div id="lightbox"><button id="lb-close" type="button" aria-label="Закрыть">✕</button><div id="lb-box"><img id="lb-img" alt=""></div></div>
 <div id="fileview"><div id="fv-bar"><span id="fv-title"></span><button id="fv-copy" type="button" aria-label="Копировать" style="display:none"></button><button id="fv-close" type="button" aria-label="Закрыть">✕</button></div><div id="fv-body"></div></div>
 <div id="toast"></div>
@@ -2015,17 +2022,24 @@ async function readNdjson(response, onEv){
     buf += dec.decode(); feed(buf);
 }
 let curVis = null, vvEditing = false;
+const VV_EYE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const VV_CODE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 5l-4 14"/></svg>';
+function vvMenuToggle(on){
+    const m = $('vv-menu'), open = on === undefined ? !m.classList.contains('open') : !!on;
+    m.classList.toggle('open', open); $('vv-menu-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 function vvMode(edit){
     vvEditing = !!edit;
     $('vv-edit').style.display = edit ? 'block' : 'none';
     $('vv-frame').style.display = edit ? 'none' : '';
     $('vv-apply').style.display = edit ? '' : 'none';
-    $('vv-code').textContent = edit ? 'Просмотр' : 'Код';
+    $('vv-code-t').textContent = edit ? 'Просмотр' : 'Показать код';
+    $('vv-code-i').innerHTML = edit ? VV_EYE : VV_CODE;
     $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
 }
-function openVis(v, el){ curVis = { v, el }; vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
-function closeVis(){ $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); }
-$('vv-code').addEventListener('click', () => { if (!curVis) return; if (vvEditing) vvMode(false); else { $('vv-edit').value = curVis.v.code; vvMode(true); } });
+function openVis(v, el){ curVis = { v, el }; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+function closeVis(){ vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); }
+$('vv-code').addEventListener('click', () => { vvMenuToggle(false); if (!curVis) return; if (vvEditing) vvMode(false); else { $('vv-edit').value = curVis.v.code; vvMode(true); } });
 $('vv-apply').addEventListener('click', () => {
     if (!curVis) return;
     const code = $('vv-edit').value.slice(0, 120000);  // импортированный проект до 100 000 + запас на правки (было 70000: обрезало бы код)
@@ -2053,7 +2067,14 @@ async function dlVis(){
         toast('Если файл не скачался, используй «Копировать код» в чате');
     } catch(e){ toast('Не удалось скачать'); }
 }
-$('vv-dl').addEventListener('click', dlVis);
+$('vv-dl').addEventListener('click', () => { vvMenuToggle(false); dlVis(); });
+$('vv-copy').addEventListener('click', () => {
+    vvMenuToggle(false); if (!curVis) return;
+    copyText(vvEditing ? $('vv-edit').value : curVis.v.code, document.createElement('span'));  // в режиме кода копируем то, что сейчас в редакторе
+});
+$('vv-menu-btn').addEventListener('click', e => { e.stopPropagation(); vvMenuToggle(); });
+$('visview').addEventListener('click', e => { if (!$('vv-menu').contains(e.target)) vvMenuToggle(false); });  // тап мимо меню закрывает его
+addEventListener('blur', () => vvMenuToggle(false));  // фокус ушёл в iframe с сайтом
 $('vv-close').addEventListener('click', closeVis);
 let editTarget = null;
 function setEditTarget(v){
