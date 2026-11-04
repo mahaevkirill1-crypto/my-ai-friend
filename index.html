@@ -193,6 +193,12 @@
     .prompt { color: var(--ui-cyan); font-family: ui-monospace, Menlo, monospace; font-size: 16px; }
     #user-input { flex: 1; min-width: 0; background: transparent; border: none; color: var(--ui-tx-hi); padding: 10px 0; font: 500 16px 'Manrope', system-ui, sans-serif; outline: none; }
     #user-input::placeholder { color: var(--ui-tx-lo); }
+    /* многострочное поле: 1 строка = 40px, растёт до ~6 строк, дальше скролл внутри */
+    .input-inner { align-items: flex-end; }
+    #user-input { display: block; box-sizing: border-box; height: 40px; min-height: 40px; max-height: 132px; line-height: 20px; resize: none; overflow-y: auto; scrollbar-width: none; }
+    #user-input::-webkit-scrollbar { display: none; }
+    /* кнопка-квадрат: пока идёт запрос, отправка превращается в «Остановить» (перебивает серый вид при пустом поле) */
+    :root:root:root body #user-input:placeholder-shown + #send-btn.stop, :root:root:root body #send-btn.stop { background: var(--cl-acc, var(--ui-gold, #FFD166)); color: var(--cl-acc-fg, #111214); opacity: 1; }
     #send-btn { width: 40px; height: 40px; flex-shrink: 0; background: linear-gradient(180deg, var(--ui-cyan), var(--ui-cyan-dim)); border: none; color: #051018; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 12px; box-shadow: 0 6px 16px -6px rgba(255,255,255,.5); transition: transform .15s; }
     #send-btn:active { transform: scale(.95); }
     #send-btn:disabled { opacity: .5; }
@@ -1329,11 +1335,11 @@ body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
     <div class="input-container">
         <div class="input-inner">
             <button id="att-btn" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-            <input type="text" id="user-input" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="500" enterkeyhint="send">
+            <textarea id="user-input" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="2000" enterkeyhint="send"></textarea>
             <button id="send-btn" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         </div>
     </div>
-    <div id="hud-status"><span id="net"></span><span id="cnt">0 / 500</span></div>
+    <div id="hud-status"><span id="net"></span><span id="cnt">0 / 2000</span></div>
 </div>
 <div id="invite" class="overlay">
   <div class="dialog ios-alert" role="dialog" aria-labelledby="inv-title">
@@ -2022,7 +2028,7 @@ function closeVis(){ $('visview').classList.remove('open'); $('vv-frame').srcdoc
 $('vv-code').addEventListener('click', () => { if (!curVis) return; if (vvEditing) vvMode(false); else { $('vv-edit').value = curVis.v.code; vvMode(true); } });
 $('vv-apply').addEventListener('click', () => {
     if (!curVis) return;
-    const code = $('vv-edit').value.slice(0, 70000);
+    const code = $('vv-edit').value.slice(0, 120000);  // импортированный проект до 100 000 + запас на правки (было 70000: обрезало бы код)
     if (!code.trim()){ toast('Код пустой'); return; }
     curVis.v.code = code;
     $('vv-frame').srcdoc = visDoc(curVis.v);
@@ -2517,7 +2523,7 @@ attInput.addEventListener('change', async () => {
 // вставка длинного HTML-кода в поле ввода (maxlength=500) -> превращаем в вложение для импорта
 input.addEventListener('paste', e => {
     const t = (e.clipboardData && e.clipboardData.getData('text')) || '';
-    if (t.length > 500 && /^\s*(```html\s*)?<(!doctype html|html)/i.test(t)){
+    if (t.length > 500 && /<(!doctype html|html)\b/i.test(t.slice(0, 2500))){  // код может идти после слов или в блоке ```html
         e.preventDefault();
         ATT = { kind: 'html', name: 'вставленный-код.html', text: t.slice(0, 100001) };
         renderAtt();
@@ -2543,6 +2549,15 @@ function addChoices(choices, origText){
     msg.appendChild(bar);
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
+const SEND_ICON = sendBtn.innerHTML;
+const STOP_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
+let sendAbort = null;
+function setStopMode(on){
+    sendBtn.classList.toggle('stop', on);
+    sendBtn.innerHTML = on ? STOP_ICON : SEND_ICON;
+    sendBtn.setAttribute('aria-label', on ? 'Остановить' : 'Отправить');
+    sendBtn.disabled = false;
+}
 async function sendMessage(text, opts) {
     opts = opts || {};
     const silent = !!opts.silent;
@@ -2553,7 +2568,7 @@ async function sendMessage(text, opts) {
     const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
 
     if (text.toLowerCase() === '/admin' && userId() === ADMIN_ID) {
-        input.value = ''; $('cnt').textContent = '0 / 500'; syncHud();
+        input.value = ''; autoGrow(); $('cnt').textContent = '0 / 2000'; syncHud();
         openAdmin();
         return;
     }
@@ -2563,7 +2578,7 @@ async function sendMessage(text, opts) {
     if (imgInfo) IMGDB.put(att.id, att.view);
     const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind === 'html' ? 'text' : att.kind } : null;
     if (fileInfo) IMGDB.put(fileInfo.id, attToBlob(att));
-    if (!silent){ addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo); input.value = ''; $('cnt').textContent = '0 / 500'; syncHud(); }
+    if (!silent){ addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo); input.value = ''; autoGrow(); $('cnt').textContent = '0 / 2000'; syncHud(); }
     input.readOnly = true;
     sendBtn.disabled = true;
     if (!silent){ Quest.add('msg'); store.set('stat_msgs', store.get('stat_msgs', 0) + 1); if (text.length >= 50) Quest.add('long'); }
@@ -2737,6 +2752,14 @@ async function sendMessage(text, opts) {
     const historyText = hs.map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
     let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, чтобы обычный чат не считался правкой (150)
 
+    const ac = new AbortController(); sendAbort = ac; setStopMode(true);  // квадрат «Остановить» на время запроса
+    const cancelledUi = (live) => {  // пользователь нажал стоп: убираем «думает» и черновой пузырь, ошибку не показываем
+        hideTyping();
+        if (live && live.row && live.row.parentNode) live.row.parentNode.removeChild(live.row);
+        if (char === 'astro') hideBubble(); else Hologram.react('happy', 'idle', 1500);
+        if (att && !ATT){ ATT = att; renderAtt(); }
+        toast('Остановлено');
+    };
     try {
         const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд|мес{1,2}енджер|web-?socket|веб-?сокет)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
         const isSearchReq = !att && !isBuildReq && /найди в (интернете|сети|гугле)|погугли|загугли|поищи в|в интернете|последние новости|что нового|новости|курс (доллара|евро|биткоина|валют)|погода (в|на)|сколько стоит|актуальн/i.test(text);
@@ -2775,7 +2798,7 @@ async function sendMessage(text, opts) {
             saveHistory();
         };
         const response = await fetch(`${BACKEND_URL}/ask`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
             body: JSON.stringify({
                 text: text,
                 stream: true,
@@ -2806,6 +2829,7 @@ async function sendMessage(text, opts) {
                 });
             } catch (e) { /* обрыв соединения: ниже покажем ошибку */ }
             if (fin && fin.t === 'done'){ deliver(fin, live); return; }
+            if (ac.signal.aborted){ cancelledUi(live); return; }
             hideTyping();
             if (live && live.row.parentNode) live.row.parentNode.removeChild(live.row);
             const er = fin || { text: 'Соединение прервалось. Попробуй ещё раз — списанное я верну.', emotion: 'sad' };
@@ -2853,11 +2877,15 @@ async function sendMessage(text, opts) {
         deliver(data, null);
 
     } catch (error) {
-        hideTyping();
-        if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
-        addToHistory(`Ошибка: ${error.message}`, 'bot');
-        if (att && !ATT){ ATT = att; renderAtt(); }
+        if (ac.signal.aborted){ cancelledUi(null); }
+        else {
+            hideTyping();
+            if (char === 'astro') hideBubble(); else Hologram.react('sad', 'idle');
+            addToHistory(`Ошибка: ${error.message}`, 'bot');
+            if (att && !ATT){ ATT = att; renderAtt(); }
+        }
     } finally {
+        sendAbort = null; setStopMode(false);
         clearTimeout(window._slowT);
         input.readOnly = false;
         sendBtn.disabled = false;
@@ -2865,8 +2893,10 @@ async function sendMessage(text, opts) {
         isSending = false;
     }
 }
-sendBtn.addEventListener('click', () => sendMessage(input.value.trim()));
-input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 500'; });
+sendBtn.addEventListener('click', () => { if (isSending){ if (sendAbort) sendAbort.abort(); return; } sendMessage(input.value.trim()); });  // во время запроса кнопка = «Остановить»
+input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 2000'; });
+function autoGrow(){ input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 132) + 'px'; }
+input.addEventListener('input', autoGrow);
 [sendBtn, $('att-btn')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
 input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
 input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 900); onViewportLive(false); [0, 120, 350, 600].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
@@ -2874,7 +2904,7 @@ function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textCon
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
 function syncHud(){ const h = $('hud-status'); if (!h) return; const near = input.value.length > 400, off = !navigator.onLine; h.classList.toggle('near', near); h.classList.toggle('on', near || off); }
 input.addEventListener('input', syncHud); addEventListener('online', syncHud); addEventListener('offline', syncHud); syncHud();
-input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(input.value.trim()); });
+input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(input.value.trim()); } });  // Shift+Enter — новая строка
 const confirmBox = $('confirm');
 $('clear-btn').addEventListener('click', () => { if (!isSending) confirmBox.classList.add('open'); });
 $('cancel-clear').addEventListener('click', () => confirmBox.classList.remove('open'));
