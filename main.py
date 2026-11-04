@@ -596,13 +596,57 @@ def parse_plain(raw):
     if m: return m.group(2).strip(), m.group(1).lower()
     return t, "happy"
 
+# --- ИНТЕНТ БЕЗ ГЛАГОЛА: «Сайт для ресторана», «Лендинг для психолога» ---
+# существительное-цель в начале фразы + нет вопроса/жалобы = команда на сборку
+GOAL_STRONG_RE = re.compile(r"сайт|лендинг|landing|веб-?страниц|приложени|интернет-?магазин|визитк|портфолио|калькулятор|дашборд|мессенджер", re.I)
+# бизнес-темы сами по себе («Ресторан», «Магазин одежды») неоднозначны: по умолчанию уточняем кнопками, NOUN_LED_WEAK=build — собирать сразу
+GOAL_WEAK_RE = re.compile(r"магазин|ресторан|кафе\b|кофейн|пекарн|барбершоп|салон красоты|клиник|стоматолог|отел[ьяю]\b|фитнес|агентств|каталог|фотограф|психолог", re.I)
+NOUN_LED_WEAK = os.getenv("NOUN_LED_WEAK", "ask")
+BUILD_QUESTION_RE = re.compile(r"\?|\b(?:как|что|чем|почему|зачем|где|когда|сколько|какой|какая|какие|какое|кто|ли)\b", re.I)
+BUILD_PROBLEM_RE = re.compile(r"не (?:работает|открыва|грузит|запуска|отображ|получа|показыва)|ошибк|\bбаг|слом|глюч|помоги|подскаж|стоит ли|лучше|закрыт|открыт\b", re.I)
+
+def noun_led_intent(user_text):
+    t = (user_text or "").strip()
+    words = t.split()
+    if not words or len(t) > 160 or len(words) > 14: return None
+    if BUILD_NEG_RE.search(t) or BUILD_QUESTION_RE.search(t) or BUILD_PROBLEM_RE.search(t): return None
+    head = " ".join(words[:3])  # существительное-цель должно стоять в начале фразы
+    if GOAL_STRONG_RE.search(head): return "build"
+    if GOAL_WEAK_RE.search(head): return NOUN_LED_WEAK if NOUN_LED_WEAK in ("ask", "build") else "ask"
+    return None
+
 def build_intent(user_text):
-    """'build' — явная сборка (действие + существительное); 'ask' — действие + прилагательное, но без существительного
-    (неясно: собрать сайт или просто совет); None — обычный чат."""
+    """'build' — явная сборка (действие + существительное ИЛИ существительное-цель в начале: «Сайт для кафе»);
+    'ask' — действие + прилагательное без существительного (неясно: собрать или совет); None — обычный чат."""
     if BUILD_NEG_RE.search(user_text): return None
-    if not BUILD_ACTION_RE.search(user_text): return None
+    if not BUILD_ACTION_RE.search(user_text): return noun_led_intent(user_text)
     if BUILD_THING_RE.search(user_text): return "build"
     if BUILD_ADJ_RE.search(user_text): return "ask"
+    return None
+
+# --- ГОЛОЕ НАЗВАНИЕ как продолжение сборки: «Шопи фай» после вопроса бота про проект ---
+_NOT_NAME = {"да", "нет", "ок", "окей", "ага", "угу", "привет", "пока", "спасибо", "хорошо", "ладно", "отмена", "стоп",
+             "не надо", "не знаю", "любое", "любой", "на твой выбор", "нормально", "понятно", "ясно", "супер", "круто"}
+
+def is_bare_name(text):
+    t = (text or "").strip()
+    if not t or len(t) > 40 or len(t.split()) > 4: return False
+    if t.lower().strip(" .!") in _NOT_NAME: return False
+    if BUILD_QUESTION_RE.search(t) or BUILD_PROBLEM_RE.search(t) or BUILD_NEG_RE.search(t): return False
+    if not re.search(r"[A-Za-zА-Яа-яЁё0-9]", t): return False
+    return True
+
+def pending_build_request(history_text, current_text):
+    """Если бот только что задал вопрос по запросу на сборку — возвращает этот запрос пользователя, иначе None."""
+    lines = [l for l in (history_text or "").split("\n") if l.startswith(("Пользователь:", "Ты:"))]
+    if lines and lines[-1].startswith("Пользователь:") and lines[-1][len("Пользователь:"):].strip().lower() == (current_text or "").strip().lower():
+        lines = lines[:-1]  # текущее сообщение уже лежит в конце истории
+    if len(lines) < 2 or not lines[-1].startswith("Ты:"): return None
+    if "?" not in lines[-1][-200:]: return None  # бот ничего не спрашивал — продолжать нечего
+    for l in reversed(lines[:-1]):
+        if l.startswith("Пользователь:"):
+            prev = l[len("Пользователь:"):].strip()
+            return prev if build_intent(prev.lower()) == "build" else None
     return None
 
 def wants_build(user_text):
@@ -1442,6 +1486,12 @@ async def ask(request: Request):
                     return {"text": "Не похоже на HTML-проект. Пришли файл целиком.", "emotion": "sad", "pro": pro_pre}
                 return {"text": IMPORT_OK_TEXT, "emotion": "happy", "imported": True,
                         "visual": {"type": "html", "code": imported}, "pro": pro_pre}
+        # ПРОДОЛЖЕНИЕ СБОРКИ: пользователь прислал только название («Шопи фай») в ответ на вопрос бота по запросу на сайт
+        if not data.get("edit_project") and not att and not data.get("build_choice") and not build_intent(user_text) and is_bare_name(raw_text):
+            prev_req = pending_build_request(history_text, raw_text)
+            if prev_req:
+                raw_text = f"{prev_req[:600]}. Название проекта: {raw_text}"
+                user_text = raw_text.lower()
         visual_mode = bool(VISUAL_RE.search(user_text))
         weight = ask_weight(att, visual_mode)
         if visual_mode:
