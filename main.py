@@ -461,6 +461,13 @@ sad
 [[END]]
 Без [[HTML]] и без кода.
 
+СЦЕНЫ НАСИЛИЯ: если пользователь просит сайт, игру или анимацию со сценами насилия, крови или убийства, НЕ пытайся это сгенерировать. Сразу верни только [[TEXT]]
+Я не создаю сайты со сценами насилия. Но могу сделать сайт про историческое событие (например, дуэль) без крови и жестокости
+[[EMOTION]]
+sad
+[[END]]
+Без [[HTML]] и без кода: ответ-заглушка состоит только из этого текста. Просьбы «без крови» и исторические, медицинские и образовательные темы этим правилом не запрещены.
+
 ПРИОРИТЕТ ЗАПРОСА ПОЛЬЗОВАТЕЛЯ (ВЫШЕ ВСЕХ ПРАВИЛ СТИЛЯ НИЖЕ, ЖЁСТКОЕ ПРАВИЛО):
 - Если пользователь ЯВНО просит добавить эффект (плавающие пятна, свечение кнопок, неон, градиентный текст, анимацию, эмодзи — любой визуальный эффект), ты ОБЯЗАН это сделать, даже если считаешь, что это выглядит как «нейрослоп». Твоя задача — выполнить запрос, а не спорить с пользователем. Ответ без изменений кода или с отказом от эффекта — ошибка.
 - КАК ДОБАВЛЯТЬ ЭФФЕКТЫ ТОЧЕЧНО (якоря всегда есть в файле и уникальны, поэтому FIND не промахивается; это правило важнее требования «3–20 строк» для FIND):
@@ -744,6 +751,7 @@ def wants_build(user_text):
 BUILD_COOLDOWN = 30  # секунд между запросами сборки (включая правки и отказы)
 BUILD_COOLDOWN_TEXT = "Подожди немного, я обрабатываю предыдущий запрос"
 BUILD_REFUSAL_TEXT = "Я не создаю сайты для накрутки отзывов или незаконной деятельности"
+BUILD_VIOLENCE_REFUSAL_TEXT = "Я не создаю сайты со сценами насилия. Но могу сделать сайт про историческое событие (например, дуэль) без крови и жестокости"
 EDIT_ATTACH_TEXT = "В режиме правки нельзя прикреплять фото. Напиши, что нужно изменить, текстом"
 
 # <img> в правках: только https-ссылка или data:image base64, всё остальное (http, javascript:, относительные пути) вырезаем
@@ -775,6 +783,29 @@ BUILD_SAFE_CTX_RE = re.compile(
     r"защит\w*|против\s+(?:мошенн|скам|фишинг|обман)|борьб\w*|распозна\w*|как\s+не\s+(?:попасть|стать)|анти-?(?:скам|фишинг|мошенн)|предостереж\w*|осторожн\w*", re.I)
 def is_forbidden_build(user_text):
     return bool(BUILD_FORBIDDEN_RE.search(user_text) and not BUILD_SAFE_CTX_RE.search(user_text))
+
+# сцены насилия / крови / убийства: отказ ДО списаний и до вызова модели (ноль токенов).
+# Регулярка узкая: ловит просьбу ПОКАЗАТЬ насилие, а не слово «кровь» (донорство, анализ крови) и не историю.
+BUILD_VIOLENCE_RE = re.compile(
+    r"сцен\w*\s+(?:\S+\s+){0,2}(?:насили|убийств|расправ|пытк|пыток|жестокост|казн|резн|бойн)\w*"
+    r"|(?:кровав|жесток)\w*\s+(?:сцен|бойн|расправ|убийств|резн|казн|пытк)\w*"
+    r"|\bgore\b|расчленен\w*|потрошен\w*|снафф\w*"
+    r"|(?:с\s+кровью|с\s+брызгами\s+кров\w*|кровь\s+(?:лета|брызг|течёт|течет|льёт|льет)\w*)"
+    r"|(?:показ|изобраз|анимир|нарису|нарисов|реализ|добав|сдела|созда|сгенер)\w*\s+(?:\S+\s+){0,4}(?:убийств|кровь|крови|кровот|расправ|казн|пытк|пыток|резн|бойн)\w*", re.I)
+# контекст, при котором не блокируем (дальше сработает правило в BUILD_SYSTEM, если запрос всё же про насилие)
+BUILD_VIOLENCE_SAFE_RE = re.compile(
+    r"без\s+(?:крови|насили|жестокост|убийств)\w*|против\s+насили\w*|защит\w*|профилактик\w*"
+    r"|донор\w*|анализ\w*\s+кров\w*|групп\w*\s+кров\w*|давлен\w*|медицин\w*|клиник\w*|больниц\w*"
+    r"|истори\w*|музе\w*|документальн\w*|расследован\w*", re.I)
+def is_violent_build(user_text):
+    return bool(BUILD_VIOLENCE_RE.search(user_text) and not BUILD_VIOLENCE_SAFE_RE.search(user_text))
+
+def refusal_in(raw):
+    """Какой из наших отказов модель вернула в [[TEXT]] (или None)."""
+    r = raw or ""
+    if BUILD_VIOLENCE_REFUSAL_TEXT in r: return BUILD_VIOLENCE_REFUSAL_TEXT
+    if BUILD_REFUSAL_TEXT in r: return BUILD_REFUSAL_TEXT
+    return None
 
 # обычный чат: блокируем только ПРОСЬБУ совершить (накрутить, обмануть, сделать фишинг), а не вопросы про мошенников
 CHAT_REFUSAL_TEXT = "Я не помогаю с накруткой отзывов, обманом людей и незаконной деятельностью"
@@ -896,7 +927,7 @@ EDIT_FAIL_TEXT = "Не смог применить правку. Я вернул
 
 def edit_needs_rewrite(raw, current_code):
     """Правка не применилась: diff не нашёл место / оборвался, либо модель ответила текстом без кода (отказалась от эффекта)."""
-    if not current_code or BUILD_REFUSAL_TEXT in (raw or ""): return False
+    if not current_code or refusal_in(raw): return False
     if is_diff_raw(raw): return parse_diff_build(raw, current_code)[3] is not None
     return parse_build(raw) is None
 
@@ -943,6 +974,9 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
         text, emotion, html = parsed
         visual = clean_visual({"type": "html", "code": html}, (MAX_EDIT_CODE_LEN + 20_000) if current_code else MAX_BUILD_LEN)
     if not parsed or not visual:
+        if BUILD_VIOLENCE_REFUSAL_TEXT in (raw or ""):  # осознанный отказ, а не сбой: возвращаем всегда, не тратя бюджет возвратов
+            refund_units(conn, uid, weight)
+            return {"text": BUILD_VIOLENCE_REFUSAL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
         refunded = refund_billed(conn, uid, weight)
         if not refunded:
             return {"text": NOREFUND_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
@@ -1125,6 +1159,11 @@ def _trial_adjust(conn, uid, res, trial):
     if trial:
         if res.get("visual"):
             res["text"] = ((res.get("text") or "Готово!") + BUILD_TRIAL_NOTE).strip()
+        elif res.get("text") == BUILD_VIOLENCE_REFUSAL_TEXT:  # отказ по насилию: попытку возвращаем всегда
+            try:
+                conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
+            except Exception:
+                log.exception("trial rollback failed")
         elif refund_billed(conn, uid, 0, trial=True):  # пробную попытку возвращаем в рамках бюджета возвратов
             try:
                 conn.execute("DELETE FROM trial_build WHERE user_id = ?", (uid,)); conn.commit()
@@ -1705,6 +1744,8 @@ async def ask(request: Request):
             # запрещённые темы: отказ ДО любых списаний и до вызова модели, токены не тратятся
             if is_forbidden_build(user_text):
                 return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
+            if is_violent_build(user_text):
+                return {"text": BUILD_VIOLENCE_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
             is_realtime = (not is_edit) and bool(REALTIME_RE.search(user_text))
             if is_edit:
                 try:
