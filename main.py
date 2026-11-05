@@ -276,8 +276,77 @@ VALID_SLOTS = set(SLOT_BY_PREFIX.values())
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
+# ---------- БД: повторы при SQLITE_BUSY ----------
+DB_RETRIES = 5                       # всего попыток на один запрос
+DB_RETRY_MIN, DB_RETRY_MAX = 0.10, 0.20   # пауза между попытками, сек
+BUSY_TEXT = "Сейчас высокая нагрузка, попробуй ещё раз через 10 секунд."
+_BUSY_MARKERS = ("sqlite_busy", "database is locked", "database table is locked", "busy")
+
+class DBBusy(Exception):
+    """База осталась занятой после всех повторов."""
+
+def is_busy_error(e):
+    msg = str(e).lower()
+    return any(m in msg for m in _BUSY_MARKERS)
+
+class RetryConn:
+    """Обёртка над соединением libsql: execute/executemany/commit повторяются при SQLITE_BUSY.
+    Остальное (fetchone, rowcount и т.д.) проходит насквозь."""
+    def __init__(self, conn):
+        self._c = conn
+
+    def _call(self, name, *a, **k):
+        fn = getattr(self._c, name)
+        for i in range(DB_RETRIES):
+            try:
+                return fn(*a, **k)
+            except Exception as e:
+                if not is_busy_error(e):
+                    raise
+                if i == DB_RETRIES - 1:
+                    log.error("SQLITE_BUSY: %s не прошёл за %s попыток", name, DB_RETRIES)
+                    try: self._c.rollback()   # не оставляем висящую транзакцию
+                    except Exception: pass
+                    raise DBBusy(str(e)) from e
+                log.warning("SQLITE_BUSY в %s, повтор %s/%s", name, i + 1, DB_RETRIES - 1)
+                time.sleep(random.uniform(DB_RETRY_MIN, DB_RETRY_MAX))
+
+    def execute(self, *a, **k):     return self._call("execute", *a, **k)
+    def executemany(self, *a, **k): return self._call("executemany", *a, **k)
+    def executescript(self, *a, **k): return self._call("executescript", *a, **k)
+    def commit(self):               return self._call("commit")
+    def rollback(self):
+        try: return self._c.rollback()
+        except Exception: pass
+    def __getattr__(self, name):    return getattr(self._c, name)
+    def __enter__(self):            return self
+    def __exit__(self, *exc):
+        if exc[0] is not None: self.rollback()
+        return False
+
 def get_db_connection():
-    return libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+    return RetryConn(libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN))
+
+def renew_conn(old=None):
+    """Свежее соединение: после долгой генерации старое могло протухнуть (Turso закрывает простаивающие потоки)."""
+    try:
+        return get_db_connection()
+    except Exception:
+        log.exception("renew_conn failed, using old connection")
+        return old
+
+def release_txn(conn):
+    """Перед долгим вызовом нейросети гарантируем, что открытой транзакции нет."""
+    try: conn.commit()
+    except Exception: log.warning("release_txn failed", exc_info=True)
+
+def pro_safe(conn, uid):
+    """pro_info, который не роняет ответ, если база занята: готовый проект важнее, чем счётчик Pro."""
+    try:
+        return pro_info(conn, uid, int(time.time()))
+    except Exception:
+        log.warning("pro_info недоступен", exc_info=True)
+        return None
 
 def init_db():
     conn = get_db_connection()
@@ -754,9 +823,10 @@ def build_continue_messages(messages, raw):
     ]
 
 def build_error_result(conn, uid, weight, e, current_code=None):
+    conn = renew_conn(conn)
     refund_units(conn, uid, weight)
     err_text = str(e).lower()
-    pro_now = pro_info(conn, uid, int(time.time()))
+    pro_now = pro_safe(conn, uid)
     if "429" in err_text or "quota" in err_text or "overloaded" in err_text:
         return {"text": "Сейчас огромный спрос, сервера перегружены. Я вернул тебе сборку, попробуй через пару минут.", "emotion": "sleepy", "pro": pro_now}
     if "402" in err_text or "insufficient" in err_text or "balance" in err_text:
@@ -833,6 +903,7 @@ def edit_needs_rewrite(raw, current_code):
 def rewrite_allowed(conn, uid, current_code):
     """Можно ли пересобрать проект целиком: небольшой проект и не больше REWRITE_MAX_PER_HOUR раз в час."""
     if not current_code or len(current_code) > REWRITE_MAX_CODE_LEN: return False
+    conn = renew_conn(conn)
     try:
         now = int(time.time())
         conn.execute("DELETE FROM rewrite_log WHERE user_id = ? AND ts <= ?", (uid, now - 3600))
@@ -854,13 +925,14 @@ def rewrite_messages(user_content, current_code):
                 "Запрошенный эффект обязателен: не отказывайся от него и не подменяй его другим."}]
 
 def finalize_build(conn, uid, raw, weight, current_code=None):
+    conn = renew_conn(conn)
     if current_code and is_diff_raw(raw):
         text, emotion, html, err = parse_diff_build(raw, current_code)
         if err:
             refunded = refund_billed(conn, uid, weight)
             log.error(f"Diff failed ({err}), refunded={refunded}. Raw: {(raw or '')[:300]}")
             txt = DIFF_FAIL_TEXT.get(err, DIFF_FAIL_TEXT["not_found"]) if refunded else NOREFUND_TEXT
-            return {"text": txt, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+            return {"text": txt, "emotion": "sad", "pro": pro_safe(conn, uid)}
         if html: html = clean_img_tags(html)
         parsed = (text, emotion, html)
     else:
@@ -873,17 +945,18 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
     if not parsed or not visual:
         refunded = refund_billed(conn, uid, weight)
         if not refunded:
-            return {"text": NOREFUND_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+            return {"text": NOREFUND_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
         if BUILD_REFUSAL_TEXT in (raw or ""):  # модель сама отказалась (запрещённая тема)
-            return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
+            return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
         log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
         if current_code:  # правка: ясное сообщение вместо общей отписки
-            return {"text": EDIT_FAIL_TEXT, "emotion": "sad", "pro": pro_info(conn, uid, int(time.time()))}
-        return {**BUILD_FAIL, "pro": pro_info(conn, uid, int(time.time()))}
+            return {"text": EDIT_FAIL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
+        return {**BUILD_FAIL, "pro": pro_safe(conn, uid)}
     if emotion not in EMOTIONS_OK: emotion = "happy"
-    return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_info(conn, uid, int(time.time()))}
+    return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_safe(conn, uid)}
 
 async def run_build(conn, uid, user_content, history_text, current_code, weight):
+    release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
     messages = build_messages(user_content, history_text, current_code)
     try:
         resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
@@ -1048,6 +1121,7 @@ async def _llm_stream(messages, edit=False, temperature=None):
         if d: yield d
 
 def _trial_adjust(conn, uid, res, trial):
+    conn = renew_conn(conn)
     if trial:
         if res.get("visual"):
             res["text"] = ((res.get("text") or "Готово!") + BUILD_TRIAL_NOTE).strip()
@@ -1115,6 +1189,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
             out.append(_nd({"t": "html", "d": st["hbuf"]})); st["hbuf"] = ""
         return out
 
+    release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
     try:
         yield _nd({"t": "start"})
         try:
@@ -1159,6 +1234,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         yield _nd({"t": "done" if res.get("visual") else "error", **res})
     finally:
         if not done:  # клиент ушёл / поток оборвался: возвращаем списанное (в рамках бюджета возвратов) и пробную попытку
+            conn = renew_conn(conn)
             refund_billed(conn, uid, weight)
             if trial and refund_billed(conn, uid, 0, trial=True):
                 try:
@@ -1530,6 +1606,10 @@ def build_user_content(text, att, hi=False):
         return f"{q}\n\n[Файл «{name}»]\n{body}", ""
     return None, "Этот тип вложения не поддерживается."
 
+@app.exception_handler(DBBusy)
+async def _busy_handler(request: Request, exc: DBBusy):
+    return JSONResponse({"status": "error", "reason": "busy", "text": BUSY_TEXT, "emotion": "sleepy"}, status_code=503)
+
 @app.post("/ask")
 async def ask(request: Request):
     refund_pending = None  # (weight, is_pro): что вернуть, если после списания всё упадёт
@@ -1817,6 +1897,11 @@ async def ask(request: Request):
         return {"text": str(result.get("text") or "Что-то я задумался...").strip(), "emotion": emotion, "visual": visual, "pro": pro}
     except BannedError:
         raise
+    except DBBusy:
+        log.error("ask: база занята, отвечаю сообщением о нагрузке")
+        if refund_pending:
+            refund_ask(get_db_connection(), uid, *refund_pending)
+        return JSONResponse({"text": BUSY_TEXT, "emotion": "sleepy"}, status_code=429)
     except Exception:
         log.exception("ask failed")
         if refund_pending:
