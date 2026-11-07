@@ -644,13 +644,41 @@ def extract_json(raw):
     if not isinstance(obj, dict): raise ValueError("not dict")
     return obj
 
+# ---------- ОШИБКИ API: нет денег / лимит / перегрузка ----------
+API_LOAD_TEXT = "Сейчас огромная нагрузка на сервера. Попробуй чуть позже."
+API_LOAD_TEXT_BUILD = "Сейчас огромная нагрузка на сервера. Я вернул тебе сборку, попробуй чуть позже."
+_API_FUNDS_MARKERS = ("insufficient", "balance", "payment required", "billing", "credit", "quota", "недостаточно средств", "пополните", "баланс")
+_API_LOAD_MARKERS = ("rate limit", "rate_limit", "overloaded", "capacity", "too many requests")
+_api_alert_ts = 0.0
+
+def api_error_kind(e):
+    """'funds' — на API закончились деньги, 'load' — лимит/перегрузка, None — любая другая ошибка."""
+    code = getattr(e, "status_code", None)
+    t = str(e).lower()
+    if code == 402 or any(m in t for m in _API_FUNDS_MARKERS): return "funds"
+    if code in (429, 502, 503, 529) or any(m in t for m in _API_LOAD_MARKERS): return "load"
+    return None
+
+def alert_api_funds(e):
+    """Один раз в 30 минут пишет админу в Telegram, что пора пополнить баланс API (пользователю показываем «нагрузку»)."""
+    global _api_alert_ts
+    now = time.time()
+    if now - _api_alert_ts < 1800: return
+    _api_alert_ts = now
+    log.error("API: закончились средства или лимит: %s", str(e)[:300])
+    try:
+        asyncio.get_running_loop().create_task(tg_call("sendMessage", {"chat_id": ADMIN_ID,
+            "text": "⚠️ Похоже, на балансе API закончились деньги (или ключ заблокирован). Пользователям показываю «огромная нагрузка». Пополни баланс.\n\n" + str(e)[:300]}))
+    except Exception:
+        log.warning("alert_api_funds: не удалось отправить уведомление", exc_info=True)
+
 async def llm(messages, max_tokens, json_mode=False, temperature=None):
     base = dict(model=AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE if temperature is None else temperature)
     if json_mode: base["response_format"] = {"type": "json_object"}
     try:
         return await client.chat.completions.create(**base)
-    except Exception:
-        if not json_mode: raise
+    except Exception as e:
+        if not json_mode or api_error_kind(e): raise
         log.warning("json_object mode failed, retrying without response_format", exc_info=True)
         base.pop("response_format", None)
         return await client.chat.completions.create(**base)
@@ -858,10 +886,10 @@ def build_error_result(conn, uid, weight, e, current_code=None):
     refund_units(conn, uid, weight)
     err_text = str(e).lower()
     pro_now = pro_safe(conn, uid)
-    if "429" in err_text or "quota" in err_text or "overloaded" in err_text:
-        return {"text": "Сейчас огромный спрос, сервера перегружены. Я вернул тебе сборку, попробуй через пару минут.", "emotion": "sleepy", "pro": pro_now}
-    if "402" in err_text or "insufficient" in err_text or "balance" in err_text:
-        return {"text": "У бота закончились ресурсы на генерацию. Я вернул тебе сборку, попробуй чуть позже.", "emotion": "sad", "pro": pro_now}
+    kind = api_error_kind(e)
+    if kind:
+        if kind == "funds": alert_api_funds(e)
+        return {"text": API_LOAD_TEXT_BUILD, "emotion": "sleepy", "pro": pro_now}
     if current_code:  # правка: понятное сообщение вместо общей отписки
         return {"text": "Не успел применить правку: сервер слишком долго отвечал. Я вернул списанное — попробуй ещё раз или опиши эффект покороче.", "emotion": "sad", "pro": pro_now}
     return {**BUILD_FAIL, "pro": pro_now}
@@ -1241,6 +1269,11 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         except Exception as e:
             if st["raw"]:
                 log.exception("build stream failed mid-way")
+                res = _trial_adjust(conn, uid, build_error_result(conn, uid, weight, e, current_code), trial)
+                done = True
+                yield _nd({"t": "error", **res}); return
+            if api_error_kind(e):
+                log.error("stream: ошибка API до первого токена: %s", str(e)[:200])
                 res = _trial_adjust(conn, uid, build_error_result(conn, uid, weight, e, current_code), trial)
                 done = True
                 yield _nd({"t": "error", **res}); return
@@ -1943,10 +1976,14 @@ async def ask(request: Request):
         if refund_pending:
             refund_ask(get_db_connection(), uid, *refund_pending)
         return JSONResponse({"text": BUSY_TEXT, "emotion": "sleepy"}, status_code=429)
-    except Exception:
+    except Exception as e:
         log.exception("ask failed")
         if refund_pending:
             refund_ask(get_db_connection(), uid, *refund_pending)
+        kind = api_error_kind(e)
+        if kind:
+            if kind == "funds": alert_api_funds(e)
+            return {"text": API_LOAD_TEXT, "emotion": "sleepy"}
         return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
 
 @app.post("/pro/status")
