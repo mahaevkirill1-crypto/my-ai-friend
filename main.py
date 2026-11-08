@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Body
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
@@ -11,6 +11,7 @@ import base64
 import random
 import time
 import hmac
+import secrets
 import hashlib
 import httpx
 import libsql
@@ -377,6 +378,8 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS import_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts INTEGER NOT NULL)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_import_log_user ON import_log (user_id, ts)")
     conn.execute("CREATE TABLE IF NOT EXISTS trial_build (user_id INTEGER PRIMARY KEY, used_at INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS previews (pid TEXT PRIMARY KEY, user_id INTEGER NOT NULL, code TEXT NOT NULL, created_at INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_previews_user ON previews (user_id, created_at)")
     conn.execute("CREATE TABLE IF NOT EXISTS banned_users (user_id INTEGER PRIMARY KEY, reason TEXT DEFAULT '', banned_at INTEGER DEFAULT 0)")
     for col in ("plan TEXT DEFAULT ''", "units_total INTEGER DEFAULT 0"):
         try:
@@ -465,6 +468,53 @@ def add_watermark(code):
     code = strip_watermark(code)
     i = code.lower().rfind("</body>")
     return code[:i] + WM_BLOCK + code[i:] if i != -1 else code + WM_BLOCK
+
+# ---------- ЗАЩИЩЁННЫЕ ПРЕВЬЮ: код бесплатных проектов клиенту не отдаётся ----------
+# Бесплатный пользователь получает только pid. Код хранится на сервере, плашка подмешивается при показе (/p/<pid>),
+# скачать и скопировать код можно только через /export с проверкой Pro на сервере.
+PREVIEW_KEEP_PER_USER = 30
+PREVIEW_TTL = 90 * 24 * 3600
+PID_RE = re.compile(r"^[A-Za-z0-9_-]{24,64}$")
+PREVIEW_CSP = ("sandbox allow-scripts; default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; "
+               "script-src 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: https:; "
+               "font-src https://fonts.gstatic.com data:; base-uri 'none'; form-action 'none'")
+PREVIEW_HEADERS = {"Content-Security-Policy": PREVIEW_CSP, "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+                   "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}
+PREVIEW_NAV = r"""<script>(function(){document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a'):null;if(!a)return;var h=a.getAttribute('href');if(h===null)h=a.getAttribute('xlink:href');if(h===null)return;e.preventDefault();h=String(h).trim();if(/^[a-z][a-z0-9+.-]*:/i.test(h))return;var id=h.indexOf('#')>=0?h.split('#')[1]:h.replace(/[?#].*$/,'').replace(/^[.\/]+/,'').replace(/\.html?$/i,'');try{id=decodeURIComponent(id)}catch(_){}var el=(id&&id!=='index')?(document.getElementById(id)||document.querySelector('[name="'+id.replace(/["\\]/g,'')+'"]')):null;if(el)el.scrollIntoView({behavior:'smooth',block:'start'});else window.scrollTo({top:0,behavior:'smooth'})},true)})()</script>"""
+PREVIEW_HEAD = ('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">'
+                '<style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style>' + PREVIEW_NAV)
+PREVIEW_GONE = ('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                '<body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#1E1F22;color:#A7B4CC;font:14px system-ui,sans-serif;text-align:center;padding:20px">'
+                'Превью больше недоступно</body>')
+
+def store_preview(conn, uid, code):
+    pid = secrets.token_urlsafe(24)
+    now = int(time.time())
+    conn.execute("INSERT INTO previews (pid, user_id, code, created_at) VALUES (?, ?, ?, ?)", (pid, uid, strip_watermark(code), now))
+    conn.execute("DELETE FROM previews WHERE created_at < ?", (now - PREVIEW_TTL,))
+    conn.execute("DELETE FROM previews WHERE user_id = ? AND pid NOT IN (SELECT pid FROM previews WHERE user_id = ? ORDER BY created_at DESC LIMIT ?)",
+                 (uid, uid, PREVIEW_KEEP_PER_USER))
+    conn.commit()
+    return pid
+
+def lock_visual(conn, uid, visual):
+    """Бесплатному пользователю код не отдаём: клиент получает только pid."""
+    try:
+        pid = store_preview(conn, uid, visual["code"])
+        return {"type": visual["type"], "code": "", "pid": pid}
+    except Exception:
+        log.exception("store_preview failed — отдаю код с плашкой (запасной вариант)")
+        visual["code"] = add_watermark(visual["code"])
+        return visual
+
+def load_preview_code(conn, pid, uid=None):
+    """Код проекта по pid. Если передан uid — только его собственный проект."""
+    if not isinstance(pid, str) or not PID_RE.match(pid): return None
+    if uid is None:
+        row = conn.execute("SELECT code FROM previews WHERE pid = ?", (pid,)).fetchone()
+    else:
+        row = conn.execute("SELECT code FROM previews WHERE pid = ? AND user_id = ?", (pid, uid)).fetchone()
+    return row[0] if row else None
 
 BUILD_SYSTEM = """
 Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик. Пользователь просит сайт, лендинг, приложение или игру. index.html — всегда обязательный файл.
@@ -1019,7 +1069,7 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
     if parsed:
         text, emotion, html = parsed
         visual = clean_visual({"type": "html", "code": html}, (MAX_EDIT_CODE_LEN + 20_000) if current_code else MAX_BUILD_LEN)
-        if visual and watermark: visual["code"] = add_watermark(visual["code"])  # бесплатный пользователь: плашка добавляется на сервере
+        if visual and watermark: visual = lock_visual(conn, uid, visual)  # бесплатный пользователь: код остаётся на сервере, наружу уходит только pid
     if not parsed or not visual:
         if BUILD_VIOLENCE_REFUSAL_TEXT in (raw or ""):  # осознанный отказ, а не сбой: возвращаем всегда, не тратя бюджет возвратов
             refund_units(conn, uid, weight)
@@ -1760,6 +1810,9 @@ async def ask(request: Request):
         if visual_mode:
             weight += VISUAL_EXTRA  # доплата за визуал берётся ДО генерации
         lv = data.get("last_visual")
+        if isinstance(lv, dict) and lv.get("pid") and not lv.get("code") and data.get("edit_project") and pro_pre["active"]:
+            _pc = load_preview_code(conn, lv.get("pid"), uid)  # только свой проект и только для активного Pro
+            if _pc: lv = {"type": "html", "code": strip_watermark(_pc)}
         current_code = None
         if isinstance(lv, dict) and lv.get("type") == "html" and isinstance(lv.get("code"), str):
             # Проверяем длину И то, что это реально HTML-код, а не мусор
@@ -2007,6 +2060,43 @@ async def ask(request: Request):
             if kind == "funds": alert_api_funds(e)
             return {"text": API_LOAD_TEXT, "emotion": "sleepy"}
         return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
+
+@app.get("/p/{pid}")
+def preview_page(pid: str):
+    """Страница проекта для iframe. Плашка подмешивается здесь, пока у владельца нет Pro."""
+    try:
+        if not PID_RE.match(pid):
+            return HTMLResponse(PREVIEW_GONE, status_code=404, headers=PREVIEW_HEADERS)
+        conn = get_db_connection()
+        row = conn.execute("SELECT user_id, code FROM previews WHERE pid = ?", (pid,)).fetchone()
+        if not row:
+            return HTMLResponse(PREVIEW_GONE, status_code=404, headers=PREVIEW_HEADERS)
+        owner, code = row[0], strip_watermark(row[1])
+        if not pro_info(conn, owner, int(time.time()))["active"]:
+            code = add_watermark(code)
+        return HTMLResponse(PREVIEW_HEAD + code, headers=PREVIEW_HEADERS)
+    except Exception:
+        log.exception("preview failed")
+        return HTMLResponse(PREVIEW_GONE, status_code=503, headers=PREVIEW_HEADERS)
+
+@app.post("/export")
+def export_code(data: dict = Body(...)):
+    """Код проекта без плашки: только для активного Pro, проверка на сервере."""
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return JSONResponse({"status": "error", "reason": "auth", "text": "Ошибка авторизации."}, status_code=401)
+    uid = info["user"]["id"]; now = int(time.time())
+    conn = get_db_connection()
+    if not pro_info(conn, uid, now)["active"]:
+        return JSONResponse({"status": "error", "reason": "pro_only", "text": "Код доступен только на тарифе."}, status_code=402)
+    pid = data.get("pid")
+    if pid:
+        code = load_preview_code(conn, pid, uid)
+        if not code: return JSONResponse({"status": "error", "reason": "not_found", "text": "Проект не найден."}, status_code=404)
+    else:
+        code = data.get("code")
+        if not isinstance(code, str) or not code or len(code) > 900_000:
+            return JSONResponse({"status": "error", "reason": "bad_code", "text": "Не удалось получить код."}, status_code=400)
+    return {"status": "ok", "code": strip_watermark(code)}
 
 @app.post("/pro/status")
 def pro_status(data: dict = Body(...)):
