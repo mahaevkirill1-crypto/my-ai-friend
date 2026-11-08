@@ -1193,7 +1193,7 @@ body.logo-play #empty-logo .el-r { animation: elInR .8s cubic-bezier(.2,.8,.2,1)
 body.logo-play #empty-logo .el-ln { animation: elFade .5s ease .5s both; }
 body.logo-play #empty-logo .el-ring { animation: elRing .5s ease .5s both; }
 body.logo-play #empty-logo .el-dot { animation: elDot .8s cubic-bezier(.2,.8,.2,1) .7s both; }
-body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
+body.logo-play #empty-logo .el-txt { animation: elFade .6s ease 1s both; }
 @keyframes elInL { from { opacity: 0; transform: translateX(-34px); } to { opacity: 1; transform: none; } }
 @keyframes elInR { from { opacity: 0; transform: translateX(34px); } to { opacity: 1; transform: none; } }
 @keyframes elFade { from { opacity: 0; } to { opacity: 1; } }
@@ -1204,9 +1204,9 @@ body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
 #empty-logo .el-o { stroke-dasharray: 132; stroke-dashoffset: 0; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; }
 #empty-logo .el-f { transform: translateX(-21px); }  /* сдвиг вместо scaleX: ровнее и без transform-box в iOS WebView */
 #empty-logo .el-pl { opacity: .5; }
-body.logo-play #empty-logo .el-o { animation: elDraw .9s cubic-bezier(.4,0,.2,1) both; }
-body.logo-play #empty-logo .el-f { animation: elFillIn .8s cubic-bezier(.2,.8,.2,1) .5s both, elScan 8s ease-in-out 2s infinite; }
-body.logo-play #empty-logo .el-pl { animation: elPl .5s ease .9s both; }
+body.logo-play #empty-logo .el-o { animation: elDraw 1s cubic-bezier(.45,0,.2,1) both; }
+body.logo-play #empty-logo .el-f { animation: elFillIn 1s cubic-bezier(.45,0,.2,1) both, elScan 8s ease-in-out 2.6s infinite; }
+body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 @keyframes elDraw { from { stroke-dashoffset: 132; } to { stroke-dashoffset: 0; } }
 @keyframes elFillIn { from { transform: translateX(-42px); } to { transform: translateX(-21px); } }
 @keyframes elScan { 0%, 20% { transform: translateX(-21px); } 48%, 62% { transform: translateX(0); } 90%, 100% { transform: translateX(-21px); } }
