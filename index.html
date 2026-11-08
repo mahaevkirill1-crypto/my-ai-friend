@@ -437,6 +437,7 @@
     .pc.pro { border-color: var(--ui-line-hi); background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.05)); box-shadow: 0 0 26px -8px rgba(255,255,255,.65); }
     .pc.pro span, .pc.pro b { color: var(--ui-gold-hi); }
     .pro-list { gap: 8px; margin-bottom: 14px; }
+    .pl-desc{margin:0 0 14px;font-size:13px;line-height:1.5;color:var(--ui-tx-mid)}
     .pro-list li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid var(--ui-line); }
     .pro-list li::before { content: none; }
     .pro-list em { font-style: normal; font-size: 20px; line-height: 1.2; }
@@ -2353,6 +2354,11 @@ const fmtN = n => Number(n).toLocaleString('ru-RU');
 function setProMsg(t, k){ const m = $('pro-msg'); m.textContent = t || ''; m.dataset.k = k || ''; }
 const PL_TABS = [['free', 'Free'], ['start', 'Старт'], ['pro', 'Про'], ['business', 'Максимум']];
 const PL_SUB = { start: 'Попробовать формат', pro: 'Если делаешь часто', business: 'Когда работаешь с клиентами' };
+const PL_DESC = {
+  start: 'Доступ к самой мощной модели бота: сайты получаются сложнее, с лучшей анимацией и чистым кодом. Хороший способ попробовать.',
+  pro: 'Pro-подписка дает доступ к самой мощной модели бота. Сайты получаются более сложными, с лучшей анимацией, продуманным дизайном и чистым кодом. Также ты получаешь больше лимитов и приоритетную генерацию.',
+  business: 'Самая мощная модель бота и большой запас лимитов на целый год: для тех, кто делает сайты для клиентов.'
+};
 const PL_NAME = { start: 'Старт', pro: 'Про', business: 'Максимум' };
 const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Бизнес': 'business', 'Максимум': 'business', 'Базовый': 'start', 'Обычный': 'pro', 'Для клиентов': 'business' };
 const plName = p => PL_NAME[p.id] || p.title;
@@ -2376,8 +2382,8 @@ function renderPro(){
         const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, units: 0, days: 30, builds: 0 };
         const mine = PRO.active && curPlanId() === p.id;
         const badge = mine ? 'Ваш план' : ((PLAN_STYLE[p.id] || {}).badge || '');
-        card = `<div class="pl-card"><h3 class="pl-name">${plName(p)}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p>` +
-            feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Золотой скин и королевский плащ', 'Всё сразу, без ограничений на срок']) +
+        card = `<div class="pl-card"><h3 class="pl-name">${plName(p)}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p><p class="pl-desc">${PL_DESC[p.id] || ''}</p>` +
+            feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Самая мощная модель для сборки сайтов', 'Приоритетная генерация', 'Без дневных лимитов']) +
             `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>Оплата в Telegram Stars</span></div></div>`;
         buy.style.display = '';
         buy.dataset.plan = p.id;
