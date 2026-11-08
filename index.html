@@ -836,6 +836,7 @@
     :root:root body .hi-del { color: var(--ui-danger); border-color: var(--ui-line); }
     .pav { background-color: var(--ui-bg-3); border: 1px solid var(--ui-line-hi); color: var(--cl-acc); font-family: 'Manrope', system-ui, sans-serif; font-weight: 500; }
     .pav.pro { border-color: var(--ui-line-hi); box-shadow: none; }
+    :root:root body .pstats { margin-top: 18px; }
     :root:root body .pname { font-family: 'Manrope', system-ui, sans-serif; font-weight: 500; font-size: 20px; color: var(--ui-tx-hi); }
     :root:root body .puser { color: var(--ui-tx-lo); }
     :root:root body .pbal { color: var(--cl-acc-hi); }
@@ -1201,14 +1202,14 @@ body.logo-play #empty-logo .el-txt { animation: elFade .6s ease .9s both; }
 /* Знак «Материализация»: половина шара становится плотной, кольцо дорисовывается, затем медленное сканирование */
 #empty-logo .el-logo svg { display: block; overflow: visible; }
 #empty-logo .el-o { stroke-dasharray: 132; stroke-dashoffset: 0; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; }
-#empty-logo .el-f { transform: scaleX(.5); transform-box: fill-box; transform-origin: 0 50%; }
+#empty-logo .el-f { transform: translateX(-21px); }  /* сдвиг вместо scaleX: ровнее и без transform-box в iOS WebView */
 #empty-logo .el-pl { opacity: .5; }
 body.logo-play #empty-logo .el-o { animation: elDraw .9s cubic-bezier(.4,0,.2,1) both; }
 body.logo-play #empty-logo .el-f { animation: elFillIn .8s cubic-bezier(.2,.8,.2,1) .5s both, elScan 8s ease-in-out 2s infinite; }
 body.logo-play #empty-logo .el-pl { animation: elPl .5s ease .9s both; }
 @keyframes elDraw { from { stroke-dashoffset: 132; } to { stroke-dashoffset: 0; } }
-@keyframes elFillIn { from { transform: scaleX(0); } to { transform: scaleX(.5); } }
-@keyframes elScan { 0%, 20% { transform: scaleX(.5); } 48%, 62% { transform: scaleX(1); } 90%, 100% { transform: scaleX(.5); } }
+@keyframes elFillIn { from { transform: translateX(-42px); } to { transform: translateX(-21px); } }
+@keyframes elScan { 0%, 20% { transform: translateX(-21px); } 48%, 62% { transform: translateX(0); } 90%, 100% { transform: translateX(-21px); } }
 @keyframes elPl { from { opacity: 0; } to { opacity: .5; } }
 /* Примеры работ: кнопка в онбординге и модальное окно */
 #welcome .wl-ghost { width: 100%; height: 46px; margin-top: 10px; padding: 0; border: 1px solid var(--ui-line-hi); border-radius: 14px; background: transparent; color: var(--ui-tx-hi); font: 600 15px 'Manrope', system-ui, sans-serif; cursor: pointer; }
