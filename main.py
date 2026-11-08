@@ -449,6 +449,23 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
     if not code or len(code) > max_len: return None
     return {"type": kind, "code": code}
 
+# ---------- ВОДЯНОЙ ЗНАК (для пользователей без Pro) ----------
+WM_START, WM_END = "<!--HF-WM-->", "<!--/HF-WM-->"
+WM_TEXT = "Сделано в Holo Friend. Купи подписку, чтобы убрать"
+WM_BLOCK = (WM_START + "<style>html{padding-bottom:44px}#hf-wm{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;"
+            "padding:10px 14px;text-align:center;font:600 13px/1.3 system-ui,-apple-system,sans-serif;color:#fff;"
+            "background:rgba(17,18,20,.92);pointer-events:none}</style><div id=\"hf-wm\">" + WM_TEXT + "</div>" + WM_END)
+WM_RE = re.compile(re.escape(WM_START) + r".*?" + re.escape(WM_END), re.S)
+
+def strip_watermark(code):
+    return WM_RE.sub("", code) if isinstance(code, str) else code
+
+def add_watermark(code):
+    """Плашка перед последним </body> (или в конец). Повторный вызов не дублирует её."""
+    code = strip_watermark(code)
+    i = code.lower().rfind("</body>")
+    return code[:i] + WM_BLOCK + code[i:] if i != -1 else code + WM_BLOCK
+
 BUILD_SYSTEM = """
 Ты — Holo в режиме СТУДИИ: ведущий веб-дизайнер и фронтенд-разработчик. Пользователь просит сайт, лендинг, приложение или игру. index.html — всегда обязательный файл.
 
@@ -780,6 +797,7 @@ BUILD_COOLDOWN = 30  # секунд между запросами сборки (
 BUILD_COOLDOWN_TEXT = "Подожди немного, я обрабатываю предыдущий запрос"
 BUILD_REFUSAL_TEXT = "Я не создаю сайты для накрутки отзывов или незаконной деятельности"
 BUILD_VIOLENCE_REFUSAL_TEXT = "Я не создаю сайты со сценами насилия. Но могу сделать сайт про историческое событие (например, дуэль) без крови и жестокости"
+EDIT_PRO_ONLY_TEXT = "Правки доступны только на Pro-тарифе."
 EDIT_ATTACH_TEXT = "В режиме правки нельзя прикреплять фото. Напиши, что нужно изменить, текстом"
 
 # <img> в правках: только https-ссылка или data:image base64, всё остальное (http, javascript:, относительные пути) вырезаем
@@ -983,7 +1001,7 @@ def rewrite_messages(user_content, current_code):
                 "Формат строго [[TEXT]]..[[EMOTION]]..[[HTML]]..[[END]], без [[FIND]]/[[REPLACE]]. "
                 "Запрошенный эффект обязателен: не отказывайся от него и не подменяй его другим."}]
 
-def finalize_build(conn, uid, raw, weight, current_code=None):
+def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
     conn = renew_conn(conn)
     if current_code and is_diff_raw(raw):
         text, emotion, html, err = parse_diff_build(raw, current_code)
@@ -1001,6 +1019,7 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
     if parsed:
         text, emotion, html = parsed
         visual = clean_visual({"type": "html", "code": html}, (MAX_EDIT_CODE_LEN + 20_000) if current_code else MAX_BUILD_LEN)
+        if visual and watermark: visual["code"] = add_watermark(visual["code"])  # бесплатный пользователь: плашка добавляется на сервере
     if not parsed or not visual:
         if BUILD_VIOLENCE_REFUSAL_TEXT in (raw or ""):  # осознанный отказ, а не сбой: возвращаем всегда, не тратя бюджет возвратов
             refund_units(conn, uid, weight)
@@ -1017,7 +1036,7 @@ def finalize_build(conn, uid, raw, weight, current_code=None):
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_safe(conn, uid)}
 
-async def run_build(conn, uid, user_content, history_text, current_code, weight):
+async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
     messages = build_messages(user_content, history_text, current_code)
     try:
@@ -1056,7 +1075,7 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight)
     except Exception as e:
         log.exception("build request failed")
         return build_error_result(conn, uid, weight, e, current_code)
-    return finalize_build(conn, uid, raw, weight, current_code)
+    return finalize_build(conn, uid, raw, weight, current_code, watermark)
 
 # ---------- СТРИМИНГ СБОРКИ ----------
 _TRAIL = "`\n\r\t "
@@ -1207,7 +1226,7 @@ _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
 
-async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial):
+async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
     messages = build_messages(user_content, history_text, current_code)
     parser = BuildStreamParser(patch=bool(current_code))
@@ -1278,7 +1297,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
                 done = True
                 yield _nd({"t": "error", **res}); return
             log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
-            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight), trial)
+            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark), trial)
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
         if current_code and edit_needs_rewrite(st["raw"], current_code) and rewrite_allowed(conn, uid, current_code):
@@ -1301,7 +1320,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         for b in flush(): yield b
         if st["stage"] == 4:
             for b in status(5): yield b
-        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight, current_code), trial)
+        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight, current_code, watermark), trial)
         done = True
         yield _nd({"t": "done" if res.get("visual") else "error", **res})
     finally:
@@ -1747,6 +1766,9 @@ async def ask(request: Request):
             if MIN_IMPORT_LEN <= len(lv["code"]) <= 1_000_000 and is_valid_html(lv["code"]):  # верхний предел проверяет calc_edit_weight
                 current_code = lv["code"]
         edit_req = bool(data.get("edit_project"))
+        if edit_req and not pro_pre["active"]:
+            # правки только на Pro: отказ ДО списаний и до вызова модели, токены не тратятся
+            return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
         if edit_req and att:
             # правка + вложение: отказ ДО списаний и до вызова модели, токены не тратятся
             return {"text": EDIT_ATTACH_TEXT, "emotion": "thinking", "pro": pro_pre}
@@ -1803,7 +1825,7 @@ async def ask(request: Request):
                 
                 # ЗАЩИТА: правки недоступны на бесплатной пробной сборке
                 if is_edit:
-                    return JSONResponse({"text": "Правки проектов доступны только на платных тарифах. Оформи подписку, чтобы вносить изменения.", "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+                    return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
 
                 if trial_available(conn, uid):
                     trial = True
@@ -1881,10 +1903,10 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
             if data.get("stream") is True:
                 return StreamingResponse(
-                    run_build_stream(conn, uid, user_content, history_text, current_code if is_edit else None, weight, trial),
+                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"]),
                     media_type="application/x-ndjson",
                     headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
-            res = await run_build(conn, uid, user_content, history_text, current_code if is_edit else None, weight)
+            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"])
             if trial:
                 if res.get("visual"):
                     res["text"] = ((res.get("text") or "Готово!") + " Это была бесплатная пробная сборка — дальше студия доступна на тарифах.").strip()
