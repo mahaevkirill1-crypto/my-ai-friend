@@ -151,7 +151,10 @@ AI_MAX_TOKENS_VISUAL = 3500
 MAX_VISUAL_LEN = 20000
 
 # --- РЕЖИМ СТУДИИ ---
-BUILD_MODEL = os.getenv("BUILD_MODEL", "anthropic/claude-sonnet-5-5")
+# Модель сборки сайтов зависит от тарифа: без активной подписки — MODEL_FREE, с подпиской — MODEL_PRO.
+# Обычный чат и иллюстрации всегда идут на AI_MODEL (текстовая модель).
+MODEL_FREE = os.getenv("MODEL_FREE", "anthropic/claude-sonnet-5-5")
+MODEL_PRO = os.getenv("MODEL_PRO", "anthropic/claude-opus-5-5")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "20000")) 
 BUILD_TIMEOUT = 170
 
@@ -1086,12 +1089,13 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_safe(conn, uid)}
 
-async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False):
+async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
+    model = model or get_model_for_user(uid, conn)
     messages = build_messages(user_content, history_text, current_code)
     try:
         resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-            model=BUILD_MODEL,
+            model=model,
             messages=messages,
             max_tokens=EDIT_MAX_TOKENS if current_code else BUILD_MAX_TOKENS,
             temperature=EDIT_TEMPERATURE if current_code else 0.7
@@ -1101,7 +1105,7 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
         if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code:
             log.warning("Код оборвался, запускаю авто-докрутку...")
             resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-                model=BUILD_MODEL,
+                model=model,
                 messages=build_continue_messages(messages, raw),
                 max_tokens=BUILD_MAX_TOKENS,
                 temperature=0.7
@@ -1113,11 +1117,11 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
             try:
                 rw = rewrite_messages(user_content, current_code)
                 resp3 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-                    model=BUILD_MODEL, messages=rw, max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
+                    model=model, messages=rw, max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
                 raw = resp3.choices[0].message.content or ""
                 if "</html>" not in raw.lower() and len(raw) > 100:
                     resp4 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-                        model=BUILD_MODEL, messages=build_continue_messages(rw, raw), max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
+                        model=model, messages=build_continue_messages(rw, raw), max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
                     raw = raw + (resp4.choices[0].message.content or "")
             except Exception:
                 log.exception("rewrite failed")
@@ -1242,9 +1246,9 @@ class BuildStreamParser:
 def _nd(obj):
     return (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
-async def _llm_stream(messages, edit=False, temperature=None):
+async def _llm_stream(messages, model, edit=False, temperature=None):
     stream = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-        model=BUILD_MODEL, messages=messages, max_tokens=(EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS),
+        model=model, messages=messages, max_tokens=(EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS),
         temperature=(temperature if temperature is not None else (EDIT_TEMPERATURE if edit else 0.7)), stream=True)
     async for chunk in stream:
         if not chunk.choices: continue
@@ -1276,7 +1280,7 @@ _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
 
-async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False):
+async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
     messages = build_messages(user_content, history_text, current_code)
     parser = BuildStreamParser(patch=bool(current_code))
@@ -1326,14 +1330,15 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         return out
 
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
+    model = model or get_model_for_user(uid, conn)
     try:
         yield _nd({"t": "start"})
         try:
-            async for d in _llm_stream(messages, edit=bool(current_code)):
+            async for d in _llm_stream(messages, model, edit=bool(current_code)):
                 for b in handle(d): yield b
             if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]) and not current_code:
                 log.warning("Код оборвался, запускаю авто-докрутку (stream)...")
-                async for d in _llm_stream(build_continue_messages(messages, st["raw"])):
+                async for d in _llm_stream(build_continue_messages(messages, st["raw"]), model):
                     for b in handle(d): yield b
         except Exception as e:
             if st["raw"]:
@@ -1347,7 +1352,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
                 done = True
                 yield _nd({"t": "error", **res}); return
             log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
-            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark), trial)
+            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model), trial)
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
         if current_code and edit_needs_rewrite(st["raw"], current_code) and rewrite_allowed(conn, uid, current_code):
@@ -1359,10 +1364,10 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
             parser = BuildStreamParser(patch=False)
             try:
                 rw = rewrite_messages(user_content, current_code)
-                async for d in _llm_stream(rw, temperature=0.4):
+                async for d in _llm_stream(rw, model, temperature=0.4):
                     for b in handle(d): yield b
                 if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100:
-                    async for d in _llm_stream(build_continue_messages(rw, st["raw"]), temperature=0.4):
+                    async for d in _llm_stream(build_continue_messages(rw, st["raw"]), model, temperature=0.4):
                         for b in handle(d): yield b
             except Exception:
                 log.exception("rewrite stream failed")
@@ -1522,6 +1527,15 @@ def pro_info(conn, uid, now):
     title = PLANS[plan]["title"] if plan in PLANS else "Pro"
     limit = max(total or 0, left if active else 0) or default_limit
     return {"active": active, "expires_at": expires_at, "left": max(0, left) if active else 0, "auto_renew": auto, "limit": limit, "plan": title, "plan_id": plan or ""}
+
+def get_model_for_user(uid, conn):
+    """Модель для сборки сайтов: Pro (активная подписка) -> MODEL_PRO, иначе MODEL_FREE."""
+    try:
+        if pro_info(conn, uid, int(time.time()))["active"]:
+            return MODEL_PRO
+    except Exception:
+        log.warning("get_model_for_user: pro_info недоступен, беру базовую модель", exc_info=True)
+    return MODEL_FREE
 
 def pro_grant(conn, uid, now, charge_id="", plan_id="pro"):
     plan = PLANS.get(plan_id) or PLANS["pro"]
@@ -1948,6 +1962,7 @@ async def ask(request: Request):
         log.info("ask uid=%s weight=%s build=%s visual=%s search=%s history_len=%s", uid, weight, build_mode, visual_mode, search_mode, history_len)
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
+            build_model = get_model_for_user(uid, conn)
             if trial:
                 # занимаем пробную попытку атомарно: из N параллельных запросов пройдёт один
                 cur = conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
@@ -1956,10 +1971,10 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
             if data.get("stream") is True:
                 return StreamingResponse(
-                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"]),
+                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"], model=build_model),
                     media_type="application/x-ndjson",
                     headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
-            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"])
+            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"], model=build_model)
             if trial:
                 if res.get("visual"):
                     res["text"] = ((res.get("text") or "Готово!") + " Это была бесплатная пробная сборка — дальше студия доступна на тарифах.").strip()
