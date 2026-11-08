@@ -1969,9 +1969,31 @@ const VIS_NAV = '<script>(' + visNav.toString() + ')()<\/script>';
 const WM_RE = /<!--HF-WM-->[\s\S]*?<!--\/HF-WM-->/g;
 const stripWm = c => String(c || '').replace(WM_RE, '');
 const isPro = () => { try { return !!PRO.active; } catch (e) { return false; } };  // PRO объявлен ниже по файлу: страхуемся от TDZ
+// Защита кода: у бесплатных проект живёт на сервере (v.pid), в приложение приходит только ссылка на превью.
+// Код (копирование, редактор, скачивание) отдаёт только сервер и только активному Pro: /export.
+const hasWm = v => /<!--HF-WM-->/.test(String((v && v.code) || ''));
+const isLocked = v => !!v && !isPro() && !!(v.pid || hasWm(v));
+function lockedToast(){ tap(); toast('Код доступен только на тарифе'); }
+async function fetchCode(v){
+    if (!v.pid && !hasWm(v)) return v.code;
+    try {
+        const r = await fetch(`${BACKEND_URL}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ init_data: (tg && tg.initData) || '', pid: v.pid || undefined, code: v.pid ? undefined : v.code }) });
+        const d = await r.json().catch(() => null);
+        if (r.ok && d && d.status === 'ok' && typeof d.code === 'string') return d.code;
+        toast((d && d.text) || 'Не удалось получить код');
+    } catch (e) { toast('Не удалось получить код'); }
+    return null;
+}
+async function copyVisCode(v, btn){
+    if (isLocked(v)){ lockedToast(); return; }
+    const c = await fetchCode(v); if (c === null) return;
+    copyText(c, btn || document.createElement('span'));
+}
+const LOCK_CSP = "default-src 'none'; frame-src " + BACKEND_URL + "; style-src 'unsafe-inline'";
 function visDoc(v){
     const head = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style>';
     if (v.type === 'svg') return head + '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>' + v.code;
+    if (v.pid) return '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + LOCK_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><iframe sandbox="allow-scripts" title="Проект" src="' + BACKEND_URL + '/p/' + encodeURIComponent(v.pid) + '"></iframe>';
     return head + VIS_NAV + (isPro() ? stripWm(v.code) : v.code);
 }
 
@@ -2113,14 +2135,15 @@ function vvMode(edit){
     $('vv-code-i').innerHTML = edit ? VV_EYE : VV_CODE;
     $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
 }
-function openVis(v, el){ tap(); curVis = { v, el }; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+function openVis(v, el){ tap(); curVis = { v, el }; const lk = isLocked(v); $('vv-code').style.display = lk ? 'none' : ''; $('vv-copy').style.display = lk ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
 function closeVis(){ vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); }
-$('vv-code').addEventListener('click', () => { vvMenuToggle(false); if (!curVis) return; if (vvEditing) vvMode(false); else { $('vv-edit').value = curVis.v.code; vvMode(true); } });
+$('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!curVis) return; if (vvEditing){ vvMode(false); return; } if (isLocked(curVis.v)){ lockedToast(); return; } const c = await fetchCode(curVis.v); if (c === null || !curVis) return; $('vv-edit').value = c; vvMode(true); });
 $('vv-apply').addEventListener('click', () => {
     if (!curVis) return;
+    if (isLocked(curVis.v)){ lockedToast(); return; }
     const code = $('vv-edit').value.slice(0, 120000);  // импортированный проект до 100 000 + запас на правки (было 70000: обрезало бы код)
     if (!code.trim()){ toast('Код пустой'); return; }
-    curVis.v.code = code;
+    curVis.v.code = code; delete curVis.v.pid;  // Pro правит код вручную: дальше показываем сам код, а не серверное превью
     $('vv-frame').srcdoc = visDoc(curVis.v);
     if (curVis.el && curVis.el._ifr) curVis.el._ifr.srcdoc = visDoc(curVis.v);
     saveHistory(); vvMode(false); toast('Изменения применены');
@@ -2129,7 +2152,8 @@ async function dlVis(){
     if (!curVis) return;
     if (!isPro()){ tap(); toast('Скачивание доступно только на тарифе'); return; }
     const v = curVis.v, isSvg = v.type === 'svg', name = isSvg ? 'holo-image.svg' : 'holo-site.html';
-    let full = stripWm(v.code);
+    let full = await fetchCode(v); if (full === null) return;
+    full = stripWm(full);
     if (!isSvg){
         if (!/<!doctype/i.test(full)) full = '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">' + full;
         if (!/charset\s*=/i.test(full)) full = full.replace(/<!doctype html>/i, '<!doctype html><meta charset="utf-8">');
@@ -2147,7 +2171,8 @@ async function dlVis(){
 $('vv-dl').addEventListener('click', () => { vvMenuToggle(false); dlVis(); });
 $('vv-copy').addEventListener('click', () => {
     vvMenuToggle(false); if (!curVis) return;
-    copyText(vvEditing ? $('vv-edit').value : curVis.v.code, document.createElement('span'));  // в режиме кода копируем то, что сейчас в редакторе
+    if (vvEditing) copyText($('vv-edit').value, document.createElement('span'));  // в режиме кода копируем то, что сейчас в редакторе
+    else copyVisCode(curVis.v);
 });
 $('vv-menu-btn').addEventListener('click', e => { e.stopPropagation(); vvMenuToggle(); });
 $('visview').addEventListener('click', e => { if (!$('vv-menu').contains(e.target)) vvMenuToggle(false); });  // тап мимо меню закрывает его
@@ -2169,6 +2194,7 @@ let visPopFor = null;
 function visPopClose(){ visPop.classList.remove('open'); visPopFor = null; }
 function visPopOpen(vis, btn){
     visPopFor = vis;
+    { const cp = visPop.querySelector('[data-a="copy"]'); if (cp) cp.style.display = isLocked(vis._v) ? 'none' : ''; }
     const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;  // меню скрыто, но размеры известны
     const below = r.bottom + 6 + hh <= innerHeight - 8;
     const top = Math.max(8, below ? r.bottom + 6 : r.top - hh - 6);
@@ -2183,7 +2209,7 @@ function visPopOpen(vis, btn){
 visPop.addEventListener('click', e => {
     const b = e.target.closest('button[data-a]'); if (!b || !visPopFor) return;
     const vis = visPopFor, v = vis._v, a = b.dataset.a; visPopClose(); if (!v) return;
-    if (a === 'copy') copyText(v.code, document.createElement('span'));
+    if (a === 'copy') copyVisCode(v);
     else if (a === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); }
     else if (a === 'dl'){ curVis = { v, el: vis }; dlVis(); curVis = null; }  // dlVis читает curVis синхронно, до первого await
 });
@@ -2194,7 +2220,7 @@ chatHistory.addEventListener('click', e => {
     const vis = e.target.closest('.vis'); if (!vis || !vis._v) return;
     const b = e.target.closest('button[data-vis]');
     if (b && b.dataset.vis === 'more'){ if (visPopFor === vis) visPopClose(); else visPopOpen(vis, b); return; }
-    if (b && b.dataset.vis === 'copy'){ copyText(vis._v.code, b); return; }
+    if (b && b.dataset.vis === 'copy'){ copyVisCode(vis._v, b); return; }
     if (b && b.dataset.vis === 'edit'){
         if (isSending) return;
         if (!isPro()){ tap(); botSay('Правки доступны только на Pro-тарифе.'); return; }
@@ -2915,8 +2941,8 @@ async function sendMessage(text, opts) {
                 Hologram.react(data.emotion, pose, 4000);
             }
 
-            const vis0 = data.visual; if (vis0 && vis0.type === 'html' && String(vis0.code).length > 3000 && !PRO.active && PRO.trial){ PRO.trial = false; }
-            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code } : null;
+            const vis0 = data.visual; if (vis0 && vis0.type === 'html' && (String(vis0.code).length > 3000 || vis0.pid) && !PRO.active && PRO.trial){ PRO.trial = false; }
+            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code, pid: data.visual.pid || undefined } : null;
             let outText = data.text;
             if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
             // режим правки (diff): живого iframe не было, итог приходит целиком, поэтому заменяем черновой пузырь готовым
@@ -2934,7 +2960,7 @@ async function sendMessage(text, opts) {
                 text: text,
                 stream: true,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
-                last_visual: editing ? { type: editing.type, code: editing.code } : lastVisual,
+                last_visual: editing ? { type: editing.type, code: editing.code, pid: editing.pid } : lastVisual,
                 edit_project: !!editing,
                 build_choice: silent ? (opts.choice || '') : '',
                 attachment: att ? (att.kind === 'image' ? { kind: 'image', mime: att.mime, name: att.name, data: att.data } : att.kind === 'html' ? { kind: 'html', name: att.name, text: att.text } : (att.kind === 'pdf' || att.kind === 'docx' || att.kind === 'xlsx') ? { kind: att.kind, name: att.name, data: att.data } : { kind: 'text', name: att.name, text: att.text }) : null,
