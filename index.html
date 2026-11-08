@@ -1227,12 +1227,6 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 #examples-modal .ex-shot { position: relative; }
 #examples-modal .ex-open { display: block; width: calc(100% - 22px); margin: 0 11px 11px; padding: 9px 12px; border: 0; border-radius: 10px; background: var(--ui-tx-hi); color: var(--ui-bg-0); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #examples-modal .ex-open:active { opacity: .8; }
-#ex-full { position: fixed; inset: 0; z-index: 1100; background: var(--ui-bg-0); display: none; }
-#ex-full.open { display: block; }
-#ex-full .ef-bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px 16px; border-bottom: 1px solid var(--ui-line); color: var(--ui-tx-hi); background: var(--ui-bg-0); }
-#ex-full .ef-title { flex: 1; min-width: 0; font: 600 15px 'Manrope', system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#ex-full .ef-x { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: rgba(127,127,127,.25); color: var(--ui-tx-hi); cursor: pointer; }
-#ex-full #ef-frame { position: absolute; left: 0; right: 0; bottom: 0; top: calc(61px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 61px - env(safe-area-inset-top)); border: 0; background: #fff; display: block; }
 #examples-modal .ex-shot iframe { position: absolute; top: 0; left: 0; border: 0; background: #fff; transform-origin: 0 0; pointer-events: none; }
 #examples-modal .ex-card b { display: block; padding: 9px 11px 2px; font-size: 13px; color: var(--ui-tx-hi); }
 #examples-modal .ex-card i { display: block; padding: 0 11px 10px; font-style: normal; font-size: 12px; color: var(--ui-tx-lo); }
@@ -1469,11 +1463,6 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <div class="ex-head"><div><h3>Примеры работ</h3><p>Сайты и игры, которые собрал Holo Friend. Листай вбок</p></div><button type="button" class="ex-x" id="ex-close" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="ex-grid" id="ex-grid"></div>
   </div>
-</div>
-
-<div id="ex-full" role="dialog" aria-modal="true" aria-label="Просмотр примера">
-  <div class="ef-bar"><span class="ef-title" id="ef-title"></span><button type="button" class="ef-x" id="ef-close" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-  <iframe id="ef-frame" title="Пример работы" sandbox="allow-scripts"></iframe>
 </div>
 
 <div id="support-modal" class="overlay">
@@ -2152,7 +2141,7 @@ function vvMode(edit){
     $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
 }
 function openVis(v, el){ tap(); curVis = { v, el }; const lk = isLocked(v); $('vv-code').style.display = lk ? 'none' : ''; $('vv-copy').style.display = lk ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
-function closeVis(){ vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); }
+function closeVis(){ vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); if (typeof exAfterVis === 'function') exAfterVis(); }
 $('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!curVis) return; if (vvEditing){ vvMode(false); return; } if (isLocked(curVis.v)){ lockedToast(); return; } const c = await fetchCode(curVis.v); if (c === null || !curVis) return; $('vv-edit').value = c; vvMode(true); });
 $('vv-apply').addEventListener('click', () => {
     if (!curVis) return;
@@ -3606,28 +3595,24 @@ function renderExamples(){
     });
 }
 function clearExamples(){ exObs.forEach(o => o.disconnect()); exObs = []; $('ex-grid').innerHTML = ''; }  // сносим iframe: игра перестаёт грузить процессор
+function exPause(on){ $('ex-grid').querySelectorAll('.ex-shot iframe').forEach((f, i) => { f.srcdoc = on ? '' : (EX_ITEMS[i] ? exDecode(EX_ITEMS[i].src) : ''); }); }
+let exViewing = false;
 function openFull(i){
-    tap();
     const x = EX_ITEMS[i]; if (!x) return;
-    $('ef-title').textContent = x.t + ' · ' + x.d;
-    $('ex-grid').querySelectorAll('.ex-shot iframe').forEach(f => { f.srcdoc = ''; });  // пока проект открыт на весь экран, мини-превью стоят
-    $('ef-frame').srcdoc = exDecode(x.src);
-    $('ex-full').classList.add('open');
+    exPause(true); exViewing = true;
+    openVis({ type: 'html', code: exDecode(x.src) }, null);   // штатное окно просмотра приложения: те же защита, ссылки и ✕, что у собранных проектов
+    $('vv-title').textContent = x.t + ' · ' + x.d;
+    $('vv-code').style.display = 'none'; $('vv-copy').style.display = 'none';
+    $('vv-dl').style.display = 'none'; $('vv-menu-btn').style.display = 'none';   // у примеров меню (скачать/код) не нужно
 }
-function closeFull(){
-    if (!$('ex-full').classList.contains('open')) return;
-    $('ex-full').classList.remove('open'); $('ef-frame').srcdoc = '';
-    $('ex-grid').querySelectorAll('.ex-shot iframe').forEach((f, i) => { if (EX_ITEMS[i]) f.srcdoc = exDecode(EX_ITEMS[i].src); });
-}
+function exAfterVis(){ if (exViewing){ exViewing = false; $('vv-dl').style.display = ''; $('vv-menu-btn').style.display = ''; if ($('examples-modal').classList.contains('open')) exPause(false); } }
 function openExamples(){
     tap(); if (typeof closeDrawer === 'function') closeDrawer();
     $('examples-modal').classList.add('open');
     clearExamples(); renderExamples();
 }
-function closeExamples(){ closeFull(); $('examples-modal').classList.remove('open'); clearExamples(); }
+function closeExamples(){ $('examples-modal').classList.remove('open'); clearExamples(); }
 $('ex-grid').addEventListener('click', e => { const b = e.target.closest('.ex-open'); if (b) openFull(+b.dataset.i); });
-$('ef-close').addEventListener('click', () => { tap(); closeFull(); });
-addEventListener('keydown', e => { if (e.key === 'Escape' && $('ex-full').classList.contains('open')) { e.stopPropagation(); closeFull(); } }, true);
 $('welcome-examples').addEventListener('click', openExamples);
 $('ex-btn').addEventListener('click', openExamples);
 $('ex-close').addEventListener('click', closeExamples);
