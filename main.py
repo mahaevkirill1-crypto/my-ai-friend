@@ -411,6 +411,7 @@ def init_db():
             conn.execute(f"ALTER TABLE pro_state ADD COLUMN {col}")
         except Exception:
             pass
+    conn.execute("CREATE TABLE IF NOT EXISTS published_sites (user_id INTEGER NOT NULL, code_hash TEXT NOT NULL, url TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, code_hash))")
     conn.commit()
 
 @app.on_event("startup")
@@ -1811,6 +1812,16 @@ def build_site_zip(html_content: str, folder: str = "site") -> bytes:
         zf.writestr(f"{folder}/index.html", html_content.encode("utf-8"))
     return buf.getvalue()
 
+def get_published_url(uid: int, code_hash: str):
+    conn = get_db_connection()
+    row = conn.execute("SELECT url FROM published_sites WHERE user_id = ? AND code_hash = ?", (uid, code_hash)).fetchone()
+    return row[0] if row else None
+
+def save_published_url(uid: int, code_hash: str, url: str):
+    conn = get_db_connection()
+    conn.execute("INSERT OR REPLACE INTO published_sites (user_id, code_hash, url, created_at) VALUES (?, ?, ?, ?)", (uid, code_hash, url, int(time.time())))
+    conn.commit()
+
 async def deploy_to_netlify(html_content: str) -> str:
     """Каждый вызов создаёт НОВЫЙ сайт на Netlify (POST /sites с ZIP) и возвращает его ссылку."""
     token = os.getenv("NETLIFY_TOKEN")
@@ -1819,6 +1830,7 @@ async def deploy_to_netlify(html_content: str) -> str:
         raise NetlifyError("Публикация сейчас недоступна. Попробуй позже.")
     binary_data = await asyncio.to_thread(build_site_zip, html_content)
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/zip"}
+    json_headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     timeout = httpx.Timeout(60.0, connect=10.0)
     try:
         async with httpx.AsyncClient(timeout=timeout) as http:
@@ -1832,26 +1844,27 @@ async def deploy_to_netlify(html_content: str) -> str:
                     raise NetlifyError("Слишком много публикаций сразу. Подожди минуту и попробуй ещё раз.")
                 raise NetlifyError("Не удалось опубликовать сайт. Попробуй ещё раз чуть позже.")
             info = r.json()
+            site_id = info.get("id")
             url = info.get("ssl_url") or info.get("url")
             if not url:
                 log.error("netlify: в ответе нет ssl_url/url: %s", str(info)[:300])
                 raise NetlifyError("Сайт опубликован, но ссылку получить не удалось. Попробуй ещё раз.")
-            # сразу делаем сайт публичным; ошибка здесь не критична: логируем и идём дальше
-            site_id = info.get("id")
+
+            # принудительная публичность: PATCH, при отказе — PUT; ответ Netlify логируем всегда
             if site_id:
-                try:
-                    pr = await http.put(
-                        f"{NETLIFY_API}/sites/{site_id}",
-                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                        json={"visibility": "public"},
-                        timeout=10.0,
-                    )
-                    if pr.status_code >= 400:
-                        log.error("netlify set public failed: site=%s %s %s", site_id, pr.status_code, (pr.text or "")[:300])
-                except Exception:
-                    log.exception("netlify set public error: site=%s", site_id)
+                body = {"published_deploy": {"visibility": "public"}}
+                for method in ("PATCH", "PUT"):
+                    try:
+                        pr = await http.request(method, f"{NETLIFY_API}/sites/{site_id}", headers=json_headers, json=body, timeout=15.0)
+                        log.info("netlify set public %s: site=%s status=%s body=%s", method, site_id, pr.status_code, (pr.text or "")[:300])
+                        if pr.status_code < 400:
+                            break
+                        log.error("netlify set public %s failed: site=%s %s %s", method, site_id, pr.status_code, (pr.text or "")[:300])
+                    except Exception:
+                        log.exception("netlify set public %s error: site=%s", method, site_id)
             else:
-                log.error("netlify: в ответе нет id сайта, пропускаю visibility=public")
+                log.error("netlify: в ответе нет id сайта, пропускаю публичность")
+
             # ответ — объект САЙТА: id деплоя лежит в deploy_id / published_deploy
             pub = info.get("published_deploy") or {}
             deploy_id = info.get("deploy_id") or pub.get("id")
@@ -1897,6 +1910,23 @@ async def publish(data: dict = Body(...)):
         return JSONResponse({"status": "error", "message": "Нечего публиковать: сначала создай сайт."}, status_code=400)
     if len(html_code.encode("utf-8")) > PUBLISH_MAX_HTML:
         return JSONResponse({"status": "error", "message": "Сайт слишком большой для публикации."}, status_code=413)
+
+    out_warning = None
+    if re.search(r"fetch\(", html_code):
+        out_warning = "Сайт обращается к серверу (fetch). Netlify хранит только статику: серверную часть (main.py) нужно запустить отдельно, например на Render."
+
+    # защита от дублей: тот же код у того же пользователя -> отдаём сохранённую ссылку
+    code_hash = hashlib.md5(html_code.encode()).hexdigest()
+    try:
+        existing = await asyncio.to_thread(get_published_url, uid, code_hash)
+    except Exception:
+        log.warning("published_sites: не удалось проверить дубль uid=%s", uid, exc_info=True)
+        existing = None
+    if existing:
+        out = {"status": "ok", "url": existing, "duplicate": True}
+        if out_warning: out["warning"] = out_warning
+        return out
+
     now = time.monotonic()
     if now - _publish_last.get(uid, 0) < PUBLISH_COOLDOWN:
         return JSONResponse({"status": "error", "message": "Подожди несколько секунд перед следующей публикацией."}, status_code=429)
@@ -1910,9 +1940,14 @@ async def publish(data: dict = Body(...)):
         log.exception("publish failed uid=%s", uid)
         _publish_last.pop(uid, None)
         return JSONResponse({"status": "error", "message": "Что-то пошло не так при публикации. Попробуй ещё раз."}, status_code=500)
+
+    try:
+        await asyncio.to_thread(save_published_url, uid, code_hash, url)
+    except Exception:
+        log.warning("published_sites: не удалось сохранить uid=%s", uid, exc_info=True)
+
     out = {"status": "ok", "url": url}
-    if re.search(r"fetch\(", html_code):
-        out["warning"] = "Сайт обращается к серверу (fetch). Netlify хранит только статику: серверную часть (main.py) нужно запустить отдельно, например на Render."
+    if out_warning: out["warning"] = out_warning
     return out
 
 @app.post("/ask")
