@@ -368,6 +368,8 @@
     .copy-btn { position: absolute; top: 6px; right: 8px; width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--ui-line-hi); background: rgba(255,255,255,.07); color: var(--ui-tx-mid); cursor: pointer; transition: color .2s, background .2s; }
     .copy-btn:active { transform: scale(.92); }
     .copy-btn.ok { color: #5BD17A; }
+    .pub-copy { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--ui-line-hi); background: transparent; color: var(--ui-tx-mid); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .pub-copy.ok { color: #5BD17A; }
     body.light-theme .copy-btn { background: rgba(0,0,0,.04); }
     #user-input { padding-left: 2px; caret-color: #0284C7; }
     body:not(.light-theme) #user-input { caret-color: var(--ui-cyan); }
@@ -1961,6 +1963,8 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
     } else if (rich && rich.any) { msg.appendChild(rich.frag); if (rich.blocks) row.classList.add('has-codeblk'); }
     else msg.textContent = text;
     if (file && file.id){ msg.classList.add('has-file'); msg._file = file; }
+    const pm = sender === 'bot' && /^Сайт опубликован: (https?:\/\/\S+)$/.exec(String(text || ''));
+    if (pm) addPubCopy(msg, pm[1]);
     const body = (img && img.thumb) ? String(text || '').replace(/^🖼 Фото\n?/, '') : String(text || '');
     if (body && !(rich && rich.blocks) && (body.length > 150 || body.split('\n').length > 4)){
         msg.classList.add('has-copy');
@@ -2533,6 +2537,28 @@ function showPublished(url, warning){
         });
     } else { toast(url); }
 }
+function addPubCopy(msg, url){
+    const wrap = document.createElement('div');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pub-copy'; b._url = url;
+    b.setAttribute('aria-label', 'Копировать ссылку');
+    b.innerHTML = COPY_ICON + '<span>Копировать ссылку</span>';
+    wrap.appendChild(b); msg.appendChild(wrap);
+}
+chatHistory.addEventListener('click', async e => {
+    const b = e.target.closest('.pub-copy'); if (!b) return;
+    await copyText(b._url, b);
+    if (b.classList.contains('ok')){
+        b.innerHTML = CHECK_ICON + '<span>Скопировано!</span>';
+        setTimeout(() => { b.classList.remove('ok'); b.innerHTML = COPY_ICON + '<span>Копировать ссылку</span>'; }, 1400);
+    }
+});
+function addPublishedToChat(url){
+    const text = 'Сайт опубликован: ' + url;
+    addToHistory(text, 'bot');
+    chatHistoryForServer.push({ sender: 'bot', text });
+    saveHistory();
+}
 async function publishSite(v){
     if (publishBusy) return;
     if (!refOk()){ toast('Открой приложение из Telegram'); return; }
@@ -2545,7 +2571,10 @@ async function publishSite(v){
         const r = await fetch(`${BACKEND_URL}/publish`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ init_data: tg.initData, html_code: html }) });
         const d = await r.json().catch(() => ({}));
         if (r.status === 402){ refreshPro(); showPublishPaywall(d.message); }
-        else if (r.ok && d.status === 'ok') showPublished(d.url, d.warning);
+        else if (r.ok && d.status === 'ok' && d.url){
+            addPublishedToChat(d.url);          // сообщение в чат с кнопкой копирования
+            showPublished(d.url, d.warning);    // нативное окно Telegram (tg.showPopup)
+        }
         else toast(d.message || 'Не удалось опубликовать');
     } catch (e) { toast('Нет связи с сервером'); }
     publishBusy = false;
