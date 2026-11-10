@@ -1257,6 +1257,15 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 </style>
 </head>
 <body>
+<script>
+/* тема применяется до первой отрисовки, чтобы загрузочный экран не мигал тёмным */
+(function(){ try {
+  var light = JSON.parse(localStorage.getItem('theme')) === 'light';
+  if (light) document.body.classList.add('light-theme');
+  var tg = window.Telegram && Telegram.WebApp, c = light ? '#F7F7F8' : '#1E1F22';
+  if (tg) { try { tg.setHeaderColor(c); tg.setBackgroundColor(c); } catch(e) {} }
+} catch(e) {} })();
+</script>
 <div id="splash"><div class="sp-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="spc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#spc)"><rect class="sp-f" x="15" y="5" width="42" height="42" fill="currentColor"/></g><circle class="sp-o" cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line class="sp-pl" x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="word">HOLO FRIEND</div></div>
 
 <div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
