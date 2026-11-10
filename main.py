@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 import os
 import io
+import zipfile
 import re
 import json
 import base64
@@ -94,7 +95,8 @@ IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG", b"RIFF", b"GIF8")
 EMOTIONS_OK = {"happy", "sad", "surprised", "angry", "thinking", "sleepy"}
 
-OTHER_BODY_LIMIT = 1024 * 1024  # все эндпоинты кроме /ask
+OTHER_BODY_LIMIT = 1024 * 1024  # все эндпоинты кроме /ask и /publish
+PUBLISH_BODY_LIMIT = 4 * 1024 * 1024  # /publish принимает html_code целиком
 
 class BodyLimitMiddleware:
     """Режет слишком большие тела запросов: и по Content-Length, и по факту при chunked-передаче."""
@@ -104,7 +106,7 @@ class BodyLimitMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["method"] not in ("POST", "PUT", "PATCH"):
             return await self.app(scope, receive, send)
-        limit = MAX_BODY_BYTES if scope["path"] == "/ask" else OTHER_BODY_LIMIT
+        limit = MAX_BODY_BYTES if scope["path"] == "/ask" else PUBLISH_BODY_LIMIT if scope["path"] == "/publish" else OTHER_BODY_LIMIT
         cl = dict(scope["headers"]).get(b"content-length")
         if cl is not None:
             try: too_big = int(cl) > limit
@@ -164,6 +166,20 @@ BUILD_WEIGHT_EDIT = int(os.getenv("BUILD_WEIGHT_EDIT", "150"))
 BUILD_WEIGHT_SIMPLE = int(os.getenv("BUILD_WEIGHT_SIMPLE", "60"))    # простой сайт / лендинг / визитка
 BUILD_WEIGHT_MEDIUM = int(os.getenv("BUILD_WEIGHT_MEDIUM", "120"))   # приложение, калькулятор, дашборд, бот
 BUILD_WEIGHT_COMPLEX = int(os.getenv("BUILD_WEIGHT_COMPLEX", "180")) # игра, презентация, 3D, анимации
+BUILD_WEIGHT_BACKEND = int(os.getenv("BUILD_WEIGHT_BACKEND", "200"))  # проект с серверной частью: index.html + main.py
+
+# --- ПРОЕКТЫ С СЕРВЕРНОЙ ЧАСТЬЮ (админка, база данных, сервер, сохранение данных) ---
+NEEDS_BACKEND_RE = re.compile(r"админк\w*|баз\w*\s+данных|сервер\w*|сохранени\w*\s+данных", re.I)
+BACKEND_PAYWALL_TEXT = "Проекты с серверной частью (админка, база данных, сохранение данных) доступны на платных тарифах: для них я делаю два файла, index.html и main.py."
+BACKEND_SYSTEM_ADDON = """
+
+ПРОЕКТ С СЕРВЕРНОЙ ЧАСТЬЮ (ЖЁСТКОЕ ПРАВИЛО, ВЫШЕ ПРАВИЛА «ТОЛЬКО ЛЕНДИНГ» И ЗАПРЕТА НА СЕТЕВЫЕ ЗАПРОСЫ):
+Сгенерируй ДВА файла: index.html и main.py (FastAPI). В main.py сделай эндпоинты для сохранения и получения данных (JSON или SQLite). В index.html используй fetch для работы с этими эндпоинтами.
+- Формат: [[TEXT]] коротко, что сделано и что main.py нужно залить на Render (Netlify хранит только статику) [[EMOTION]] happy [[HTML]] полный index.html [[FILE:main.py]] полный код сервера [[END]].
+- main.py: GET / отдаёт index.html через FileResponse; API под /api/...; данные в JSON-файле или SQLite; CORS не нужен, если index.html отдаётся тем же сервером.
+- index.html: fetch только на относительные пути (например fetch("/api/items")), без внешних доменов. Если сервер недоступен, показывай понятное сообщение, а не пустой экран.
+- Каждый файл компактный, до 250 строк. Если уже действует правило про мессенджер и WebSocket, оно главнее.
+"""
 HISTORY_LONG_CHARS = 20000
 HISTORY_LONG_EXTRA = 10
 
@@ -252,15 +268,17 @@ VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарис�
 COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|змейк|сапёр|сапер|презентаци|слайд|3d|анимаци", re.I)
 
 # --- ПОДПИСКА PRO (ОБНОВЛЕННЫЕ ЦЕНЫ) ---
+PUBLISH_FEATURE = "Автоматическая публикация сайтов в Netlify"
+
 PLANS = {
-    "start":    {"title": "Старт",  "price": 899,  "units": 500,  "days": 30},
-    "pro":      {"title": "Про",    "price": 1999, "units": 1500, "days": 30},
-    "business": {"title": "Максимум", "price": 4999, "units": 4000, "days": 365},
+    "start":    {"title": "Старт",  "price": 899,  "units": 500,  "days": 30,  "features": [PUBLISH_FEATURE]},
+    "pro":      {"title": "Про",    "price": 1999, "units": 1500, "days": 30,  "features": [PUBLISH_FEATURE]},
+    "business": {"title": "Максимум", "price": 4999, "units": 4000, "days": 365, "features": [PUBLISH_FEATURE]},
 }
 PRO_WARN_LEFT = 100
 
 def plans_public():
-    return [{"id": k, "title": v["title"], "price": v["price"], "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT} for k, v in PLANS.items()]
+    return [{"id": k, "title": v["title"], "price": v["price"], "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT, "features": v.get("features", [])} for k, v in PLANS.items()]
 
 # --- ЭКОНОМИКА И ЗАЩИТА ---
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
@@ -930,9 +948,9 @@ BUILD_CHOICES = [{"id": "build", "label": "Собрать проект"}, {"id":
 BUILD_FAIL = {"text": "Не получилось собрать проект. Попробуй написать задачу чуть проще или покороче.", "emotion": "sad"}
 BUILD_TRIAL_NOTE = " Это была бесплатная пробная сборка — дальше студия доступна на тарифах."
 
-def build_messages(user_content, history_text, current_code):
+def build_messages(user_content, history_text, current_code, needs_backend=False):
     task = content_to_text(user_content)
-    messages = [{"role": "system", "content": BUILD_SYSTEM}]
+    messages = [{"role": "system", "content": BUILD_SYSTEM + (BACKEND_SYSTEM_ADDON if needs_backend and not current_code else "")}]
     # правка: в модель идут только текущий код и последний запрос, история чата не нужна (экономия токенов)
     if history_text and not current_code: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
     if current_code:
@@ -1094,10 +1112,10 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
     if emotion not in EMOTIONS_OK: emotion = "happy"
     return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_safe(conn, uid)}
 
-async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None):
+async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
     model = model or get_model_for_user(uid, conn)
-    messages = build_messages(user_content, history_text, current_code)
+    messages = build_messages(user_content, history_text, current_code, needs_backend)
     try:
         resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
             model=model,
@@ -1285,9 +1303,9 @@ _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
 
-async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None):
+async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None, needs_backend=False):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
-    messages = build_messages(user_content, history_text, current_code)
+    messages = build_messages(user_content, history_text, current_code, needs_backend)
     parser = BuildStreamParser(patch=bool(current_code))
     st = {"raw": "", "hbuf": "", "last": time.monotonic(), "stage": -1, "tail": ""}
     done = False
@@ -1357,7 +1375,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
                 done = True
                 yield _nd({"t": "error", **res}); return
             log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
-            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model), trial)
+            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model, needs_backend=needs_backend), trial)
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
         if current_code and edit_needs_rewrite(st["raw"], current_code) and rewrite_allowed(conn, uid, current_code):
@@ -1770,6 +1788,116 @@ def build_user_content(text, att, hi=False):
 async def _busy_handler(request: Request, exc: DBBusy):
     return JSONResponse({"status": "error", "reason": "busy", "text": BUSY_TEXT, "emotion": "sleepy"}, status_code=503)
 
+
+# ======================= ПУБЛИКАЦИЯ В NETLIFY =======================
+NETLIFY_API = "https://api.netlify.com/api/v1"
+PUBLISH_MAX_HTML = 3 * 1024 * 1024        # 3 МБ на один html
+PUBLISH_COOLDOWN = 20                      # секунд между публикациями одного пользователя
+PUBLISH_PRO_ONLY = os.getenv("PUBLISH_PRO_ONLY", "1") == "1"  # "0" — публикация доступна всем
+_publish_last = {}                         # uid -> время последней публикации
+
+class NetlifyError(Exception):
+    """Ошибка публикации с готовым текстом для пользователя."""
+    def __init__(self, user_msg):
+        super().__init__(user_msg)
+        self.user_msg = user_msg
+
+def build_site_zip(html_content: str, folder: str = "site") -> bytes:
+    """ZIP в памяти: внутри ПАПКИ лежит index.html (не в корне архива)."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{folder}/", "")  # запись самой папки, как делает `zip -r`
+        zf.writestr(f"{folder}/index.html", html_content.encode("utf-8"))
+    return buf.getvalue()
+
+async def deploy_to_netlify(html_content: str) -> str:
+    """Каждый вызов создаёт НОВЫЙ сайт на Netlify (POST /sites с ZIP) и возвращает его ссылку."""
+    token = os.getenv("NETLIFY_TOKEN")
+    if not token:
+        log.error("netlify: NETLIFY_TOKEN не задан")
+        raise NetlifyError("Публикация сейчас недоступна. Попробуй позже.")
+    binary_data = await asyncio.to_thread(build_site_zip, html_content)
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/zip"}
+    timeout = httpx.Timeout(60.0, connect=10.0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as http:
+            # POST /sites без ID: Netlify создаёт новый сайт из ZIP (content= — «сырое» тело запроса)
+            r = await http.post(f"{NETLIFY_API}/sites", headers=headers, content=binary_data)
+            if r.status_code >= 400:
+                log.error("netlify create site failed: %s %s", r.status_code, (r.text or "")[:300])
+                if r.status_code in (401, 403):
+                    raise NetlifyError("Публикация сейчас недоступна: сервис сайтов отклонил доступ. Мы уже разбираемся.")
+                if r.status_code == 429:
+                    raise NetlifyError("Слишком много публикаций сразу. Подожди минуту и попробуй ещё раз.")
+                raise NetlifyError("Не удалось опубликовать сайт. Попробуй ещё раз чуть позже.")
+            info = r.json()
+            url = info.get("ssl_url") or info.get("url")
+            if not url:
+                log.error("netlify: в ответе нет ssl_url/url: %s", str(info)[:300])
+                raise NetlifyError("Сайт опубликован, но ссылку получить не удалось. Попробуй ещё раз.")
+            # ответ — объект САЙТА: id деплоя лежит в deploy_id / published_deploy
+            pub = info.get("published_deploy") or {}
+            deploy_id = info.get("deploy_id") or pub.get("id")
+            state = pub.get("state") or info.get("state")
+            # ZIP-деплой обрабатывается асинхронно: ждём ready (до ~20 с)
+            for _ in range(20):
+                if state in ("ready", "current"): break
+                if state == "error":
+                    log.error("netlify deploy state=error: %s", pub.get("error_message"))
+                    raise NetlifyError("Netlify не смог обработать сайт. Проверь код и попробуй ещё раз.")
+                if not deploy_id: break
+                await asyncio.sleep(1)
+                try:
+                    g = await http.get(f"{NETLIFY_API}/deploys/{deploy_id}", headers={"Authorization": f"Bearer {token}"})
+                    if g.status_code == 200:
+                        pub = g.json(); state = pub.get("state")
+                except httpx.HTTPError:
+                    pass
+            return url
+    except NetlifyError:
+        raise
+    except httpx.TimeoutException:
+        log.error("netlify: timeout")
+        raise NetlifyError("Публикация заняла слишком много времени. Попробуй ещё раз.")
+    except (httpx.HTTPError, ValueError):
+        log.exception("netlify: network/parse error")
+        raise NetlifyError("Не удалось связаться с сервисом публикации. Попробуй ещё раз.")
+
+PAYWALL_PUBLISH_MSG = "Автоматическая публикация доступна только на платных тарифах. Выбери тариф, чтобы публиковать сайты в один клик."
+
+@app.post("/publish")
+async def publish(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info:
+        return JSONResponse({"status": "error", "message": "Ошибка авторизации. Открой приложение из Telegram."}, status_code=401)
+    uid = info["user"]["id"]
+    if PUBLISH_PRO_ONLY and uid != ADMIN_ID:
+        is_pro = await asyncio.to_thread(lambda: pro_info(get_db_connection(), uid, int(time.time()))["active"])
+        if not is_pro:
+            return JSONResponse({"status": "error", "message": PAYWALL_PUBLISH_MSG}, status_code=402)
+    html_code = data.get("html_code")
+    if not isinstance(html_code, str) or not is_valid_html(html_code):
+        return JSONResponse({"status": "error", "message": "Нечего публиковать: сначала создай сайт."}, status_code=400)
+    if len(html_code.encode("utf-8")) > PUBLISH_MAX_HTML:
+        return JSONResponse({"status": "error", "message": "Сайт слишком большой для публикации."}, status_code=413)
+    now = time.monotonic()
+    if now - _publish_last.get(uid, 0) < PUBLISH_COOLDOWN:
+        return JSONResponse({"status": "error", "message": "Подожди несколько секунд перед следующей публикацией."}, status_code=429)
+    _publish_last[uid] = now
+    try:
+        url = await deploy_to_netlify(html_code)
+    except NetlifyError as e:
+        _publish_last.pop(uid, None)  # неудачная публикация не блокирует повтор
+        return JSONResponse({"status": "error", "message": e.user_msg}, status_code=502)
+    except Exception:
+        log.exception("publish failed uid=%s", uid)
+        _publish_last.pop(uid, None)
+        return JSONResponse({"status": "error", "message": "Что-то пошло не так при публикации. Попробуй ещё раз."}, status_code=500)
+    out = {"status": "ok", "url": url}
+    if re.search(r"fetch\(", html_code):
+        out["warning"] = "Сайт обращается к серверу (fetch). Netlify хранит только статику: серверную часть (main.py) нужно запустить отдельно, например на Render."
+    return out
+
 @app.post("/ask")
 async def ask(request: Request):
     refund_pending = None  # (weight, is_pro): что вернуть, если после списания всё упадёт
@@ -1867,6 +1995,7 @@ async def ask(request: Request):
             weight += HISTORY_LONG_EXTRA
 
         trial = False
+        needs_backend = False  # админка / БД / сервер: генерируем index.html + main.py
         if build_mode:
             # запрещённые темы: отказ ДО любых списаний и до вызова модели, токены не тратятся
             if is_forbidden_build(user_text):
@@ -1890,8 +2019,14 @@ async def ask(request: Request):
             else:
                 weight = BUILD_WEIGHT_MEDIUM   # 120: приложение, калькулятор, дашборд, бот
             
+            needs_backend = (not is_edit) and bool(NEEDS_BACKEND_RE.search(user_text))
+            if needs_backend:
+                weight = BUILD_WEIGHT_BACKEND  # 200 вместо 60–120
+
             # ЗАЩИТА БЕСПЛАТНИКОВ: если сложный проект, не даем делать его бесплатно
             if not pro_pre["active"]:
+                if needs_backend:  # два файла и сервер: бесплатной пробной сборки нет
+                    return JSONResponse({"text": BACKEND_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 if is_realtime:  # бесплатной пробной сборки для мессенджеров нет
                     return JSONResponse({"text": REALTIME_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 if COMPLEX_RE.search(user_text):
@@ -1978,10 +2113,11 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
             if data.get("stream") is True:
                 return StreamingResponse(
-                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"], model=build_model),
+                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend),
                     media_type="application/x-ndjson",
                     headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
-            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"], model=build_model)
+            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend)
+            if res.get("visual") and needs_backend: res["needs_backend"] = True
             if trial:
                 if res.get("visual"):
                     res["text"] = ((res.get("text") or "Готово!") + " Это была бесплатная пробная сборка — дальше студия доступна на тарифах.").strip()
