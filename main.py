@@ -646,6 +646,7 @@ happy
 - Один файл: <!doctype html>, CSS в <style>, JS в <script>.
 - Никаких fetch, alert, window.open. Только <button type="button"> и якоря #id.
 - Код должен быть компактным (без лишних отступов и комментариев).
+- СКРЫТИЕ ПЛАШКИ NETLIFY (ЖЁСТКОЕ ПРАВИЛО): в самый конец генерируемого HTML-кода, прямо перед закрывающим </body>, ОБЯЗАТЕЛЬНО добавляй следующий CSS-код, чтобы скрыть стандартный бейдж Netlify на бесплатном тарифе: <style>.netlify-badge, #netlify-badge, a[href*='netlify.com'], iframe[src*='netlify.com'], div[class*='badge'] { display: none !important; opacity: 0 !important; pointer-events: none !important; }</style> Это правило действует при каждой полной сборке index.html (в режиме правок через [[FIND]]/[[REPLACE]] этот блок не дублируй, он уже есть в коде).
 - ХРАНЕНИЕ ДАННЫХ: в приложениях, где пользователь вводит данные (трекер, список дел, заметки, счётчик, планировщик, калькулятор с историей), сохраняй их в localStorage. Любое чтение и запись — только внутри try/catch. Если хранилище недоступно (в превью оно заблокировано), молча работай с данными в обычной JS-переменной, без ошибок и алертов. Ключ с префиксом проекта, например "habits_v1". Не храни пароли и платёжные данные. Для сайтов, лендингов и визиток localStorage не нужен.
 
 ФОРМАТ ОТВЕТА ПРИ НОВОЙ СБОРКЕ:
@@ -1835,6 +1836,22 @@ async def deploy_to_netlify(html_content: str) -> str:
             if not url:
                 log.error("netlify: в ответе нет ssl_url/url: %s", str(info)[:300])
                 raise NetlifyError("Сайт опубликован, но ссылку получить не удалось. Попробуй ещё раз.")
+            # сразу делаем сайт публичным; ошибка здесь не критична: логируем и идём дальше
+            site_id = info.get("id")
+            if site_id:
+                try:
+                    pr = await http.put(
+                        f"{NETLIFY_API}/sites/{site_id}",
+                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                        json={"visibility": "public"},
+                        timeout=10.0,
+                    )
+                    if pr.status_code >= 400:
+                        log.error("netlify set public failed: site=%s %s %s", site_id, pr.status_code, (pr.text or "")[:300])
+                except Exception:
+                    log.exception("netlify set public error: site=%s", site_id)
+            else:
+                log.error("netlify: в ответе нет id сайта, пропускаю visibility=public")
             # ответ — объект САЙТА: id деплоя лежит в deploy_id / published_deploy
             pub = info.get("published_deploy") or {}
             deploy_id = info.get("deploy_id") or pub.get("id")
