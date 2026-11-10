@@ -267,6 +267,28 @@ VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарис�
 # Регулярка для сложных проектов (игры, презентации)
 COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|змейк|сапёр|сапер|презентаци|слайд|3d|анимаци", re.I)
 
+# --- ИГРОВАЯ МЕХАНИКА: «сайт, где человечек ходит и стреляет» — это игра (180), а не сайт (60) ---
+# Сильные признаки: одного слова достаточно. «игруш»/«игрист» исключены (магазин игрушек, игристое вино).
+GAME_STRONG_RE = re.compile(r"\bигр(?!уш|ист)\w*|\bgames?\b|шутер|shooter|аркад|\brpg\b|\bрпг\b|платформер|стрелялк|ходилк|бродилк", re.I)
+# Слабые признаки: по одному встречаются в обычных сайтах («управляющая компания», «уровень сервиса», «платформа для курсов»,
+# «квест-комната», «логистика»), поэтому игрой считаем, когда совпали минимум GAME_WEAK_MIN РАЗНЫХ признаков.
+GAME_WEAK_RES = tuple(re.compile(x, re.I) for x in (
+    r"управля|управлени", r"стреля|стрельб|стрелять|стреляет", r"прыга|прыжк", r"\bход(?:ит|ят|ить)\b|\bбега(?:ет|ют|ть)\b",
+    r"убива|убить|убийств", r"\bвраг|противник|монстр", r"\bуровн|\bуровен", r"персонаж|человечек|герой|\bигрок",
+    r"платформ", r"\bквест", r"\bлогик(?!а\s+работы)",
+))
+GAME_WEAK_MIN = int(os.getenv("GAME_WEAK_MIN", "2"))  # поставь 1, если нужно считать игрой ЛЮБОЕ из слов-механик
+
+def is_game_request(user_text: str) -> bool:
+    t = user_text or ""
+    if GAME_STRONG_RE.search(t):
+        return True
+    return sum(1 for r in GAME_WEAK_RES if r.search(t)) >= GAME_WEAK_MIN
+
+def is_complex_request(user_text: str) -> bool:
+    """180: игра (в т.ч. под видом «сайта»), презентация, 3D, анимации."""
+    return bool(COMPLEX_RE.search(user_text)) or is_game_request(user_text)
+
 # --- ПОДПИСКА PRO (ОБНОВЛЕННЫЕ ЦЕНЫ) ---
 PUBLISH_FEATURE = "Автоматическая публикация сайтов в Netlify"
 
@@ -2062,8 +2084,8 @@ async def ask(request: Request):
                     return {"text": str(e), "emotion": "sad", "pro": pro_pre}  # до списаний
             elif is_realtime:
                 weight = BUILD_WEIGHT_COMPLEX  # мессенджер / WebSocket: сервер + интерфейс, самая дорогая сборка
-            elif COMPLEX_RE.search(user_text):
-                weight = BUILD_WEIGHT_COMPLEX  # 180: игра, презентация, 3D
+            elif is_complex_request(user_text):
+                weight = BUILD_WEIGHT_COMPLEX  # 180: игра (даже если названа «сайтом»), презентация, 3D — приоритет выше приложения (120) и сайта (60)
             elif APP_BUILD_RE.search(user_text):
                 weight = BUILD_WEIGHT_MEDIUM   # 120: приложение, трекер, калькулятор, дашборд (важнее слова «сайт» и кнопки выбора)
             elif SIMPLE_BUILD_RE.search(user_text) or build_choice == "build":
@@ -2081,7 +2103,7 @@ async def ask(request: Request):
                     return JSONResponse({"text": BACKEND_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 if is_realtime:  # бесплатной пробной сборки для мессенджеров нет
                     return JSONResponse({"text": REALTIME_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
-                if COMPLEX_RE.search(user_text):
+                if is_complex_request(user_text):
                     return JSONResponse({"text": "Сложные проекты (игры, презентации, 3D) доступны на платных тарифах. На бесплатной пробной сборке можно сделать только простой сайт-визитку.", "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 
                 # ЗАЩИТА: правки недоступны на бесплатной пробной сборке
