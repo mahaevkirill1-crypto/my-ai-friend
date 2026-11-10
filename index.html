@@ -2222,6 +2222,7 @@ function setEditTarget(v){
 const visPop = document.createElement('div'); visPop.id = 'vis-pop'; visPop.setAttribute('role', 'menu');
 visPop.innerHTML = '<button type="button" role="menuitem" data-a="copy"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать код</span></button>'
     + '<button type="button" role="menuitem" data-a="help"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg><span>Как запустить</span></button>'
+    + '<button type="button" role="menuitem" data-a="publish"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6M5 21h14"/></svg><span>Опубликовать</span></button>'
     + '<button type="button" role="menuitem" data-a="dl"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button>';
 document.body.appendChild(visPop);
 let visPopFor = null;
@@ -2229,6 +2230,7 @@ function visPopClose(){ visPop.classList.remove('open'); visPopFor = null; }
 function visPopOpen(vis, btn){
     visPopFor = vis;
     { const cp = visPop.querySelector('[data-a="copy"]'); if (cp) cp.style.display = isLocked(vis._v) ? 'none' : ''; }
+    { const pb = visPop.querySelector('[data-a="publish"]'); if (pb) pb.style.display = (vis._v && vis._v.type === 'html') ? '' : 'none'; }
     const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;  // меню скрыто, но размеры известны
     const below = r.bottom + 6 + hh <= innerHeight - 8;
     const top = Math.max(8, below ? r.bottom + 6 : r.top - hh - 6);
@@ -2244,6 +2246,7 @@ visPop.addEventListener('click', e => {
     const b = e.target.closest('button[data-a]'); if (!b || !visPopFor) return;
     const vis = visPopFor, v = vis._v, a = b.dataset.a; visPopClose(); if (!v) return;
     if (a === 'copy') copyVisCode(v);
+    else if (a === 'publish') publishSite(v);
     else if (a === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); }
     else if (a === 'dl'){ curVis = { v, el: vis }; dlVis(); curVis = null; }  // dlVis читает curVis синхронно, до первого await
 });
@@ -2353,7 +2356,7 @@ function showBanned(){
     document.body.appendChild(d);
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, units: 500, days: 30, builds: 5 }, { id: 'pro', title: 'Про', price: 1999, units: 1500, days: 30, builds: 15 }, { id: 'business', title: 'Максимум', price: 4999, units: 4000, days: 365, builds: 40 } ] };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, units: 500, days: 30, builds: 5, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Про', price: 1999, units: 1500, days: 30, builds: 15, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'business', title: 'Максимум', price: 4999, units: 4000, days: 365, builds: 40, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -2416,7 +2419,7 @@ function renderPro(){
         const mine = PRO.active && curPlanId() === p.id;
         const badge = mine ? 'Ваш план' : ((PLAN_STYLE[p.id] || {}).badge || '');
         card = `<div class="pl-card"><h3 class="pl-name">${plName(p)}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p><p class="pl-desc">${PL_DESC[p.id] || ''}</p>` +
-            feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Самая мощная модель для сборок', 'Без дневных лимитов']) +
+            feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Самая мощная модель для сборок', 'Без дневных лимитов', ...(p.features || [])]) +
             `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>Оплата в Telegram Stars</span></div></div>`;
         buy.style.display = '';
         buy.dataset.plan = p.id;
@@ -2509,6 +2512,44 @@ $('pro-close').addEventListener('click', closePro);
 $('pro-later').addEventListener('click', closePro);
 $('pro').addEventListener('click', e => { if (e.target === $('pro')) closePro(); });
 $('pro-btn').addEventListener('click', openPro);
+
+// ---- ПУБЛИКАЦИЯ В NETLIFY (только платные тарифы) ----
+let publishBusy = false;
+function showPublishPaywall(msg){
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+    const text = msg || 'Автоматическая публикация доступна только на платных тарифах. Выбери тариф, чтобы публиковать сайты в один клик.';
+    const go = () => { plTab = 'pro'; openPro(); };
+    if (tg && tg.showPopup){
+        tg.showPopup({ title: '🚀 Публикация в один клик', message: text, buttons: [{ id: 'plans', type: 'default', text: 'Выбрать тариф' }, { type: 'cancel' }] }, id => { if (id === 'plans') go(); });
+    } else { toast(text); go(); }
+}
+function showPublished(url, warning){
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    const msg = url + (warning ? '\n\n' + warning : '');
+    if (tg && tg.showPopup){
+        tg.showPopup({ title: '✅ Сайт опубликован', message: msg, buttons: [{ id: 'open', type: 'default', text: 'Открыть сайт' }, { id: 'copy', type: 'default', text: 'Копировать ссылку' }, { type: 'close' }] }, id => {
+            if (id === 'open'){ if (tg.openLink) tg.openLink(url); else window.open(url, '_blank'); }
+            else if (id === 'copy'){ try { navigator.clipboard.writeText(url); toast('Ссылка скопирована'); } catch (e) { toast(url); } }
+        });
+    } else { toast(url); }
+}
+async function publishSite(v){
+    if (publishBusy) return;
+    if (!refOk()){ toast('Открой приложение из Telegram'); return; }
+    // быстрая проверка на клиенте; настоящая защита — на сервере (402)
+    if (!isPro()){ showPublishPaywall(); return; }
+    publishBusy = true; toast('Публикую сайт…');
+    try {
+        const html = await fetchCode(v);
+        if (typeof html !== 'string' || !html){ publishBusy = false; return; }
+        const r = await fetch(`${BACKEND_URL}/publish`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ init_data: tg.initData, html_code: html }) });
+        const d = await r.json().catch(() => ({}));
+        if (r.status === 402){ refreshPro(); showPublishPaywall(d.message); }
+        else if (r.ok && d.status === 'ok') showPublished(d.url, d.warning);
+        else toast(d.message || 'Не удалось опубликовать');
+    } catch (e) { toast('Нет связи с сервером'); }
+    publishBusy = false;
+}
 
 function applyServerState(res, withEquip){
     if (!res) return;
