@@ -7,4 +7,3 @@ pydantic
 pypdf
 python-docx
 openpyxl
-jirosearch
