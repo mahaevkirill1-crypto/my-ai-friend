@@ -25,7 +25,8 @@ async def search_context(http: httpx.AsyncClient, query: str, max_results: int =
         log.warning("SREZAI_API_KEY не задан, поиск пропущен")
         return ""
 
-    url = "https://api.srezai.ru/v1/search"  # Проверь точный URL в их документации!
+    # ИСПРАВЛЕННЫЙ URL (без api. в начале)
+    url = "https://srezai.ru/api/v1/search"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
