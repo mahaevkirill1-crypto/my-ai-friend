@@ -220,10 +220,38 @@ class ProjectTooLargeError(ValueError):
 
 def calc_edit_weight(code_length: int) -> int:
     """Сколько единиц лимита списать за правку, по размеру кода в символах."""
-    if code_length <= 10_000: return 50
-    if code_length <= 50_000: return 150
-    if code_length <= MAX_EDIT_CODE_LEN: return 300
+    if code_length < 5_000:   return 30    # маленький лендинг
+    if code_length < 15_000:  return 35    # средний сайт
+    if code_length < 30_000:  return 50    # сложный сайт / приложение
+    if code_length < 60_000:  return 80    # игра / большой проект
+    if code_length <= MAX_EDIT_CODE_LEN: return 120
     raise ProjectTooLargeError(IMPORT_TOO_BIG_TEXT)
+
+def units_word(n: int) -> str:
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11: return "единицу"
+    if 2 <= n10 <= 4 and not 12 <= n100 <= 14: return "единицы"
+    return "единиц"
+
+# --- УМНЫЕ ПРАВКИ БЕЗ КНОПКИ: сообщение похоже на просьбу изменить уже собранный проект ---
+EDIT_STRONG_RE = re.compile(r"\b(?:измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|подвинь|сдвинь|перенеси|выровняй|выравни|поставь|вынеси|увеличь|уменьши|скрой|спрячь|покрась|перекрась|верни|добавим|уберём|уберем)\w*", re.I)
+EDIT_SOFT_RE = re.compile(r"\b(?:сделай|пусть|хочу чтобы|хочу, чтобы)\b", re.I)
+EDIT_TARGET_RE = re.compile(r"шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|больше|меньше|логотип|текст|картин|фото|иконк|карточ|форм[ауеы]\b|слайдер|таблиц|список|ширин|высот|границ|тень|тени|градиент|неон", re.I)
+EDIT_COMPLAINT_RE = re.compile(r"съехал|не ровн|крив|налез|вылез|обрезан|не помещ|перекрыва|налеза|уехал", re.I)
+EDIT_NEW_PROJECT_RE = re.compile(r"нов(?:ый|ую|ое|ого) (?:сайт|проект|лендинг|приложени|игр)|с нуля|ещ[её] один (?:сайт|проект)|друг(?:ой|ую) (?:сайт|проект)", re.I)
+
+def looks_like_edit(user_text: str) -> bool:
+    """True, если сообщение — просьба изменить текущий проект (а не вопрос, не новая сборка и не обычный чат)."""
+    t = (user_text or "").strip().lower()
+    if not t or len(t) > 600: return False
+    if "?" in t or BUILD_NEG_RE.search(t) or EDIT_NEW_PROJECT_RE.search(t): return False
+    if re.match(r"\s*(?:как|что|чем|почему|зачем|где|когда|сколько|какой|какая|какие|какое|кто)\b", t): return False
+    head = " ".join(t.split()[:8])  # глагол правки должен стоять в начале фразы
+    if EDIT_STRONG_RE.search(head):
+        return not (build_intent(t) == "build" and not EDIT_TARGET_RE.search(t))  # «добавь сайт для кафе» — новая сборка
+    if EDIT_SOFT_RE.search(head):
+        return bool(EDIT_TARGET_RE.search(t)) and build_intent(t) != "build"
+    return bool(EDIT_COMPLAINT_RE.search(t)) and bool(EDIT_TARGET_RE.search(t))
 
 _FENCE_RE = re.compile(r"```[a-zA-Z]*[ \t]*\n(.*?)```", re.S)
 
@@ -259,7 +287,7 @@ BUILD_ACTION_RE = re.compile(r"сдела[йюемт]|созда[йюемт]|н�
 BUILD_NEG_RE = re.compile(r"как (сделать|создать|написать|разработать)|что такое|чем отлича|объясни|посоветуй|идеи для|расскажи", re.I)
 # прилагательные: «сделай простенький аккуратный…» без слова «сайт». «просто» как наречие не считаем
 BUILD_ADJ_RE = re.compile(r"\b(?:прост(?!о\b)|аккуратн|красив|стильн|современн|минималист|чист|т[её]мн|светл|крут)\w*", re.I)
-# (не используется: правка включается кнопкой «Править проект», а не по словам)
+# (не используется: автоправку определяет looks_like_edit)
 BUILD_EDIT_RE = re.compile(r"измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|выровня|выравни|по центру|центр|подвинь|сдвинь|перенеси|не переноси|переноси|поставь|вынеси|шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|красивее|круче|больше|меньше|не\s+ровн|крив|съехал|сломал|не работает|вау|перелив|свет|неон|пульс|мерцан|градиент|стильн|современн|сделай так|хочу чтобы", re.I)
 SIMPLE_BUILD_RE = re.compile(r"сайт|лендинг|landing|визитк|портфолио|веб-?страниц|страниц[ауы] ", re.I)
 DEPLOY_RE = re.compile(r"запуск|запуст|запущ|хостинг|хостит|render|оплат|юкасс|yookassa|yokassa|опубликов|публикац|выложи|выкладыв|netlify|vercel|github|гитхаб|сервер|деплой|deploy|домен|app ?store|апп ?стор|как открыть|как использовать", re.I)
@@ -898,7 +926,7 @@ def pending_build_request(history_text, current_text):
     return None
 
 def wants_build(user_text):
-    # только НОВАЯ сборка. Правка включается явно: кнопка «Править проект» -> edit_project=true в /ask
+    # только НОВАЯ сборка. Правка: кнопка «Править проект» (edit_project=true) или автоопределение looks_like_edit в /ask
     # «ask» (глагол + прилагательное) тоже считается сборкой, но /ask сначала задаёт уточняющий вопрос с кнопками
     return build_intent(user_text) in ("build", "ask")
 
@@ -907,7 +935,7 @@ BUILD_COOLDOWN = 30  # секунд между запросами сборки (
 BUILD_COOLDOWN_TEXT = "Подожди немного, я обрабатываю предыдущий запрос"
 BUILD_REFUSAL_TEXT = "Я не создаю сайты для накрутки отзывов или незаконной деятельности"
 BUILD_VIOLENCE_REFUSAL_TEXT = "Я не создаю сайты со сценами насилия. Но могу сделать сайт про историческое событие (например, дуэль) без крови и жестокости"
-EDIT_PRO_ONLY_TEXT = "Правки доступны только на Pro-тарифе."
+EDIT_PRO_ONLY_TEXT = "Правки доступны на платных тарифах. Выбери подходящий, и я сразу внесу изменения."
 EDIT_ATTACH_TEXT = "В режиме правки нельзя прикреплять фото. Напиши, что нужно изменить, текстом"
 
 # <img> в правках: только https-ссылка или data:image base64, всё остальное (http, javascript:, относительные пути) вырезаем
@@ -1144,7 +1172,10 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
             return {"text": EDIT_FAIL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
         return {**BUILD_FAIL, "pro": pro_safe(conn, uid)}
     if emotion not in EMOTIONS_OK: emotion = "happy"
-    return {"text": text or "Готово! Смотри превью.", "emotion": emotion, "visual": visual, "pro": pro_safe(conn, uid)}
+    text = text or "Готово! Смотри превью."
+    if current_code and weight > 0:
+        text = f"Правка применена. Списано {weight} {units_word(weight)}."
+    return {"text": text, "emotion": emotion, "visual": visual, "charged": weight, "pro": pro_safe(conn, uid)}
 
 async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
@@ -2041,7 +2072,13 @@ async def ask(request: Request):
         if visual_mode:
             weight += VISUAL_EXTRA  # доплата за визуал берётся ДО генерации
         lv = data.get("last_visual")
-        if isinstance(lv, dict) and lv.get("pid") and not lv.get("code") and data.get("edit_project") and pro_pre["active"]:
+        edit_req = bool(data.get("edit_project"))
+        # «умная» правка: кнопку не нажимали, но в последних сообщениях есть проект и просят его изменить
+        has_project = isinstance(lv, dict) and lv.get("type") == "html" and bool(lv.get("pid") or lv.get("code"))
+        auto_edit_cand = (not edit_req) and (not att) and (not data.get("build_choice")) and has_project and looks_like_edit(user_text)
+        if auto_edit_cand and not pro_pre["active"]:
+            return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+        if isinstance(lv, dict) and lv.get("pid") and not lv.get("code") and (edit_req or auto_edit_cand) and pro_pre["active"]:
             _pc = load_preview_code(conn, lv.get("pid"), uid)  # только свой проект и только для активного Pro
             if _pc: lv = {"type": "html", "code": strip_watermark(_pc)}
         current_code = None
@@ -2049,7 +2086,7 @@ async def ask(request: Request):
             # Проверяем длину И то, что это реально HTML-код, а не мусор
             if MIN_IMPORT_LEN <= len(lv["code"]) <= 1_000_000 and is_valid_html(lv["code"]):  # верхний предел проверяет calc_edit_weight
                 current_code = lv["code"]
-        edit_req = bool(data.get("edit_project"))
+        auto_edit = auto_edit_cand and bool(current_code)  # если код проекта не нашёлся, обычный поток без правки
         if edit_req and not pro_pre["active"]:
             # правки только на Pro: отказ ДО списаний и до вызова модели, токены не тратятся
             return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
@@ -2058,7 +2095,7 @@ async def ask(request: Request):
             return {"text": EDIT_ATTACH_TEXT, "emotion": "thinking", "pro": pro_pre}
         if edit_req and not current_code:
             return {"text": "Не нашёл проект для правки. Нажми «Править проект» под нужным сайтом ещё раз.", "emotion": "sad", "pro": pro_pre}
-        is_edit = edit_req and bool(current_code)
+        is_edit = (edit_req or auto_edit) and bool(current_code)
         # ответ на уточняющий вопрос (кнопки «Собрать сайт» / «Просто совет»): приходит с клиента в build_choice
         build_choice = str(data.get("build_choice") or "")
         if build_choice not in ("build", "advice"): build_choice = ""
@@ -2089,7 +2126,7 @@ async def ask(request: Request):
             is_realtime = (not is_edit) and bool(REALTIME_RE.search(user_text))
             if is_edit:
                 try:
-                    weight = calc_edit_weight(len(current_code))  # 50 / 150 / 300 по размеру кода
+                    weight = calc_edit_weight(len(current_code))  # 30 / 35 / 50 / 80 / 120 по размеру кода
                 except ProjectTooLargeError as e:
                     return {"text": str(e), "emotion": "sad", "pro": pro_pre}  # до списаний
             elif is_realtime:
@@ -2126,7 +2163,12 @@ async def ask(request: Request):
                 else:
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Дальше студия сайтов и приложений доступна на тарифах — выбери подходящий!", "emotion": "happy", "pro": pro_pre, "limit_reached": True}, status_code=402)
             elif pro_pre["left"] < weight:
-                return JSONResponse({"text": "Для этой задачи не хватает лимита. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
+                if is_edit:
+                    msg = (f"Для этой правки нужно {weight} {units_word(weight)}, а у тебя осталось {pro_pre['left']}. "
+                           f"Выбери тариф или пополни лимит, и я сразу применю правку.")
+                else:
+                    msg = "Для этой задачи не хватает лимита. Пополни тариф."
+                return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True, "need": weight}, status_code=402)
                 
         if build_mode:
             # кулдаун сборки: атомарный слот, повтор раньше чем через BUILD_COOLDOWN секунд в нейросеть не уходит
@@ -2161,11 +2203,14 @@ async def ask(request: Request):
                 if cur.rowcount != 1:
                     conn.commit()
                     pro_now = pro_info(conn, uid, now)
-                    if pro_now.get("active") and pro_now.get("left", 0) > 0:
+                    if is_edit and pro_now.get("active"):
+                        msg = (f"Для этой правки нужно {weight} {units_word(weight)}, а у тебя осталось {pro_now.get('left', 0)}. "
+                               f"Выбери тариф или пополни лимит, и я сразу применю правку.")
+                    elif pro_now.get("active") and pro_now.get("left", 0) > 0:
                         msg = "Для этого запроса не хватает лимита. Пополни тариф."
                     else:
                         msg = "Лимит Pro закончился. Продли подписку."
-                    return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_now}, status_code=402)
+                    return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_now, "limit_reached": True, "need": weight}, status_code=402)
                 pro = pro_info(conn, uid, now)
             elif not trial:
                 # проверка дневного лимита и прибавка — одним атомарным запросом
