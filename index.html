@@ -10,10 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
 <style>
     /* ПЛАВНОЕ ПОЯВЛЕНИЕ ТЕКСТА: слово выплывает из размытия */
-    .rvw { opacity: 0; filter: blur(7px); transition: opacity .6s ease, filter .6s ease; }
+    .rvw { opacity: 0; filter: blur(2px); transition: opacity .45s ease, filter .45s ease; }
     .rvw.on { opacity: 1; filter: blur(0); }
-    .rvc { animation: rvIn .55s ease both; }
-    @keyframes rvIn { from { opacity: 0; filter: blur(7px); } to { opacity: 1; filter: blur(0); } }
+    .rvc { animation: rvIn .45s ease both; }
+    @keyframes rvIn { from { opacity: 0; filter: blur(2px); } to { opacity: 1; filter: blur(0); } }
     @media (prefers-reduced-motion: reduce) { .rvw { opacity: 1; filter: none; transition: none; } .rvc { animation: none; } }
 
     /* SPLASH */
@@ -1986,7 +1986,7 @@ function revealAnimate(root, row){
         while (cur < words.length && words[cur].s < pos){ words[cur].el.classList.add('on'); cur++; }
         follow();
         if (cur >= words.length){
-            if (!tail){ tail = true; setTimeout(finish, 650); }  // даём последним словам доехать из размытия
+            if (!tail){ tail = true; setTimeout(finish, 500); }  // даём последним словам доехать из размытия
             return;
         }
         requestAnimationFrame(tick);
