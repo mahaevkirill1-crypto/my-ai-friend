@@ -2483,6 +2483,53 @@ async function buyPro(planId){
         PRO.busy = false; setProMsg('Не получилось: ' + e.message, 'bad'); renderPro();
     }
 }
+function planPriceText(planId){
+    const p = (PRO.plans || []).find(x => x.id === planId);
+    if (!p) return '';
+    return '«' + p.title + '»: ' + (p.price_rub ? p.price_rub + ' ₽ или ' : '') + p.price + ' ⭐';
+}
+function openPaymentChoice(planId){
+    if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
+    if (PRO.busy) return;
+    if (!tg.showPopup){ buyWithCurrency(planId, 'XTR'); return; }
+    tg.showPopup({
+        title: 'Способ оплаты',
+        message: ('Тариф ' + planPriceText(planId) + '\nКак удобнее оплатить?').trim(),
+        buttons: [
+            { id: 'RUB', type: 'default', text: 'Оплатить картой (₽)' },
+            { id: 'XTR', type: 'default', text: 'Оплатить звездами (⭐)' },
+            { type: 'cancel' }
+        ]
+    }, id => {
+        if (id === 'RUB') buyWithCurrency(planId, 'RUB');
+        else if (id === 'XTR') buyWithCurrency(planId, 'XTR');
+    });
+}
+async function buyWithCurrency(planId, currency){
+    if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
+    if (PRO.busy) return;
+    PRO.busy = true; setProMsg(''); renderPro();
+    try {
+        const data = await tgPost('pay/telegram', { plan_id: planId, currency: currency });
+        if (!data.invoice_url){
+            const errs = { payments_disabled: 'оплата временно недоступна', card_disabled: 'оплата картой временно недоступна, выбери звёзды', bad_plan: 'тариф не найден', bad_currency: 'неизвестная валюта' };
+            throw new Error(errs[data.error] || 'не удалось создать счёт');
+        }
+        tg.openInvoice(data.invoice_url, status => {
+            if (status === 'paid'){
+                setProMsg('Оплата прошла успешно!', 'ok');
+                waitProPaid();   // дождётся вебхука, активирует тариф и покажет «Готово! Тариф активирован.»
+            } else {
+                PRO.busy = false;
+                if (status === 'failed') setProMsg('Оплата не прошла', 'bad');
+                else if (status === 'cancelled') setProMsg('Оплата отменена', 'info');
+                renderPro();
+            }
+        });
+    } catch(e){
+        PRO.busy = false; setProMsg('Не получилось: ' + e.message, 'bad'); renderPro();
+    }
+}
 async function waitProPaid(){
     const before = PRO.active ? PRO.left : 0;
     setProMsg('Оплата прошла, активирую…', 'info');
@@ -2501,7 +2548,7 @@ async function waitProPaid(){
     PRO.busy = false; setProMsg('Оплата в обработке. Загляни сюда через минуту.', 'bad'); renderPro();
 }
 $('pl-seg').addEventListener('click', e => { const b = e.target.closest('button[data-pt]'); if (b){ plTab = b.dataset.pt; renderPro(); } });
-$('pl-buy').addEventListener('click', e => { const b = e.currentTarget; if (!b.disabled && b.dataset.plan) buyPro(b.dataset.plan); });
+$('pl-buy').addEventListener('click', e => { const b = e.currentTarget; if (!b.disabled && b.dataset.plan) openPaymentChoice(b.dataset.plan); });
 (function(){
     let sx = 0, sy = 0; const el = $('pl-scroll');
     el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
