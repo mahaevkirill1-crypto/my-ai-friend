@@ -146,7 +146,7 @@ VISUAL_EXTRA = 7
 
 # --- ИИ И ВЛОЖЕНИЯ ---
 AI_MODEL = "anthropic/claude-haiku-5-5" 
-AI_MAX_TOKENS = 1000
+AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "3500"))  # потолок ответа обычного чата (раньше 1000 обрезал длинные ответы на полуслове)
 AI_TEMPERATURE = 0.5
 ANSWER_MARK = "[[ANSWER]]"
 MAX_TEXT_LEN = 4000
@@ -2373,6 +2373,13 @@ async def ask(request: Request):
             except Exception:
                 log.exception("retry failed")
                 
+        if not visual_mode and getattr(response.choices[0], "finish_reason", None) == "length" and str(result.get("text") or "").strip():
+            # ответ упёрся в лимит: режем по последнему законченному предложению и предлагаем продолжить
+            t = str(result["text"]).rstrip()
+            cut = max(t.rfind("\n"), t.rfind(". "), t.rfind("! "), t.rfind("? "), t.rfind(".\n"))
+            if cut > len(t) * 0.5: t = t[:cut + 1].rstrip()
+            result["text"] = t + "\n\nОтвет получился длинным. Напиши «продолжай», и я продолжу."
+            
         if not str(result.get("text") or "").strip():
             log.warning("empty reply from model, finish_reason=%s, raw=%r", getattr(response.choices[0], "finish_reason", None), raw[:200])
             result["text"] = "Не получилось ответить, попробуй ещё раз."
