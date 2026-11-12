@@ -299,8 +299,18 @@ PLANS = {
 }
 PRO_WARN_LEFT = 100
 
+# Цена тарифа по валюте: RUB — в копейках (карта через ЮKassa), XTR — в звёздах Telegram
+PLAN_PRICE_RUB = {"start": 119900, "pro": 249900, "business": 599900}
+
+def plan_amount(plan_id, currency):
+    """Сумма счёта в минимальных единицах валюты или None, если тариф/валюта неизвестны."""
+    if plan_id not in PLANS: return None
+    if currency == "XTR": return PLANS[plan_id]["price"]
+    if currency == "RUB": return PLAN_PRICE_RUB.get(plan_id)
+    return None
+
 def plans_public():
-    return [{"id": k, "title": v["title"], "price": v["price"], "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT, "features": v.get("features", [])} for k, v in PLANS.items()]
+    return [{"id": k, "title": v["title"], "price": v["price"], "price_rub": PLAN_PRICE_RUB.get(k, 0) // 100, "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT, "features": v.get("features", [])} for k, v in PLANS.items()]
 
 # --- ЭКОНОМИКА И ЗАЩИТА ---
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
@@ -2226,7 +2236,11 @@ async def ask(request: Request):
         if history_text: messages.append({"role": "user", "content": f"Контекст: вот предыдущие сообщения нашего диалога (для справки, отвечать на них не нужно):\n{history_text}"})
         if search_mode:
             ctx = await search_context(_http, raw_text)
-            if ctx: messages.append({"role": "user", "content": ctx})
+            if ctx:
+                messages.append({"role": "user", "content": ctx})
+            else:
+                log.warning("search uid=%s: поиск вернул пусто (ключ, лимит или ошибка API, см. строку srezai search выше)", uid)
+                messages.append({"role": "user", "content": "Поиск в интернете сейчас не сработал. Не говори, что у тебя нет доступа в интернет вообще: скажи, что поиск временно недоступен, и ответь по своим знаниям, предупредив, что данные могут быть устаревшими."})
         messages.append({"role": "user", "content": user_content})
         if visual_mode:
             response = await chat_json(messages, AI_MAX_TOKENS_VISUAL)
@@ -2353,6 +2367,41 @@ async def pro_invoice(data: dict = Body(...)):
     if res.get("ok"): return {"link": res["result"]}
     return {"error": "Не удалось создать счет", "details": res}
 
+@app.post("/pay/telegram")
+async def pay_telegram(data: dict = Body(...)):
+    """Счёт на тариф: currency=RUB (карта, ЮKassa, цены в копейках) или XTR (звёзды Telegram)."""
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return {"error": "auth"}
+    uid = info["user"]["id"]
+    if not WEBHOOK_SECRET: return {"error": "payments_disabled"}
+    plan_id = data.get("plan_id") or "pro"
+    currency = str(data.get("currency") or "XTR").upper()
+    plan = PLANS.get(plan_id)
+    if not plan: return {"error": "bad_plan"}
+    if currency not in ("RUB", "XTR"): return {"error": "bad_currency"}
+    amount = plan_amount(plan_id, currency)
+    provider_token = ""
+    if currency == "RUB":
+        provider_token = os.getenv("YOOKASSA_PROVIDER_TOKEN", "")
+        if not provider_token: return {"error": "card_disabled"}
+    payload = {
+        "title": f"Holo Friend: {plan['title']}"[:32],  # лимит Telegram на заголовок — 32 символа
+        "description": f"{plan['units']} единиц запросов ({plan['units'] // BUILD_WEIGHT} сборок сайтов и приложений), {plan['days']} дней",
+        "payload": f"{uid}|plan_{plan_id}",
+        "currency": currency,
+        "provider_token": provider_token,
+        "prices": [{"label": f"Тариф «{plan['title']}»", "amount": amount}],
+    }
+    try:
+        r = await tg_call("createInvoiceLink", payload)
+        res = r.json()
+    except Exception:
+        log.exception("pay/telegram: createInvoiceLink упал uid=%s currency=%s", uid, currency)
+        return {"error": "invoice_failed"}
+    if res.get("ok"): return {"invoice_url": res["result"]}
+    log.error("pay/telegram: Telegram отказал %s %s: %s", currency, plan_id, str(res)[:300])
+    return {"error": "invoice_failed", "details": res.get("description")}
+
 @app.post("/clear")
 async def clear(request: Request):
     return {"status": "ok"}
@@ -2360,9 +2409,14 @@ async def clear(request: Request):
 def check_payment(from_id, payload, currency, amount):
     try: p_uid, item = str(payload).split("|", 1); p_uid = int(p_uid)
     except (ValueError, TypeError): return False, "Неверные данные платежа"
-    if p_uid != from_id or currency != "XTR": return False, "Платёж не прошёл проверку"
-    if item == "pro" or item.startswith("plan_"): return (stars_price(item) == amount), ""
-    if stars_price(item) != amount: return False, "Платёж не прошёл проверку"
+    if p_uid != from_id: return False, "Платёж не прошёл проверку"
+    if item == "pro" or item.startswith("plan_"):
+        # сумма должна совпасть с ценой тарифа именно в той валюте, в которой выставлен счёт
+        plan_id = "pro" if item == "pro" else item[5:]
+        expected = plan_amount(plan_id, currency)
+        if expected is None or expected != amount: return False, "Платёж не прошёл проверку"
+        return True, ""
+    if currency != "XTR" or stars_price(item) != amount: return False, "Платёж не прошёл проверку"
     return True, ""
 
 async def tg_call(method, payload):
