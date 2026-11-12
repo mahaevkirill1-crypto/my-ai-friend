@@ -19,15 +19,78 @@ import libsql
 import logging
 from urllib.parse import parse_qsl
 from pydantic import BaseModel
+import html as _html
+import xml.etree.ElementTree as _ET
+
+def _b64_bytes(b64):
+    s = (b64 or "").strip()
+    if s.startswith("data:") and "," in s[:200]: s = s.split(",", 1)[1]
+    return base64.b64decode(s)
+
+def _builtin_docx_to_text(b64, limit):
+    """Word (.docx) без внешних библиотек: docx — это zip, текст лежит в word/document.xml."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(_b64_bytes(b64))) as z:
+            xml = z.read("word/document.xml").decode("utf-8", "ignore")
+    except Exception:
+        return None, "Не удалось прочитать Word-файл. Проверь, что это .docx, а не старый .doc."
+    xml = re.sub(r"</w:p>|<w:br[^>]*/>", "\n", xml)
+    xml = re.sub(r"</w:tc>", "\t", xml)
+    text = _html.unescape(re.sub(r"<[^>]+>", "", xml))
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    if not text: return None, "В Word-файле нет текста."
+    return text[:limit], None
+
+def _builtin_xlsx_to_text(b64, limit):
+    """Excel (.xlsx) без внешних библиотек: строки таблиц в виде текста через табуляцию."""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(_b64_bytes(b64)))
+    except Exception:
+        return None, "Не удалось прочитать Excel-файл. Проверь, что это .xlsx."
+    def _tag(e): return e.tag.rsplit("}", 1)[-1]
+    try:
+        shared = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            for si in _ET.fromstring(z.read("xl/sharedStrings.xml")):
+                shared.append("".join(t.text or "" for t in si.iter() if _tag(t) == "t"))
+        sheets = sorted((n for n in z.namelist() if re.match(r"xl/worksheets/sheet\d+\.xml$", n)), key=lambda n: int(re.search(r"(\d+)\.xml$", n).group(1)))
+        out = []
+        for idx, name in enumerate(sheets, 1):
+            out.append(f"Лист {idx}")
+            for row in _ET.fromstring(z.read(name)).iter():
+                if _tag(row) != "row": continue
+                cells = []
+                for c in row:
+                    if _tag(c) != "c": continue
+                    v = next((x for x in c if _tag(x) == "v"), None)
+                    if c.get("t") == "inlineStr": val = "".join(t.text or "" for t in c.iter() if _tag(t) == "t")
+                    elif v is None or v.text is None: val = ""
+                    elif c.get("t") == "s":
+                        try: val = shared[int(v.text)]
+                        except Exception: val = ""
+                    else: val = v.text
+                    cells.append(val)
+                if any(cells): out.append("\t".join(cells))
+            if sum(len(x) for x in out) > limit: break
+        text = "\n".join(out).strip()
+    except Exception:
+        return None, "Не удалось прочитать Excel-файл."
+    if not text: return None, "В Excel-файле нет данных."
+    return text[:limit], None
+
 try:
-    from extras import wants_search, search_context, docx_to_text, xlsx_to_text, SEARCH_WEIGHT
+    from extras import wants_search, search_context, SEARCH_WEIGHT
 except ImportError:
-    logging.getLogger("holo").warning("extras.py не найден: поиск и Word/Excel отключены")
+    logging.getLogger("holo").warning("extras.py не найден или не импортируется: поиск отключён")
     SEARCH_WEIGHT = 2
     def wants_search(text): return False
     async def search_context(http, query, max_results=4): return None
-    def docx_to_text(b64, limit): return None, "Чтение Word сейчас недоступно на сервере."
-    def xlsx_to_text(b64, limit): return None, "Чтение Excel сейчас недоступно на сервере."
+try:
+    from extras import docx_to_text, xlsx_to_text
+except ImportError:
+    logging.getLogger("holo").warning("extras.py не найден или не импортируется: Word/Excel читаются встроенным разбором")
+    docx_to_text, xlsx_to_text = _builtin_docx_to_text, _builtin_xlsx_to_text
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("holo")
@@ -321,9 +384,9 @@ def is_complex_request(user_text: str) -> bool:
 PUBLISH_FEATURE = "Автоматическая публикация сайтов в Netlify"
 
 PLANS = {
-    "start":    {"title": "Старт",  "price": 899,  "units": 500,  "days": 30,  "features": [PUBLISH_FEATURE]},
-    "pro":      {"title": "Про",    "price": 1999, "units": 1500, "days": 30,  "features": [PUBLISH_FEATURE]},
-    "business": {"title": "Максимум", "price": 4999, "units": 4000, "days": 365, "features": [PUBLISH_FEATURE]},
+    "start":    {"title": "Start",  "price": 899,  "units": 500,  "days": 30,  "features": [PUBLISH_FEATURE]},
+    "pro":      {"title": "Pro",    "price": 1999, "units": 1500, "days": 30,  "features": [PUBLISH_FEATURE]},
+    "business": {"title": "Maximum", "price": 4999, "units": 4000, "days": 365, "features": [PUBLISH_FEATURE]},
 }
 PRO_WARN_LEFT = 100
 
