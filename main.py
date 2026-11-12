@@ -310,7 +310,7 @@ def plan_amount(plan_id, currency):
     return None
 
 def plans_public():
-    return [{"id": k, "title": v["title"], "price": v["price"], "price_rub": PLAN_PRICE_RUB.get(k, 0) // 100, "units": v["units"], "days": v["days"], "builds": v["units"] // BUILD_WEIGHT, "features": v.get("features", [])} for k, v in PLANS.items()]
+    return [{"id": k, "title": v["title"], "price": v["price"], "price_rub": PLAN_PRICE_RUB.get(k, 0) // 100, "days": v["days"], "features": v.get("features", [])} for k, v in PLANS.items()]
 
 # --- ЭКОНОМИКА И ЗАЩИТА ---
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
@@ -2126,7 +2126,7 @@ async def ask(request: Request):
                 else:
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Дальше студия сайтов и приложений доступна на тарифах — выбери подходящий!", "emotion": "happy", "pro": pro_pre, "limit_reached": True}, status_code=402)
             elif pro_pre["left"] < weight:
-                return JSONResponse({"text": f"На эту задачу нужно минимум {weight} единиц, а осталось {pro_pre['left']}. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
+                return JSONResponse({"text": "Для этой задачи не хватает лимита. Пополни тариф.", "emotion": "sleepy", "pro": pro_pre}, status_code=402)
                 
         if build_mode:
             # кулдаун сборки: атомарный слот, повтор раньше чем через BUILD_COOLDOWN секунд в нейросеть не уходит
@@ -2162,7 +2162,7 @@ async def ask(request: Request):
                     conn.commit()
                     pro_now = pro_info(conn, uid, now)
                     if pro_now.get("active") and pro_now.get("left", 0) > 0:
-                        msg = f"На этот запрос нужно {weight} единиц, а осталось {pro_now['left']}. Пополни тариф."
+                        msg = "Для этого запроса не хватает лимита. Пополни тариф."
                     else:
                         msg = "Лимит Pro закончился. Продли подписку."
                     return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_now}, status_code=402)
@@ -2361,7 +2361,7 @@ async def pro_invoice(data: dict = Body(...)):
     plan_id = data.get("plan") or "pro"
     plan = PLANS.get(plan_id)
     if not plan: return {"error": "bad_plan"}
-    payload = {"title": f"Holo Friend «{plan['title']}» — {plan['days']} дней", "description": f"{plan['units']} единиц запросов ({plan['units'] // BUILD_WEIGHT} сборок сайтов и приложений), без дневных лимитов", "payload": f"{uid}|plan_{plan_id}", "currency": "XTR", "provider_token": "", "prices": [{"label": f"Тариф «{plan['title']}»", "amount": plan["price"]}]}
+    payload = {"title": f"Holo Friend «{plan['title']}» — {plan['days']} дней", "description": f"Тариф «{plan['title']}» на {plan['days']} дней: больше запросов и сборок сайтов, автопубликация", "payload": f"{uid}|plan_{plan_id}", "currency": "XTR", "provider_token": "", "prices": [{"label": f"Тариф «{plan['title']}»", "amount": plan["price"]}]}
     r = await tg_call("createInvoiceLink", payload)
     res = r.json()
     if res.get("ok"): return {"link": res["result"]}
@@ -2386,7 +2386,7 @@ async def pay_telegram(data: dict = Body(...)):
         if not provider_token: return {"error": "card_disabled"}
     payload = {
         "title": f"Holo Friend: {plan['title']}"[:32],  # лимит Telegram на заголовок — 32 символа
-        "description": f"{plan['units']} единиц запросов ({plan['units'] // BUILD_WEIGHT} сборок сайтов и приложений), {plan['days']} дней",
+        "description": f"Тариф «{plan['title']}» на {plan['days']} дней: больше запросов и сборок сайтов, автопубликация",
         "payload": f"{uid}|plan_{plan_id}",
         "currency": currency,
         "provider_token": provider_token,
