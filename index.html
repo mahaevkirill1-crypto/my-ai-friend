@@ -10,11 +10,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
 <style>
     /* ПЛАВНОЕ ПОЯВЛЕНИЕ ТЕКСТА: слово мягко проявляется (без размытия) */
-    .rvw { opacity: 0; transition: opacity .4s ease; }
-    .rvw.on { opacity: 1; }
+    .rvw { display: none; }
+    .rvw.on { display: inline; animation: rvIn .4s ease both; }
     .rvc { animation: rvIn .4s ease both; }
     @keyframes rvIn { from { opacity: 0; } to { opacity: 1; } }
-    @media (prefers-reduced-motion: reduce) { .rvw { opacity: 1; transition: none; } .rvc { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { .rvw, .rvw.on { display: inline; animation: none; } .rvc { animation: none; } }
 
     /* SPLASH */
     #splash { position: fixed; inset: 0; z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(520px 380px at 50% 45%, rgba(255,255,255,.08), transparent 70%), #1E1F22; transition: opacity .5s ease, visibility 0s linear .5s; animation: splashHide .5s ease 1.8s forwards; }
@@ -1963,8 +1963,7 @@ function revealAnimate(root, row){
         const t = node.nodeValue, wrap = document.createElement('span'); wrap.className = 'rvt';
         t.split(/(\s+)/).forEach(part => {
             if (!part) return;
-            if (/^\s+$/.test(part)) wrap.appendChild(document.createTextNode(part));
-            else { const w = document.createElement('span'); w.className = 'rvw'; w.textContent = part; wrap.appendChild(w); words.push({ el: w, s: off }); }
+            const w = document.createElement('span'); w.className = 'rvw'; w.textContent = part; wrap.appendChild(w); words.push({ el: w, s: off });
             off += part.length;
         });
         node.parentNode.replaceChild(wrap, node);
@@ -1972,7 +1971,14 @@ function revealAnimate(root, row){
     });
     const speed = Math.max(0.09, total / 6000);   // символов в мс: не медленнее ~90/с, но длинный ответ — не дольше ~6 с
     let pos = 0, cur = 0, last = performance.now(), done = false, tail = false;
-    const follow = () => { if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; };
+    // следим за печатью, но не дальше начала ответа: длинный ответ не уносит экран в самый низ
+    const follow = () => {
+        if (!stick || userScrolled) return;
+        const cr = chatHistory.getBoundingClientRect(), rr = row.getBoundingClientRect();
+        const over = rr.bottom - (cr.bottom - 8);          // сколько ответа ушло ниже экрана
+        const room = rr.top - (cr.top + 8);                // сколько можно прокрутить, пока начало ответа видно
+        if (over > 0 && room > 0) chatHistory.scrollTop += Math.min(over, room);
+    };
     const finish = () => {
         if (done) return; done = true;
         items.forEach(o => { if (o.wrap.parentNode) o.wrap.parentNode.replaceChild(o.n, o.wrap); });
