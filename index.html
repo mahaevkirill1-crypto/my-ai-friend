@@ -609,6 +609,25 @@
     .pl-main:active, .pl-alt:active { transform: scale(.98); }
     .pl-main:disabled { opacity: .5; }
     .pl-note { text-align: center; font-size: 13px; line-height: 1.4; color: #8D8A82; padding: 2px 10px; }
+    /* ---- Нижняя шторка выбора способа оплаты ---- */
+    .pay-sheet { position: fixed; inset: 0; z-index: 95; visibility: hidden; pointer-events: none; transition: visibility 0s linear .3s; }
+    .pay-sheet.open { visibility: visible; pointer-events: auto; transition: visibility 0s; }
+    .pay-bg { position: absolute; inset: 0; background: rgba(2,3,8,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .3s ease; }
+    .pay-sheet.open .pay-bg { opacity: 1; }
+    .pay-box { position: absolute; left: 0; right: 0; bottom: 0; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); background: var(--cl-card, var(--ui-bg-1, #2A2B2F)); border: 1px solid var(--ui-line-hi, rgba(255,255,255,.16)); border-bottom: 0; border-radius: 26px 26px 0 0; box-shadow: 0 -18px 50px rgba(0,0,0,.55); transform: translateY(105%); transition: transform .32s cubic-bezier(.2,.8,.2,1); font-family: 'Manrope', system-ui, sans-serif; }
+    .pay-sheet.open .pay-box { transform: none; }
+    .pay-grab { width: 40px; height: 4px; border-radius: 4px; background: var(--ui-line-hi, rgba(255,255,255,.2)); margin: 0 auto 6px; }
+    .pay-title { margin: 2px 0 0; text-align: center; font-size: 20px; font-weight: 700; color: var(--ui-tx-hi, #EAF0FA); }
+    .pay-sub { margin: 0 0 4px; text-align: center; font-size: 14px; color: var(--ui-tx-mid, #A7B4CC); }
+    .pay-opt { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 68px; padding: 12px 16px; border-radius: 18px; border: 1px solid var(--ui-line-hi, rgba(255,255,255,.16)); background: var(--ui-bg-3, #34353A); color: var(--ui-tx-hi, #EAF0FA); font-family: inherit; text-align: left; cursor: pointer; transition: transform .15s ease, border-color .2s ease; -webkit-tap-highlight-color: transparent; }
+    .pay-opt:active { transform: scale(.98); }
+    .pay-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,.08); font-size: 22px; }
+    .pay-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .pay-tx b { font-size: 16px; font-weight: 700; }
+    .pay-tx small { font-size: 12.5px; color: var(--ui-tx-mid, #A7B4CC); }
+    .pay-pr { flex: none; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pay-cancel { height: 52px; border: 0; border-radius: 16px; background: transparent; color: var(--ui-tx-mid, #A7B4CC); font: 600 16px 'Manrope', system-ui, sans-serif; cursor: pointer; }
+    .pay-cancel:active { background: rgba(255,255,255,.06); }
     #pro .ps-msg { margin: 0; text-align: center; }
 
     /* ДУМАЕТ: ровный индикатор действий и живая иконка бота */
@@ -1483,7 +1502,27 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <div id="pro-msg" class="ps-msg"></div>
     <button class="pl-main" id="pl-buy" type="button"></button>
     <button class="pl-alt" id="pro-later" type="button">Остаться на Free</button>
-    <div class="pl-note">*Оплата в Telegram Stars. При пополнении единицы и срок суммируются.</div>
+    <div class="pl-note">*Оплата картой или звёздами Telegram. При пополнении лимит и срок суммируются.</div>
+  </div>
+</div>
+
+<div id="pay-sheet" class="pay-sheet" role="dialog" aria-modal="true" aria-labelledby="pay-title" aria-hidden="true">
+  <div class="pay-bg" id="pay-bg"></div>
+  <div class="pay-box">
+    <div class="pay-grab"></div>
+    <h3 class="pay-title" id="pay-title">Способ оплаты</h3>
+    <p class="pay-sub" id="pay-sub"></p>
+    <button type="button" class="pay-opt" id="pay-rub">
+      <span class="pay-ic">💳</span>
+      <span class="pay-tx"><b>Оплатить картой</b><small>Банковская карта</small></span>
+      <span class="pay-pr" id="pay-rub-pr"></span>
+    </button>
+    <button type="button" class="pay-opt" id="pay-xtr">
+      <span class="pay-ic">⭐</span>
+      <span class="pay-tx"><b>Оплатить звездами</b><small>Telegram Stars</small></span>
+      <span class="pay-pr" id="pay-xtr-pr"></span>
+    </button>
+    <button type="button" class="pay-cancel" id="pay-cancel">Отмена</button>
   </div>
 </div>
 
@@ -2360,7 +2399,7 @@ function showBanned(){
     document.body.appendChild(d);
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, units: 500, days: 30, builds: 5, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Про', price: 1999, units: 1500, days: 30, builds: 15, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'business', title: 'Максимум', price: 4999, units: 4000, days: 365, builds: 40, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Про', price: 1999, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'business', title: 'Максимум', price: 4999, days: 365, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -2399,6 +2438,11 @@ const PL_DESC = {
   pro: 'Pro-подписка дает доступ к самой мощной модели бота. Сборки получаются более сложными, с лучшей анимацией, продуманным дизайном и чистым кодом. Также ты получаешь больше лимитов.',
   business: 'Самая мощная модель бота и большой запас лимитов на целый год: для тех, кто делает проекты для клиентов.'
 };
+const PL_FEAT = {
+  start: ['Базовый лимит запросов', 'Базовый запас сборок', 'Автопубликация'],
+  pro: ['Повышенный лимит запросов', 'Больше сборок для работы', 'Автопубликация'],
+  business: ['Максимальный лимит запросов', 'Огромный запас сборок', 'Автопубликация']
+};
 const PL_NAME = { start: 'Старт', pro: 'Про', business: 'Максимум' };
 const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Бизнес': 'business', 'Максимум': 'business', 'Базовый': 'start', 'Обычный': 'pro', 'Для клиентов': 'business' };
 const plName = p => PL_NAME[p.id] || p.title;
@@ -2414,17 +2458,17 @@ function renderPro(){
     const buy = $('pl-buy');
     let card;
     if (plTab === 'free'){
-        const items = ['Общение с голо-другом', 'Разбор фото и файлов', (PRO.free || 20) + ' единиц запросов в день'];
+        const items = ['Общение с голо-другом', 'Разбор фото и файлов', 'Ежедневный лимит запросов'];
         if (PRO.trial) items.push('Одна бесплатная сборка сайта или приложения');
         card = `<div class="pl-card"><h3 class="pl-name">Free</h3><p class="pl-sub">Для знакомства с голо-другом</p>${feat(items)}</div>`;
         buy.style.display = 'none';
     } else {
-        const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, units: 0, days: 30, builds: 0 };
+        const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, price_rub: 0, days: 30 };
         const mine = PRO.active && curPlanId() === p.id;
         const badge = mine ? 'Ваш план' : ((PLAN_STYLE[p.id] || {}).badge || '');
         card = `<div class="pl-card"><h3 class="pl-name">${plName(p)}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p><p class="pl-desc">${PL_DESC[p.id] || ''}</p>` +
-            feat([`<b>${p.builds}</b> сборок сайтов и приложений`, `<b>${fmtN(p.units)}</b> единиц запросов: чат, фото, иллюстрации`, 'Самая мощная модель для сборок', 'Без дневных лимитов', ...(p.features || [])]) +
-            `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>Оплата в Telegram Stars</span></div></div>`;
+            feat(PL_FEAT[p.id] || ['Автопубликация']) +
+            `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${p.price_rub ? fmtN(p.price_rub) + ' ₽ или ' : ''}${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>Оплата картой или звёздами Telegram</span></div></div>`;
         buy.style.display = '';
         buy.dataset.plan = p.id;
         buy.disabled = !refOk() || !!PRO.busy;
@@ -2434,9 +2478,10 @@ function renderPro(){
     $('pro-later').textContent = PRO.active ? 'Закрыть' : 'Остаться на Free';
     const st = $('pro-status');
     if (PRO.active){
-        const pct = Math.max(2, Math.min(100, Math.round(PRO.left / (PRO.limit || 1) * 100)));
+        const leftPct = Math.max(0, Math.min(100, Math.round(PRO.left / (PRO.limit || 1) * 100)));
+        const pct = Math.max(2, leftPct);   // полоска как раньше: минимум 2%, чтобы была видна
         st.style.display = '';
-        st.innerHTML = `<div class="row"><span>Тариф «${(() => { const cp = (PRO.plans || []).find(x => x.id === curPlanId()); return cp ? plName(cp) : (PRO.plan || 'Pro'); })()}»</span><span>до ${new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU')}</span></div><div class="bar" style="height:8px;margin:10px 0 8px"><i style="width:${pct}%"></i></div><div class="row sm"><span>Осталось ${fmtN(PRO.left)} из ${fmtN(PRO.limit)}</span><span>≈ ${Math.floor(PRO.left / w)} сборок</span></div>`;
+        st.innerHTML = `<div class="row"><span>Тариф «${(() => { const cp = (PRO.plans || []).find(x => x.id === curPlanId()); return cp ? plName(cp) : (PRO.plan || 'Pro'); })()}»</span><span>до ${new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU')}</span></div><div class="bar" style="height:8px;margin:10px 0 8px"><i style="width:${pct}%"></i></div><div class="row sm"><span>Осталось ${leftPct}% лимита</span></div>`;
         $('pro-btn').style.color = 'var(--ui-gold-hi)';
     } else {
         st.style.display = 'none'; st.innerHTML = '';
@@ -2483,28 +2528,28 @@ async function buyPro(planId){
         PRO.busy = false; setProMsg('Не получилось: ' + e.message, 'bad'); renderPro();
     }
 }
-function planPriceText(planId){
-    const p = (PRO.plans || []).find(x => x.id === planId);
-    if (!p) return '';
-    return '«' + p.title + '»: ' + (p.price_rub ? p.price_rub + ' ₽ или ' : '') + p.price + ' ⭐';
+let payPlan = '';
+function closePaymentChoice(){
+    const s = $('pay-sheet');
+    s.classList.remove('open'); s.setAttribute('aria-hidden', 'true');
 }
 function openPaymentChoice(planId){
     if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
     if (PRO.busy) return;
-    if (!tg.showPopup){ buyWithCurrency(planId, 'XTR'); return; }
-    tg.showPopup({
-        title: 'Способ оплаты',
-        message: ('Тариф ' + planPriceText(planId) + '\nКак удобнее оплатить?').trim(),
-        buttons: [
-            { id: 'RUB', type: 'default', text: 'Оплатить картой (₽)' },
-            { id: 'XTR', type: 'default', text: 'Оплатить звездами (⭐)' },
-            { type: 'cancel' }
-        ]
-    }, id => {
-        if (id === 'RUB') buyWithCurrency(planId, 'RUB');
-        else if (id === 'XTR') buyWithCurrency(planId, 'XTR');
-    });
+    const p = (PRO.plans || []).find(x => x.id === planId);
+    payPlan = planId;
+    $('pay-sub').textContent = 'Тариф «' + (p ? plName(p) : planId) + '»' + (p && p.days ? ' · ' + p.days + ' дней' : '');
+    $('pay-xtr-pr').textContent = p && p.price ? fmtN(p.price) + ' ⭐' : '';
+    $('pay-rub-pr').textContent = p && p.price_rub ? fmtN(p.price_rub) + ' ₽' : '';
+    $('pay-rub').style.display = p && p.price_rub ? '' : 'none';   // старый сервер без цен в рублях: только звёзды
+    const s = $('pay-sheet');
+    s.classList.add('open'); s.setAttribute('aria-hidden', 'false');
 }
+$('pay-bg').addEventListener('click', closePaymentChoice);
+$('pay-cancel').addEventListener('click', closePaymentChoice);
+$('pay-rub').addEventListener('click', () => { const id = payPlan; closePaymentChoice(); if (id) buyWithCurrency(id, 'RUB'); });
+$('pay-xtr').addEventListener('click', () => { const id = payPlan; closePaymentChoice(); if (id) buyWithCurrency(id, 'XTR'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('pay-sheet').classList.contains('open')) closePaymentChoice(); });
 async function buyWithCurrency(planId, currency){
     if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
     if (PRO.busy) return;
