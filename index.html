@@ -1237,6 +1237,27 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 /* Примеры работ: кнопка в онбординге и модальное окно */
 #welcome .wl-ghost { width: 100%; height: 46px; margin-top: 10px; padding: 0; border: 1px solid var(--ui-line-hi); border-radius: 14px; background: transparent; color: var(--ui-tx-hi); font: 600 15px 'Manrope', system-ui, sans-serif; cursor: pointer; }
 #welcome .wl-ghost:active { filter: brightness(.9); }
+
+/* ---- Онбординг: один экран, чекбокс согласия ---- */
+#welcome .wl-logo { width: 96px; height: 85px; margin-bottom: 32px; color: var(--ui-tx-hi); }
+#welcome .wl-logo svg { display: block; overflow: visible; width: 100%; height: 100%; }
+#welcome .wl-consent { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 2px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.wl-check { flex: none; width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 7px; border: 1.5px solid var(--ui-line-hi); background: transparent; color: var(--cl-acc-fg, #111214); cursor: pointer; transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease; }
+.wl-check svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: scale(.6); transition: opacity .15s ease, transform .18s ease; }
+.wl-check.on { background: var(--cl-acc, #F2F3F5); border-color: var(--cl-acc, #F2F3F5); }
+.wl-check.on svg { opacity: 1; transform: none; }
+.wl-check:active { transform: scale(.92); }
+.wl-consent-tx { font: 500 14px/1.45 'Manrope', system-ui, sans-serif; color: var(--ui-tx-mid); text-align: left; }
+.wl-consent-tx a { color: var(--ui-tx-hi); text-decoration: underline; text-underline-offset: 3px; }
+/* ошибка: красная обводка на 2 секунды (класс снимает JS) */
+.wl-check.wl-err { border-color: #FF453A; box-shadow: 0 0 0 3px rgba(255,69,58,.28); animation: wlShake .35s ease; }
+#welcome .wl-btn.wl-err, :root:root body #welcome .wl-btn.wl-err { box-shadow: 0 0 0 2px #FF453A; }
+.wl-hint { height: 20px; margin-top: 10px; text-align: center; font: 600 13px/20px 'Manrope', system-ui, sans-serif; color: #FF453A; opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+.wl-hint.show { opacity: 1; }
+@keyframes wlShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .wl-check.wl-err { animation: none; } }
+/* подсказка при долгом ожидании внутри списка шагов сборки */
+.st-slow { padding: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--ui-tx-lo); }
 #examples-modal { align-items: center; justify-content: center; padding: 16px; z-index: 950; background: rgba(22,23,26,.62); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 #examples-modal .ex-dialog { width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto; padding: 18px; border-radius: 20px; background: var(--ui-bg-1); border: 1px solid var(--ui-line-hi); box-shadow: 0 40px 80px -30px rgba(0,0,0,.7); }
 #examples-modal .ex-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
@@ -1289,7 +1310,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
   if (tg) { try { tg.setHeaderColor(c); tg.setBackgroundColor(c); } catch(e) {} }
 } catch(e) {} })();
 </script>
-<div id="splash"><div class="sp-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="spc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#spc)"><rect class="sp-f" x="15" y="5" width="42" height="42" fill="currentColor"/></g><circle class="sp-o" cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line class="sp-pl" x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="word">HOLO FRIEND</div></div>
+<div id="splash"><div class="sp-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="spc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#spc)"><rect class="sp-f" x="15" y="5" width="21" height="42" fill="currentColor"/></g><circle class="sp-o" cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line class="sp-pl" x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="word">HOLO FRIEND</div></div>
 
 <div id="hack-overlay" class="glitch-text"><div>SYSTEM HACKED</div><div style="font-size: 40px; margin: 20px 0;">ERROR 404</div></div>
 
@@ -1311,34 +1332,20 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 </div>
 
 <div id="welcome">
-  <div class="wl-top">
-    <span class="wl-brand"><i></i>HOLO FRIEND</span>
-  </div>
   <div class="wl-stage">
     <div class="welcome-slide" data-slide="1">
-      <div class="wl-ico"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/><circle cx="6.5" cy="6.5" r=".6"/><circle cx="9" cy="6.5" r=".6"/><path d="M7 14h6M7 17h10"/></svg></div>
-      <div class="wl-step">Шаг 1</div>
-      <h1>Сайты за <em>минуту</em></h1>
-      <p>Опиши идею в чате, и я соберу готовый сайт или приложение. Без кода и без дизайнера.</p>
-    </div>
-    <div class="welcome-slide" data-slide="2" hidden>
-      <div class="wl-ico"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></div>
-      <div class="wl-step">Шаг 2</div>
-      <h1>Что можно <em>собрать</em></h1>
-      <p>Лендинги, визитки, портфолио, калькуляторы и мини-игры. Правь результат обычными словами: «сделай темнее», «добавь кнопку».</p>
-    </div>
-    <div class="welcome-slide" data-slide="3" hidden>
-      <div class="wl-ico"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3z"/></svg></div>
-      <div class="wl-step">Шаг 3</div>
-      <h1>Первая сборка <em>бесплатно</em></h1>
-      <p>Ещё я отвечаю на вопросы и разбираю фото и файлы.</p>
+      <div class="wl-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="wlc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#wlc)"><rect x="15" y="5" width="21" height="42" fill="currentColor"/></g><circle cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <h1>Holo Friend</h1>
+      <p>Создавай сайты, игры и приложения с помощью ИИ за 1 минуту. Без кода. С автопубликацией</p>
     </div>
   </div>
   <div class="wl-bottom">
-    <div class="welcome-dots"><span class="on"></span><span></span><span></span></div>
-    <button class="welcome-btn wl-btn" id="welcome-next" type="button">Далее</button>
-    <button class="welcome-btn wl-btn" id="welcome-try" type="button" style="display:none">Попробовать</button>
-    <button class="wl-ghost" id="welcome-examples" type="button">Посмотреть примеры работ</button>
+    <div class="wl-consent" id="wl-consent">
+      <button type="button" class="wl-check" id="wl-check" role="checkbox" aria-checked="false" aria-labelledby="wl-consent-tx"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg></button>
+      <span class="wl-consent-tx" id="wl-consent-tx">Я согласен с <a href="#" id="wl-policy">политикой конфиденциальности</a></span>
+    </div>
+    <button class="welcome-btn wl-btn" id="welcome-start" type="button">Начать</button>
+    <div class="wl-hint" id="wl-hint" role="alert" aria-live="polite">Сначала примите политику конфиденциальности</div>
   </div>
 </div>
 
@@ -2337,8 +2344,9 @@ chatHistory.addEventListener('scroll', updDown, { passive: true });
 new MutationObserver(() => setTimeout(updDown, 120)).observe(chatHistory, { childList: true });
 downBtn.addEventListener('click', () => { userScrolled = false; stick = true; chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }); });
 if (window.ResizeObserver) new ResizeObserver(() => { syncBody(); if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe($('hud-panel'));
-let typingRow = null, typingT = 0, stepsMode = false, stT0 = 0;
-function showTyping(stages, ms){
+let typingRow = null, typingT = 0, typingSlowT = [], stepsMode = false, stT0 = 0;
+const SLOW_AFTER = 15000, SLOWER_AFTER = 45000;   // через сколько мс менять текст ожидания
+function showTyping(stages, ms, slowText){
     hideTyping();
     const list = stages && stages.length ? stages : ['Анализирую...', 'Думаю над ответом...', 'Формулирую...'];
     const row = document.createElement('div'); row.className = 'msg-row bot thk';
@@ -2346,8 +2354,21 @@ function showTyping(stages, ms){
     const sp = row.querySelector('.shimmer'); let n = 0; sp.textContent = list[0];
     typingT = setInterval(() => { if (n < list.length - 1){ n++; sp.textContent = list[n]; sp.classList.remove('stg'); void sp.offsetWidth; sp.classList.add('stg'); } }, ms || 2500);
     chatHistory.appendChild(row); smoothBottom(); typingRow = row;
+
+    // запрос идёт долго: меняем текст .shimmer на более понятный (или подсказку под шагами, если сервер присылает реальные статусы)
+    const say = text => {
+        if (typingRow !== row) return;            // запрос уже завершён
+        clearInterval(typingT);                   // больше не листаем этапы
+        const shim = row.querySelector('.shimmer'), bar = row.querySelector('.stbar');
+        if (shim){ shim.textContent = text; shim.classList.remove('stg'); void shim.offsetWidth; shim.classList.add('stg'); }
+        else if (bar){ let h = bar.querySelector('.st-slow'); if (!h){ h = document.createElement('div'); h.className = 'st-slow'; bar.appendChild(h); } h.textContent = text; }
+    };
+    typingSlowT = [
+        setTimeout(() => say(slowText || 'Ответ занимает чуть больше времени, чем обычно. Пожалуйста, подожди...'), SLOW_AFTER),
+        setTimeout(() => say('Всё ещё работаю над этим. Сложные проекты могут занимать больше времени, спасибо за терпение...'), SLOWER_AFTER)
+    ];
 }
-function hideTyping(){ clearInterval(typingT); stepsMode = false; if (typingRow){ typingRow.remove(); typingRow = null; } }
+function hideTyping(){ clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; stepsMode = false; if (typingRow){ typingRow.remove(); typingRow = null; } }
 // ---- сводка действий: реальные этапы сборки списком, выполненные с галочкой ----
 const ST_CK = '<svg class="st-ck" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
 function stepRow(label){
@@ -2368,13 +2389,14 @@ function setTypingStatus(s){
     const bar = typingRow.querySelector('.stbar'), rows = bar.querySelectorAll('.st-row');
     if (rows.length && rows[rows.length - 1].dataset.t === s) return;
     rows.forEach(stepDone);
-    bar.appendChild(stepRow(s));
+    bar.insertBefore(stepRow(s), bar.querySelector('.st-slow'));   // подсказка о долгом ожидании остаётся внизу
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 function finishSteps(){   // успех: все шаги с галочкой, плашка остаётся в чате одной строкой (по тапу раскрывается)
     const row = typingRow, bar = row && row.querySelector('.stbar');
-    clearInterval(typingT); typingRow = null; stepsMode = false;
+    clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; typingRow = null; stepsMode = false;
     if (!bar) return;
+    const slowEl = bar.querySelector('.st-slow'); if (slowEl) slowEl.remove();
     const rows = bar.querySelectorAll('.st-row'); rows.forEach(stepDone);
     const sec = Math.max(1, Math.round((Date.now() - stT0) / 1000));
     const sum = document.createElement('button'); sum.type = 'button'; sum.className = 'st-sum';
@@ -3124,8 +3146,7 @@ async function sendMessage(text, opts) {
     try {
         const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд|мес{1,2}енджер|web-?socket|веб-?сокет)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
         const isSearchReq = !att && !isBuildReq && /найди в (интернете|сети|гугле)|погугли|загугли|поищи в|в интернете|последние новости|что нового|новости|курс (доллара|евро|биткоина|валют)|погода (в|на)|сколько стоит|актуальн/i.test(text);
-        showTyping(isBuildReq ? ['Анализирую запрос...', 'Проектирую дизайн...', 'Пишу код...', 'Собираю проект...'] : isSearchReq ? ['Ищу в интернете...', 'Читаю источники...', 'Формулирую ответ...'] : att ? ['Смотрю вложение...', 'Анализирую...', 'Формулирую...'] : null, isBuildReq ? 6000 : 2500);
-        clearTimeout(window._slowT); window._slowT = setTimeout(() => toast('Работаю над этим, может занять до минуты…'), 9000);
+        showTyping(isBuildReq ? ['Анализирую запрос...', 'Проектирую дизайн...', 'Пишу код...', 'Собираю проект...'] : isSearchReq ? ['Ищу в интернете...', 'Читаю источники...', 'Формулирую ответ...'] : att ? ['Смотрю вложение...', 'Анализирую...', 'Формулирую...'] : null, isBuildReq ? 6000 : 2500, isBuildReq ? 'Сборка занимает чуть больше времени, чем обычно. Пожалуйста, подожди...' : isSearchReq ? 'Поиск занимает чуть больше времени, чем обычно. Пожалуйста, подожди...' : null);
         const deliver = (data, live) => {
             if (data.pro){ Object.assign(PRO, data.pro); renderPro(); }
             if (editing) setEditTarget(null);
@@ -3247,7 +3268,6 @@ async function sendMessage(text, opts) {
         }
     } finally {
         sendAbort = null; setStopMode(false);
-        clearTimeout(window._slowT);
         input.readOnly = false;
         sendBtn.disabled = false;
         refocus();
@@ -3727,43 +3747,45 @@ function showConsent(){
     if (store.get(KEY, false) || chatHistoryForServer.length > 0) {
         store.set(KEY, true);
         el.classList.remove('open');
-        showConsent();
+        showConsent();   // тем, кто уже видел приветствие, но не принял политику, покажется прежнее окно согласия
         return;
     }
     el.classList.add('open');
 
-    const slides = [...el.querySelectorAll('.welcome-slide')];
-    const dots   = [...el.querySelectorAll('.welcome-dots span')];
-    const next   = $('welcome-next');
-    const tryBtn = $('welcome-try');
-    let idx = 0;
-    function render(){
-        slides.forEach((s,i) => s.hidden = i !== idx);
-        dots.forEach((d,i) => d.classList.toggle('on', i === idx));
-        const last = idx === slides.length-1;
-        next.style.display = last ? 'none' : '';
-        tryBtn.style.display = last ? '' : 'none';
-    }
+    const row = $('wl-consent'), check = $('wl-check'), btn = $('welcome-start'), hint = $('wl-hint');
+    let agreed = false, errT = 0;
+    const haptic = fn => { try { if (tg && tg.HapticFeedback) fn(tg.HapticFeedback); } catch (_) {} };
 
-    function finish(){
+    function clearErr(){
+        clearTimeout(errT);
+        check.classList.remove('wl-err'); btn.classList.remove('wl-err'); hint.classList.remove('show');
+    }
+    function setAgreed(v){
+        agreed = v;
+        check.classList.toggle('on', v);
+        check.setAttribute('aria-checked', v ? 'true' : 'false');
+        if (v) clearErr();
+        haptic(h => h.selectionChanged());
+    }
+    // клик по строке (чекбокс или текст) переключает согласие; клик по ссылке открывает политику
+    row.addEventListener('click', e => {
+        if (e.target.closest('a')) { e.preventDefault(); openPrivacy(); return; }
+        setAgreed(!agreed);
+    });
+    btn.addEventListener('click', () => {
+        if (!agreed) {
+            haptic(h => h.notificationOccurred('error'));
+            clearErr(); void check.offsetWidth;   // перезапуск анимации при повторном нажатии
+            check.classList.add('wl-err'); btn.classList.add('wl-err'); hint.classList.add('show');
+            errT = setTimeout(clearErr, 2000);
+            return;
+        }
+        haptic(h => h.impactOccurred('light'));
+        store.set(PRIVACY_KEY, true);   // согласие принято здесь, отдельное окно согласия больше не нужно
         store.set(KEY, true);
         el.style.opacity = '0';
-        setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; showConsent(); }, 400);
-    }
-
-    function advance(){
-        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-        if (idx < slides.length-1) { idx++; render(); }
-        else finish();
-    }
-
-    next.addEventListener('click', advance);
-    tryBtn.addEventListener('click', () => {
-        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-        finish();
+        setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; }, 400);
     });
-
-    render();
 })();
 
 // ---------- Примеры работ: живые превью (мини-версии проектов в iframe, вшиты в код) ----------
@@ -3807,7 +3829,6 @@ function openExamples(){
 }
 function closeExamples(){ $('examples-modal').classList.remove('open'); clearExamples(); }
 $('ex-grid').addEventListener('click', e => { const b = e.target.closest('.ex-open'); if (b) openFull(+b.dataset.i); });
-$('welcome-examples').addEventListener('click', openExamples);
 $('ex-btn').addEventListener('click', openExamples);
 $('ex-close').addEventListener('click', closeExamples);
 $('examples-modal').addEventListener('click', e => { if (e.target === $('examples-modal')) closeExamples(); });
