@@ -9,12 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
 <style>
-    /* ПЛАВНОЕ ПОЯВЛЕНИЕ ТЕКСТА: слово выплывает из размытия */
-    .rvw { opacity: 0; filter: blur(2px); transition: opacity .45s ease, filter .45s ease; }
-    .rvw.on { opacity: 1; filter: blur(0); }
-    .rvc { animation: rvIn .45s ease both; }
-    @keyframes rvIn { from { opacity: 0; filter: blur(2px); } to { opacity: 1; filter: blur(0); } }
-    @media (prefers-reduced-motion: reduce) { .rvw { opacity: 1; filter: none; transition: none; } .rvc { animation: none; } }
+    /* ПЛАВНОЕ ПОЯВЛЕНИЕ ТЕКСТА: слово мягко проявляется (без размытия) */
+    .rvw { opacity: 0; transition: opacity .4s ease; }
+    .rvw.on { opacity: 1; }
+    .rvc { animation: rvIn .4s ease both; }
+    @keyframes rvIn { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .rvw { opacity: 1; transition: none; } .rvc { animation: none; } }
 
     /* SPLASH */
     #splash { position: fixed; inset: 0; z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(520px 380px at 50% 45%, rgba(255,255,255,.08), transparent 70%), #1E1F22; transition: opacity .5s ease, visibility 0s linear .5s; animation: splashHide .5s ease 1.8s forwards; }
@@ -1246,7 +1246,8 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 #welcome .wl-ghost:active { filter: brightness(.9); }
 
 /* ---- Онбординг: один экран, чекбокс согласия ---- */
-#welcome .wl-logo { width: 96px; height: 85px; margin-bottom: 32px; color: var(--ui-tx-hi); }
+#welcome .wl-logo { width: 96px; height: 85px; margin-bottom: 20px; color: var(--ui-tx-hi); }
+#welcome .wl-tag { max-width: 280px; font-size: 17px; line-height: 1.4; }
 #welcome .wl-logo svg { display: block; overflow: visible; width: 100%; height: 100%; }
 #welcome .wl-consent { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; padding: 2px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .wl-check { flex: none; width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 7px; border: 1.5px solid var(--ui-line-hi); background: transparent; color: var(--cl-acc-fg, #111214); cursor: pointer; transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease; }
@@ -1342,8 +1343,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
   <div class="wl-stage">
     <div class="welcome-slide" data-slide="1">
       <div class="wl-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="wlc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#wlc)"><rect x="15" y="5" width="21" height="42" fill="currentColor"/></g><circle cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-      <h1>Holo Friend</h1>
-      <p>Создавай сайты, игры и приложения с помощью ИИ за 1 минуту. Без кода. С автопубликацией</p>
+      <p class="wl-tag">Инструмент для создания ваших проектов</p>
     </div>
   </div>
   <div class="wl-bottom">
@@ -2382,8 +2382,8 @@ function showTyping(stages, ms, slowText){
         else if (bar){ let h = bar.querySelector('.st-slow'); if (!h){ h = document.createElement('div'); h.className = 'st-slow'; bar.appendChild(h); } h.textContent = text; }
     };
     typingSlowT = [
-        setTimeout(() => say(slowText || 'Ответ занимает чуть больше времени, чем обычно. Пожалуйста, подожди...'), SLOW_AFTER),
-        setTimeout(() => say('Всё ещё работаю над этим. Сложные проекты могут занимать больше времени, спасибо за терпение...'), SLOWER_AFTER)
+        setTimeout(() => say(slowText || 'Чуть дольше обычного, подожди…'), SLOW_AFTER),
+        setTimeout(() => say('Всё ещё работаю, спасибо за терпение…'), SLOWER_AFTER)
     ];
 }
 function hideTyping(){ clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; stepsMode = false; if (typingRow){ typingRow.remove(); typingRow = null; } }
@@ -3164,7 +3164,7 @@ async function sendMessage(text, opts) {
     try {
         const isBuildReq = /(сайт|лендинг|веб-?страниц|приложени|игр[ауы]\b|калькулятор|визитк|портфолио|дашборд|мес{1,2}енджер|web-?socket|веб-?сокет)/i.test(text) && /(сдела|созда|напиш|разработ|собер|нужен|нужна|нужно)/i.test(text);
         const isSearchReq = !att && !isBuildReq && /найди в (интернете|сети|гугле)|погугли|загугли|поищи в|в интернете|последние новости|что нового|новости|курс (доллара|евро|биткоина|валют)|погода (в|на)|сколько стоит|актуальн/i.test(text);
-        showTyping(isBuildReq ? ['Анализирую запрос...', 'Проектирую дизайн...', 'Пишу код...', 'Собираю проект...'] : isSearchReq ? ['Ищу в интернете...', 'Читаю источники...', 'Формулирую ответ...'] : att ? ['Смотрю вложение...', 'Анализирую...', 'Формулирую...'] : null, isBuildReq ? 6000 : 2500, isBuildReq ? 'Сборка занимает чуть больше времени, чем обычно. Пожалуйста, подожди...' : isSearchReq ? 'Поиск занимает чуть больше времени, чем обычно. Пожалуйста, подожди...' : null);
+        showTyping(isBuildReq ? ['Анализирую запрос...', 'Проектирую дизайн...', 'Пишу код...', 'Собираю проект...'] : isSearchReq ? ['Ищу в интернете...', 'Читаю источники...', 'Формулирую ответ...'] : att ? ['Смотрю вложение...', 'Анализирую...', 'Формулирую...'] : null, isBuildReq ? 6000 : 2500, isBuildReq ? 'Сборка идёт чуть дольше, подожди…' : isSearchReq ? 'Поиск идёт чуть дольше, подожди…' : null);
         const deliver = (data, live) => {
             if (data.pro){ Object.assign(PRO, data.pro); renderPro(); }
             if (editing) setEditTarget(null);
