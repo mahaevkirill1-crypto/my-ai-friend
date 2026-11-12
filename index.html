@@ -2441,7 +2441,7 @@ function showBanned(){
     document.body.appendChild(d);
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Старт', price: 899, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Про', price: 1999, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'business', title: 'Максимум', price: 4999, days: 365, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Start', price: 899, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Pro', price: 1999, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'business', title: 'Maximum', price: 4999, days: 365, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -2470,10 +2470,10 @@ function checkProExpired(){
 const PRO_ITEMS = ['c_aurum', 'b_pro_cape'];
 function grantProItems(){ if (!PRO.active) return; let ch = false; PRO_ITEMS.forEach(id => { if (!OWNED[id]){ OWNED[id] = true; ch = true; } }); if (ch){ store.set('owned', OWNED); } }
 
-const PLAN_STYLE = { start: { cls: 'p-start', tier: 'STARTER' }, pro: { cls: 'p-pro', tier: 'PREMIUM', badge: 'Популярный' }, business: { cls: 'p-biz', tier: 'BUSINESS', badge: 'Максимум' } };
+const PLAN_STYLE = { start: { cls: 'p-start', tier: 'STARTER' }, pro: { cls: 'p-pro', tier: 'PREMIUM', badge: 'Популярный' }, business: { cls: 'p-biz', tier: 'BUSINESS', badge: 'Maximum' } };
 const fmtN = n => Number(n).toLocaleString('ru-RU');
 function setProMsg(t, k){ const m = $('pro-msg'); m.textContent = t || ''; m.dataset.k = k || ''; }
-const PL_TABS = [['free', 'Free'], ['start', 'Старт'], ['pro', 'Про'], ['business', 'Максимум']];
+const PL_TABS = [['free', 'Free'], ['start', 'Start'], ['pro', 'Pro'], ['business', 'Maximum']];
 const PL_SUB = { start: 'Попробовать формат', pro: 'Если делаешь часто', business: 'Когда работаешь с клиентами' };
 const PL_DESC = {
   start: 'Доступ к самой мощной модели бота: сборки получаются сложнее, с лучшей анимацией и чистым кодом. Хороший способ попробовать.',
@@ -2481,11 +2481,11 @@ const PL_DESC = {
   business: 'Самая мощная модель бота и большой запас лимитов на целый год: для тех, кто делает проекты для клиентов.'
 };
 const PL_FEAT = {
-  start: ['Базовый лимит запросов', 'Базовый запас сборок', 'Автопубликация'],
-  pro: ['Повышенный лимит запросов', 'Больше сборок для работы', 'Автопубликация'],
-  business: ['Максимальный лимит запросов', 'Огромный запас сборок', 'Автопубликация']
+  start: ['Базовый лимит запросов', 'Базовый запас сборок', 'Автопубликация', 'Возможность править проект', 'Возможность скопировать код'],
+  pro: ['Повышенный лимит запросов', 'Больше сборок для работы', 'Автопубликация', 'Возможность править проект', 'Возможность скопировать код'],
+  business: ['Максимальный лимит запросов', 'Огромный запас сборок', 'Автопубликация', 'Возможность править проект', 'Возможность скопировать код']
 };
-const PL_NAME = { start: 'Старт', pro: 'Про', business: 'Максимум' };
+const PL_NAME = { start: 'Start', pro: 'Pro', business: 'Maximum' };
 const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Бизнес': 'business', 'Максимум': 'business', 'Базовый': 'start', 'Обычный': 'pro', 'Для клиентов': 'business' };
 const plName = p => PL_NAME[p.id] || p.title;
 const PL_CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
@@ -2500,9 +2500,8 @@ function renderPro(){
     const buy = $('pl-buy');
     let card;
     if (plTab === 'free'){
-        const items = ['Общение с голо-другом', 'Разбор фото и файлов', 'Ежедневный лимит запросов'];
-        if (PRO.trial) items.push('Одна бесплатная сборка сайта или приложения');
-        card = `<div class="pl-card"><h3 class="pl-name">Free</h3><p class="pl-sub">Для знакомства с голо-другом</p>${feat(items)}</div>`;
+        const items = ['Разбор фото и файлов', 'Ежедневный лимит запросов', 'Одна бесплатная сборка'];
+        card = `<div class="pl-card"><h3 class="pl-name">Free</h3><p class="pl-sub">Базовые функции</p>${feat(items)}</div>`;
         buy.style.display = 'none';
     } else {
         const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, price_rub: 0, days: 30 };
