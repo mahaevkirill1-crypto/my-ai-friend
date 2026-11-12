@@ -621,11 +621,13 @@
     .pay-sub { margin: 0 0 4px; text-align: center; font-size: 14px; color: var(--ui-tx-mid, #A7B4CC); }
     .pay-opt { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 68px; padding: 12px 16px; border-radius: 18px; border: 1px solid var(--ui-line-hi, rgba(255,255,255,.16)); background: var(--ui-bg-3, #34353A); color: var(--ui-tx-hi, #EAF0FA); font-family: inherit; text-align: left; cursor: pointer; transition: transform .15s ease, border-color .2s ease; -webkit-tap-highlight-color: transparent; }
     .pay-opt:active { transform: scale(.98); }
-    .pay-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,.08); font-size: 22px; }
+    .pay-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,.08); color: inherit; }
+    .pay-ic svg { width: 24px; height: 24px; display: block; flex: none; }
     .pay-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .pay-tx b { font-size: 16px; font-weight: 700; }
     .pay-tx small { font-size: 12.5px; color: var(--ui-tx-mid, #A7B4CC); }
-    .pay-pr { flex: none; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pay-pr { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pay-pr svg { width: 16px; height: 16px; display: block; flex: none; }
     .pay-cancel { height: 52px; border: 0; border-radius: 16px; background: transparent; color: var(--ui-tx-mid, #A7B4CC); font: 600 16px 'Manrope', system-ui, sans-serif; cursor: pointer; }
     .pay-cancel:active { background: rgba(255,255,255,.06); }
     #pro .ps-msg { margin: 0; text-align: center; }
@@ -1513,12 +1515,12 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <h3 class="pay-title" id="pay-title">Способ оплаты</h3>
     <p class="pay-sub" id="pay-sub"></p>
     <button type="button" class="pay-opt" id="pay-rub">
-      <span class="pay-ic">💳</span>
+      <span class="pay-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M7 15h3"/></svg></span>
       <span class="pay-tx"><b>Оплатить картой</b><small>Банковская карта</small></span>
       <span class="pay-pr" id="pay-rub-pr"></span>
     </button>
     <button type="button" class="pay-opt" id="pay-xtr">
-      <span class="pay-ic">⭐</span>
+      <span class="pay-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5z"/></svg></span>
       <span class="pay-tx"><b>Оплатить звездами</b><small>Telegram Stars</small></span>
       <span class="pay-pr" id="pay-xtr-pr"></span>
     </button>
@@ -2529,6 +2531,7 @@ async function buyPro(planId){
     }
 }
 let payPlan = '';
+const PAY_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5z"/></svg>';
 function closePaymentChoice(){
     const s = $('pay-sheet');
     s.classList.remove('open'); s.setAttribute('aria-hidden', 'true');
@@ -2539,7 +2542,7 @@ function openPaymentChoice(planId){
     const p = (PRO.plans || []).find(x => x.id === planId);
     payPlan = planId;
     $('pay-sub').textContent = 'Тариф «' + (p ? plName(p) : planId) + '»' + (p && p.days ? ' · ' + p.days + ' дней' : '');
-    $('pay-xtr-pr').textContent = p && p.price ? fmtN(p.price) + ' ⭐' : '';
+    $('pay-xtr-pr').innerHTML = p && p.price ? fmtN(p.price) + PAY_STAR : '';
     $('pay-rub-pr').textContent = p && p.price_rub ? fmtN(p.price_rub) + ' ₽' : '';
     $('pay-rub').style.display = p && p.price_rub ? '' : 'none';   // старый сервер без цен в рублях: только звёзды
     const s = $('pay-sheet');
