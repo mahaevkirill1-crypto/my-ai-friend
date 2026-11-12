@@ -9,6 +9,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
 <style>
+    /* ПЛАВНОЕ ПОЯВЛЕНИЕ ТЕКСТА: слово выплывает из размытия */
+    .rvw { opacity: 0; filter: blur(7px); transition: opacity .6s ease, filter .6s ease; }
+    .rvw.on { opacity: 1; filter: blur(0); }
+    .rvc { animation: rvIn .55s ease both; }
+    @keyframes rvIn { from { opacity: 0; filter: blur(7px); } to { opacity: 1; filter: blur(0); } }
+    @media (prefers-reduced-motion: reduce) { .rvw { opacity: 1; filter: none; transition: none; } .rvc { animation: none; } }
+
     /* SPLASH */
     #splash { position: fixed; inset: 0; z-index: 950; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(520px 380px at 50% 45%, rgba(255,255,255,.08), transparent 70%), #1E1F22; transition: opacity .5s ease, visibility 0s linear .5s; animation: splashHide .5s ease 1.8s forwards; }
     #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -1944,18 +1951,31 @@ function revealAnimate(root, row){
     if (REDUCED || !root) return;
     const SKIP = '.vis,.copy-btn,.chat-img,iframe,button';
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.nodeValue && !(n.parentElement && n.parentElement.closest(SKIP))) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
-    const items = []; let n, total = 0;
-    while ((n = walker.nextNode())){ items.push({ n, t: n.nodeValue, s: total }); total += n.nodeValue.length; }
+    const nodes = []; let n, total = 0;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(x => { total += x.nodeValue.length; });
     if (total < 2) return;
     const hide = Array.from(root.querySelectorAll('.vis,.copy-btn')).filter(el => !el.parentElement.closest('.vis'));
     hide.forEach(el => { el.style.visibility = 'hidden'; if (el.classList.contains('vis')) el.style.display = 'none'; });
-    items.forEach(o => { o.n.nodeValue = ''; });
+    // каждое слово — отдельный span: появляется из размытия (opacity + blur), а не «щёлкает» по символам
+    const items = [], words = []; let off = 0;
+    nodes.forEach(node => {
+        const t = node.nodeValue, wrap = document.createElement('span'); wrap.className = 'rvt';
+        t.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) wrap.appendChild(document.createTextNode(part));
+            else { const w = document.createElement('span'); w.className = 'rvw'; w.textContent = part; wrap.appendChild(w); words.push({ el: w, s: off }); }
+            off += part.length;
+        });
+        node.parentNode.replaceChild(wrap, node);
+        items.push({ n: node, wrap });
+    });
     const speed = Math.max(0.09, total / 6000);   // символов в мс: не медленнее ~90/с, но длинный ответ — не дольше ~6 с
-    let pos = 0, cur = 0, last = performance.now(), done = false;
+    let pos = 0, cur = 0, last = performance.now(), done = false, tail = false;
     const follow = () => { if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; };
     const finish = () => {
         if (done) return; done = true;
-        items.forEach(o => { o.n.nodeValue = o.t; });
+        items.forEach(o => { if (o.wrap.parentNode) o.wrap.parentNode.replaceChild(o.n, o.wrap); });
         hide.forEach(el => { el.style.visibility = ''; if (el.classList.contains('vis')) el.style.display = ''; });
         follow();
     };
@@ -1963,16 +1983,13 @@ function revealAnimate(root, row){
         if (done) return;
         if (!row.isConnected){ done = true; return; }
         pos = Math.min(total, pos + Math.max(0, now - last) * speed); last = now;
-        const p = Math.floor(pos);
-        while (cur < items.length){
-            const o = items[cur], end = o.s + o.t.length;
-            if (p >= end){ o.n.nodeValue = o.t; cur++; continue; }
-            let k = p - o.s;
-            if (k > 0){ if (/[\uD800-\uDBFF]/.test(o.t[k - 1])) k++; o.n.nodeValue = o.t.slice(0, k); }
-            break;
-        }
+        while (cur < words.length && words[cur].s < pos){ words[cur].el.classList.add('on'); cur++; }
         follow();
-        if (p >= total) finish(); else requestAnimationFrame(tick);
+        if (cur >= words.length){
+            if (!tail){ tail = true; setTimeout(finish, 650); }  // даём последним словам доехать из размытия
+            return;
+        }
+        requestAnimationFrame(tick);
     };
     root.addEventListener('click', finish);
     requestAnimationFrame(tick);
@@ -2141,8 +2158,9 @@ function startLive(){
 }
 function liveText(live, d){
     if (!live.holder){ live.holder = document.createElement('div'); live.holder.className = 'live-txt'; live.msg.insertBefore(live.holder, live.msg.firstChild); }
-    live.text += d;
-    live.holder.textContent = live.text.replace(/^\s+/, '');
+    const first = !live.text; live.text += d;
+    const chunk = first ? d.replace(/^\s+/, '') : d;   // каждый новый кусок появляется из размытия
+    if (chunk){ const sp = document.createElement('span'); sp.className = 'rvc'; sp.textContent = chunk; live.holder.appendChild(sp); }
     liveFollow();
 }
 function livePost(live){
@@ -3133,7 +3151,7 @@ async function sendMessage(text, opts) {
 
     const hs = editTarget ? [] : chatHistoryForServer.slice(-40);  // в правке история серверу не нужна
     const historyText = hs.map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
-    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, чтобы обычный чат не считался правкой (150)
+    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, сервер сам решает, правка это или нет (looks_like_edit), и списывает 30–120 единиц по размеру кода
 
     const ac = new AbortController(); sendAbort = ac; setStopMode(true);  // квадрат «Остановить» на время запроса
     const cancelledUi = (live) => {  // пользователь нажал стоп: убираем «думает» и черновой пузырь, ошибку не показываем
