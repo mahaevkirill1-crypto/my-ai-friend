@@ -1073,9 +1073,15 @@ BUILD_CHOICES = [{"id": "build", "label": "Собрать проект"}, {"id":
 BUILD_FAIL = {"text": "Не получилось собрать проект. Попробуй написать задачу чуть проще или покороче.", "emotion": "sad"}
 BUILD_TRIAL_NOTE = " Это была бесплатная пробная сборка — дальше студия доступна на тарифах."
 
-def build_messages(user_content, history_text, current_code, needs_backend=False):
+def user_name_line(first_name) -> str:
+    """Строка для системного промпта с именем пользователя. Имя приходит от клиента, поэтому чистим переводы строк и спецсимволы и режем длину."""
+    name = re.sub(r"[\x00-\x1f\x7f\[\]{}<>`]+", " ", str(first_name or ""))
+    name = re.sub(r"\s+", " ", name).strip()[:40]
+    return f"\n\nИмя пользователя, с которым ты общаешься: {name}." if name else ""
+
+def build_messages(user_content, history_text, current_code, needs_backend=False, user_name=""):
     task = content_to_text(user_content)
-    messages = [{"role": "system", "content": BUILD_SYSTEM + (BACKEND_SYSTEM_ADDON if needs_backend and not current_code else "")}]
+    messages = [{"role": "system", "content": BUILD_SYSTEM + (BACKEND_SYSTEM_ADDON if needs_backend and not current_code else "") + user_name_line(user_name)}]
     # правка: в модель идут только текущий код и последний запрос, история чата не нужна (экономия токенов)
     if history_text and not current_code: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
     if current_code:
@@ -1193,9 +1199,9 @@ def rewrite_allowed(conn, uid, current_code):
         log.exception("rewrite budget check failed")
         return False
 
-def rewrite_messages(user_content, current_code):
+def rewrite_messages(user_content, current_code, user_name=""):
     task = content_to_text(user_content)
-    return [{"role": "system", "content": BUILD_SYSTEM},
+    return [{"role": "system", "content": BUILD_SYSTEM + user_name_line(user_name)},
             {"role": "user", "content": "ТЕКУЩАЯ ВЕРСИЯ ПРОЕКТА (HTML):\n" + current_code},
             {"role": "user", "content": f"ЗАДАЧА (ПРАВКА): {task}\n\n"
                 "Точечная правка не применилась. ПЕРЕГЕНЕРИРУЙ ВЕСЬ ПРОЕКТ ЦЕЛИКОМ с этим изменением, сохранив остальной дизайн и тексты. "
@@ -1240,10 +1246,10 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
         text = f"Правка применена. Списано {weight} {units_word(weight)}."
     return {"text": text, "emotion": emotion, "visual": visual, "charged": weight, "pro": pro_safe(conn, uid)}
 
-async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False):
+async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False, user_name=""):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
     model = model or get_model_for_user(uid, conn)
-    messages = build_messages(user_content, history_text, current_code, needs_backend)
+    messages = build_messages(user_content, history_text, current_code, needs_backend, user_name)
     try:
         resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
             model=model,
@@ -1266,7 +1272,7 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
             log.warning("Правка не применилась — пересобираю проект целиком")
             first_raw = raw
             try:
-                rw = rewrite_messages(user_content, current_code)
+                rw = rewrite_messages(user_content, current_code, user_name)
                 resp3 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
                     model=model, messages=rw, max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
                 raw = resp3.choices[0].message.content or ""
@@ -1431,9 +1437,9 @@ _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
 
-async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None, needs_backend=False):
+async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None, needs_backend=False, user_name=""):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
-    messages = build_messages(user_content, history_text, current_code, needs_backend)
+    messages = build_messages(user_content, history_text, current_code, needs_backend, user_name)
     parser = BuildStreamParser(patch=bool(current_code))
     st = {"raw": "", "hbuf": "", "last": time.monotonic(), "stage": -1, "tail": ""}
     done = False
@@ -1503,7 +1509,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
                 done = True
                 yield _nd({"t": "error", **res}); return
             log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
-            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model, needs_backend=needs_backend), trial)
+            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model, needs_backend=needs_backend, user_name=user_name), trial)
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
         if current_code and edit_needs_rewrite(st["raw"], current_code) and rewrite_allowed(conn, uid, current_code):
@@ -1514,7 +1520,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
             st.update(raw="", hbuf="", tail="", stage=0, mute=True)
             parser = BuildStreamParser(patch=False)
             try:
-                rw = rewrite_messages(user_content, current_code)
+                rw = rewrite_messages(user_content, current_code, user_name)
                 async for d in _llm_stream(rw, model, temperature=0.4):
                     for b in handle(d): yield b
                 if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100:
@@ -2098,6 +2104,7 @@ async def ask(request: Request):
         if not ask_info:
             return JSONResponse({"text": "Ошибка авторизации. Открой приложение из Telegram.", "emotion": "sad"}, status_code=401)
         uid = ask_info["user"]["id"]
+        first_name = ask_info["user"].get("first_name") or ""   # имя из Telegram (подписано initData)
         now = int(time.time())
         conn = get_db_connection()
         if persona == "astronaut" and not get_owned(conn, uid).get("astro"):
@@ -2305,10 +2312,10 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
             if data.get("stream") is True:
                 return StreamingResponse(
-                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend),
+                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend, user_name=first_name),
                     media_type="application/x-ndjson",
                     headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
-            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend)
+            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend, user_name=first_name)
             if res.get("visual") and needs_backend: res["needs_backend"] = True
             if trial:
                 if res.get("visual"):
@@ -2325,6 +2332,8 @@ async def ask(request: Request):
         else:
             system_prompt = ASTRO_PLAIN if persona == "astronaut" else BASE_PLAIN
         
+        system_prompt += user_name_line(first_name)   # обычный чат: имя пользователя в системный промпт
+
         if lv and DEPLOY_RE.search(user_text):
             system_prompt += "\n\nВАЖНО: Пользователь только что сгенерировал проект в Студии. Если он спрашивает про запуск, оплату или хостинг — давай инструкции именно для этого проекта"
             
