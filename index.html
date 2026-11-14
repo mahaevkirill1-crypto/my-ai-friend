@@ -2359,14 +2359,13 @@ function visNav(){
     }, true);
 }
 const VIS_NAV = '<script>(' + visNav.toString() + ')()<\/script>';
-// ---------- Водяной знак: плашку на сервере добавляют только бесплатным; у Pro убираем её при показе и скачивании ----------
+// ---------- Водяной знак отключён: плашку больше нигде не добавляем, stripWm только чистит старые проекты ----------
 const WM_RE = /<!--HF-WM-->[\s\S]*?<!--\/HF-WM-->/g;
 const stripWm = c => String(c || '').replace(WM_RE, '');
 const isPro = () => { try { return !!PRO.active; } catch (e) { return false; } };  // PRO объявлен ниже по файлу: страхуемся от TDZ
-// Защита кода: у бесплатных проект живёт на сервере (v.pid), в приложение приходит только ссылка на превью.
-// Код (копирование, редактор, скачивание) отдаёт только сервер и только активному Pro: /export.
+// Код (копирование, редактор, скачивание) доступен всем владельцам проекта, в том числе без Pro (старые проекты с v.pid берутся через /export).
 const hasWm = v => /<!--HF-WM-->/.test(String((v && v.code) || ''));
-const isLocked = v => !!v && !isPro() && !!(v.pid || hasWm(v));
+const isLocked = v => false;   // копирование, код и скачивание доступны и без Pro
 function lockedToast(){ tap(); toast('Код доступен только на тарифе'); }
 async function fetchCode(v){
     if (!v.pid && !hasWm(v)) return v.code;
@@ -2389,7 +2388,7 @@ function visDoc(v){
     if (v.type === 'video-html') return head + MOTION.doc(v.code);
     if (v.type === 'svg') return head + '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>' + v.code;
     if (v.pid) return '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + LOCK_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><iframe sandbox="allow-scripts" title="Проект" src="' + BACKEND_URL + '/p/' + encodeURIComponent(v.pid) + '"></iframe>';
-    return head + VIS_NAV + (isPro() ? stripWm(v.code) : v.code);
+    return head + VIS_NAV + stripWm(v.code);
 }
 
 // ---------- Живой предпросмотр сборки (стриминг) ----------
@@ -2546,7 +2545,6 @@ $('vv-apply').addEventListener('click', () => {
 });
 async function dlVis(){
     if (!curVis) return;
-    if (!isPro()){ tap(); toast('Скачивание доступно только на тарифе'); return; }
     const v = curVis.v; if (v.type === 'video-html'){ MOTION.download(v); return; }
     const isSvg = v.type === 'svg', name = isSvg ? 'holo-image.svg' : 'holo-site.html';
     let full = await fetchCode(v); if (full === null) return;
@@ -2776,9 +2774,9 @@ const PL_DESC = {
   business: 'Самая мощная модель бота и большой запас лимитов на целый год: для тех, кто делает проекты для клиентов.'
 };
 const PL_FEAT = {
-  start: ['Базовый лимит запросов', 'Базовый запас сборок', 'Автопубликация', 'Возможность править проект', 'Возможность скопировать код'],
-  pro: ['Повышенный лимит запросов', 'Больше сборок для работы', 'Автопубликация', 'Возможность править проект', 'Возможность скопировать код'],
-  business: ['Максимальный лимит запросов', 'Огромный запас сборок', 'Автопубликация', 'Возможность править проект', 'Возможность скопировать код']
+  start: ['Базовый лимит запросов', 'Базовый запас сборок', 'Автопубликация', 'Возможность править проект'],
+  pro: ['Повышенный лимит запросов', 'Больше сборок для работы', 'Автопубликация', 'Возможность править проект'],
+  business: ['Максимальный лимит запросов', 'Огромный запас сборок', 'Автопубликация', 'Возможность править проект']
 };
 const PL_NAME = { start: 'Start', pro: 'Pro', business: 'Maximum' };
 const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Бизнес': 'business', 'Максимум': 'business', 'Базовый': 'start', 'Обычный': 'pro', 'Для клиентов': 'business' };
@@ -2795,7 +2793,7 @@ function renderPro(){
     const buy = $('pl-buy');
     let card;
     if (plTab === 'free'){
-        const items = ['Разбор фото и файлов', 'Ежедневный лимит запросов', 'Одна бесплатная сборка'];
+        const items = ['Разбор фото и файлов', 'Ежедневный лимит запросов', 'Одна бесплатная сборка', 'Копирование и скачивание кода'];
         card = `<div class="pl-card"><h3 class="pl-name">Free</h3><p class="pl-sub">Базовые функции</p>${feat(items)}</div>`;
         buy.style.display = 'none';
     } else {
