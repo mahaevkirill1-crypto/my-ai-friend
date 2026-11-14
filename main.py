@@ -568,6 +568,17 @@ RULES = """
 13. Если пишут "не понял" — объясни этот же шаг ещё проще, как для ребёнка.
 14. Учитывай тип проекта из контекста: игра — на Netlify; бот — на GitHub + Render (с файлами main.py, requirements.txt, index.html); сайт — на Netlify (только index.html).
 
+ТВОИ ВОЗМОЖНОСТИ (знай их и отвечай уверенно; никогда не говори «я не умею», если умение есть в этом списке):
+- Студия: ты собираешь готовые проекты: сайты, лендинги, визитки, игры, приложения, калькуляторы, дашборды, презентации, 3D, Telegram-ботов. Проекты с серверной частью (index.html + main.py: админка, база данных) доступны на платных тарифах. Готовый проект можно править дальше обычными сообщениями.
+- Видео: ты МОЖЕШЬ делать видео. Это моушен-ролики (анимированные ролики для TikTok, Shorts, Reels, интро, заставки): ты собираешь анимацию, а MP4 рендерится на устройстве пользователя. Доступно на платных тарифах. Если просят видео, отвечай «Да, сделаю» и попроси описать, что должно быть в ролике. Не умеешь только снимать или монтировать реальные съёмки и делать фотореалистичное видео.
+- Иллюстрации: можешь нарисовать схему, рисунок или показать «как это выглядит» (SVG/HTML-графика). Фотореалистичные картинки не генерируешь.
+- Фото и файлы: разбираешь фото, PDF, Word (.docx), Excel (.xlsx), текстовые файлы.
+- Хостинг: подсказываешь, как запустить проект (Netlify, Render, GitHub).
+- Не умеешь: искать в интернете (поиск пока недоступен, не обещай его и не выдумывай свежие новости, курсы и цены), открывать ссылки (кроме ссылок на карты), звонить, слушать голос, помнить пользователя между разными чатами сверх истории переписки.
+Если пользователь спрашивает «ты умеешь X?», сверься с этим списком. Если X в списке, ответь «да» и предложи начать. Если нет, честно скажи, чего именно нет, и предложи ближайшую альтернативу.
+
+ОБРАЩЕНИЕ ПО ИМЕНИ: по имени обращайся только когда это действительно нужно: в приветствии при первом сообщении или когда надо привлечь внимание к важному. В обычных ответах имя не используй вообще. Не начинай и не заканчивай ответы именем.
+
 ПРАВИЛО О ПРОИСХОЖДЕНИИ:
 Если пользователь спрашивает, какая ты модель, кто тебя создал или на чем ты работаешь, отвечай строго так:
 "Я использую лучшие доступные языковые модели и собственные алгоритмы для генерации кода. Мой фокус — не рассказать тебе, как я устроен, а сделать твой проект быстро и качественно. Скажи, какой сайт тебе нужен?"
@@ -1185,7 +1196,7 @@ def user_name_line(first_name) -> str:
     """Строка для системного промпта с именем пользователя. Имя приходит от клиента, поэтому чистим переводы строк и спецсимволы и режем длину."""
     name = re.sub(r"[\x00-\x1f\x7f\[\]{}<>`]+", " ", str(first_name or ""))
     name = re.sub(r"\s+", " ", name).strip()[:40]
-    return f"\n\nИмя пользователя, с которым ты общаешься: {name}." if name else ""
+    return f"\n\nСправка: пользователя зовут {name}. Используй имя только при крайней необходимости (первое приветствие, важное уточнение). В обычных ответах к пользователю по имени не обращайся." if name else ""
 
 def build_messages(user_content, history_text, current_code, needs_backend=False, user_name="", motion=False):
     task = content_to_text(user_content)
@@ -2565,10 +2576,10 @@ async def ask(request: Request):
                     return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
             if data.get("stream") is True:
                 return StreamingResponse(
-                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req),
+                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req),
                     media_type="application/x-ndjson",
                     headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
-            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=not pro_pre["active"], model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req)
+            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req)
             if res.get("visual") and needs_backend: res["needs_backend"] = True
             if trial:
                 if res.get("visual"):
@@ -2696,9 +2707,7 @@ def preview_page(pid: str):
         row = conn.execute("SELECT user_id, code FROM previews WHERE pid = ?", (pid,)).fetchone()
         if not row:
             return HTMLResponse(PREVIEW_GONE, status_code=404, headers=PREVIEW_HEADERS)
-        owner, code = row[0], strip_watermark(row[1])
-        if not pro_info(conn, owner, int(time.time()))["active"]:
-            code = add_watermark(code)
+        code = strip_watermark(row[1])   # плашку больше не подмешиваем
         return HTMLResponse(PREVIEW_HEAD + code, headers=PREVIEW_HEADERS)
     except Exception:
         log.exception("preview failed")
@@ -2706,13 +2715,11 @@ def preview_page(pid: str):
 
 @app.post("/export")
 def export_code(data: dict = Body(...)):
-    """Код проекта без плашки: только для активного Pro, проверка на сервере."""
+    """Код проекта без плашки: своему владельцу, в том числе без Pro."""
     info = validate_init_data(data.get("init_data", ""))
     if not info: return JSONResponse({"status": "error", "reason": "auth", "text": "Ошибка авторизации."}, status_code=401)
     uid = info["user"]["id"]; now = int(time.time())
     conn = get_db_connection()
-    if not pro_info(conn, uid, now)["active"]:
-        return JSONResponse({"status": "error", "reason": "pro_only", "text": "Код доступен только на тарифе."}, status_code=402)
     pid = data.get("pid")
     if pid:
         code = load_preview_code(conn, pid, uid)
