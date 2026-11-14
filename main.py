@@ -614,7 +614,7 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
     if not code or len(code) > max_len: return None
     return {"type": kind, "code": code}
 
-# ---------- ВОДЯНОЙ ЗНАК (для пользователей без Pro) ----------
+# ---------- ВОДЯНОЙ ЗНАК ОТКЛЮЧЁН: плашку «Сделано в Holo Friend» больше нигде не добавляем (strip_watermark чистит старые проекты) ----------
 WM_START, WM_END = "<!--HF-WM-->", "<!--/HF-WM-->"
 WM_TEXT = "Сделано в Holo Friend. Купи подписку, чтобы убрать"
 WM_BLOCK = (WM_START + "<style>html{padding-bottom:44px}#hf-wm{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;"
@@ -632,8 +632,7 @@ def add_watermark(code):
     return code[:i] + WM_BLOCK + code[i:] if i != -1 else code + WM_BLOCK
 
 # ---------- ЗАЩИЩЁННЫЕ ПРЕВЬЮ: код бесплатных проектов клиенту не отдаётся ----------
-# Бесплатный пользователь получает только pid. Код хранится на сервере, плашка подмешивается при показе (/p/<pid>),
-# скачать и скопировать код можно только через /export с проверкой Pro на сервере.
+# Старые проекты бесплатных пользователей хранятся на сервере и отдаются по pid (/p/<pid>), код — через /export любому владельцу.
 PREVIEW_KEEP_PER_USER = 30
 PREVIEW_TTL = 90 * 24 * 3600
 PID_RE = re.compile(r"^[A-Za-z0-9_-]{24,64}$")
@@ -666,8 +665,7 @@ def lock_visual(conn, uid, visual):
         pid = store_preview(conn, uid, visual["code"])
         return {"type": visual["type"], "code": "", "pid": pid}
     except Exception:
-        log.exception("store_preview failed — отдаю код с плашкой (запасной вариант)")
-        visual["code"] = add_watermark(visual["code"])
+        log.exception("store_preview failed — отдаю код как есть (без плашки)")
         return visual
 
 def load_preview_code(conn, pid, uid=None):
@@ -2699,7 +2697,7 @@ async def ask(request: Request):
 
 @app.get("/p/{pid}")
 def preview_page(pid: str):
-    """Страница проекта для iframe. Плашка подмешивается здесь, пока у владельца нет Pro."""
+    """Страница проекта для iframe. Плашка не добавляется."""
     try:
         if not PID_RE.match(pid):
             return HTMLResponse(PREVIEW_GONE, status_code=404, headers=PREVIEW_HEADERS)
