@@ -424,10 +424,27 @@
     body.editing #user-input { box-shadow: 0 0 0 1px #FFD166 inset; }
     .vis-bar .txtbtn { flex: 1 1 0; min-width: 0; height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; justify-content: center; }
     .vis-bar .vis-more { flex: 0 0 40px; padding: 0; }
+    /* моушен-ролик: вертикальная карточка 9:16 и окно рендера MP4 */
+    .vis-frame.vid { width: min(62%, 190px); aspect-ratio: 9 / 16; margin: 0 auto; background: #000; }
+    .vis-frame.vid iframe { width: 100% !important; height: 100% !important; transform: none !important; background: #000; }
+    .vis-bar .vis-dl { background: var(--cl-acc, #fff); color: var(--cl-acc-fg, #111214); border-color: transparent; }
+    #mo-ov { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(8,10,16,.74); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    #mo-ov .mo-card { width: min(340px, 100%); max-height: 100%; overflow: auto; padding: 18px; border-radius: 18px; background: var(--cl-card, #1C2230); border: 1px solid var(--ui-line-hi, rgba(255,255,255,.14)); color: var(--ui-tx-hi, #EAF0FA); font: 600 14px/1.4 'Manrope', system-ui, sans-serif; text-align: center; }
+    #mo-ov .mo-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    #mo-ov .mo-sub { min-height: 20px; margin-bottom: 12px; font-weight: 500; opacity: .75; word-break: break-word; }
+    #mo-ov .mo-bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,.14); overflow: hidden; }
+    #mo-ov .mo-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--cl-acc, #fff); transition: width .15s linear; }
+    #mo-ov .mo-vid { display: none; margin-top: 14px; }
+    #mo-ov .mo-vid video { width: 100%; max-height: 52vh; border-radius: 12px; background: #000; }
+    #mo-ov .mo-btns { display: flex; gap: 8px; margin-top: 14px; }
+    #mo-ov .mo-btns .txtbtn { flex: 1 1 0; height: 40px; }
+    #mo-ov .mo-save { background: var(--cl-acc, #fff); color: var(--cl-acc-fg, #111214); border-color: transparent; }
+    body.light-theme #mo-ov .mo-card { background: #fff; color: #0F172A; }
+    body.light-theme #mo-ov .mo-bar { background: rgba(0,0,0,.1); }
     #visview { position: fixed; inset: 0; z-index: 1100; background: #2A2B2F; display: block; visibility: hidden; opacity: 0; pointer-events: none; transform: translateY(28px) scale(.985); transition: transform .24s cubic-bezier(.4,0,.6,1), opacity .2s ease, visibility 0s linear .24s; }
     #visview.open { visibility: visible; opacity: 1; pointer-events: auto; transform: none; transition: transform .46s cubic-bezier(.32,.72,0,1), opacity .22s ease, visibility 0s; }
     @media (prefers-reduced-motion: reduce) { #visview { transform: none; transition: opacity .15s ease, visibility 0s linear .15s; } #visview.open { transition: opacity .15s ease, visibility 0s; } }
-    #vv-bar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; color: #EAF0FA; font: 600 15px 'Manrope', system-ui, sans-serif; }
+    #vv-bar { touch-action: none; position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; color: #EAF0FA; font: 600 15px 'Manrope', system-ui, sans-serif; }
     #vv-close { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.18); color: #fff; font-size: 18px; cursor: pointer; }
     #vv-frame { position: absolute; left: 0; right: 0; bottom: 0; top: calc(60px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 60px - env(safe-area-inset-top)); border: 0; background: #fff; }
     /* PRO: новый вид окна */
@@ -891,7 +908,7 @@
     @keyframes avBreath { 0%,100% { box-shadow: none; transform: none; } 50% { box-shadow: 0 0 0 3px var(--cl-acc-soft); transform: translateY(-1px); } }
     :root:root body #bub, :root:root body body.light-theme #bub { background: rgba(var(--cl-rgb),.94); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 14px; box-shadow: var(--cl-shadow); font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; }
     :root:root body #down-btn { background: var(--cl-card); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-mid); box-shadow: var(--cl-shadow); backdrop-filter: none; }
-    :root:root body #chat-history { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent); }
+    :root:root body #chat-history { -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 8px, rgba(0,0,0,.4) 40px, #000 84px, #000 96%, transparent); mask-image: linear-gradient(to bottom, transparent 0, transparent 8px, rgba(0,0,0,.4) 40px, #000 84px, #000 96%, transparent); }   /* мягкий верхний край: текст растворяется до кнопок */
 
     /* код */
     :root:root body .code-blk { background: var(--cl-code); border: 1px solid var(--ui-line); border-radius: 12px; }
@@ -1055,12 +1072,12 @@
     :root { --pw: min(84vw, 320px); --cl-pill: #F7F7F8; --cl-pill-fg: #111214; }
     body.light-theme { --cl-pill: #111214; --cl-pill-fg: #F7F7F8; }
     body.hp { --push: var(--pw); }
-    :root:root body :is(#chat-history, #hud-panel, #sv, #topbar, #bub) { translate: var(--push, 0px) 0; transition: translate .32s cubic-bezier(.2,.8,.2,1); }
-    :root:root body #stage { translate: var(--push, 0px) 0; transition: translate .32s cubic-bezier(.2,.8,.2,1), height .3s ease; }
-    :root:root body #hist-btn { translate: var(--push, 0px) 0; transition: translate .32s cubic-bezier(.2,.8,.2,1), transform .38s cubic-bezier(.34,1.56,.64,1), background-color .18s ease; }
-    :root:root body #down-btn { translate: var(--push, 0px) 0; transition: opacity .25s ease, translate .32s cubic-bezier(.2,.8,.2,1), scale .38s cubic-bezier(.34,1.56,.64,1); }
-    :root:root body #hist-bg { inset: 0; translate: var(--push, 0px) 0; border-radius: 22px 0 0 22px; background: rgba(22,23,26,.38); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: -1px 0 0 var(--ui-line); transition: opacity .25s ease, translate .32s cubic-bezier(.2,.8,.2,1); }
-    @.swiping :is(#chat-history, #hud-panel, #sv, #topbar, #bub, #stage, #hist-btn, #down-btn, #hist-bg) { transition: none !important; }
+    :root:root body :is(#chat-history, #hud-panel, #sv, #topbar, #bub) { translate: var(--push, 0px) 0; transition: translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1); }
+    :root:root body #stage { translate: var(--push, 0px) 0; transition: translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1), height .3s ease; }
+    :root:root body #hist-btn { translate: var(--push, 0px) 0; transition: translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1), transform .38s cubic-bezier(.34,1.56,.64,1), background-color .18s ease; }
+    :root:root body #down-btn { translate: var(--push, 0px) 0; transition: opacity .25s ease, translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1), scale .38s cubic-bezier(.34,1.56,.64,1); }
+    :root:root body #hist-bg { inset: 0; translate: var(--push, 0px) 0; border-radius: 22px 0 0 22px; background: rgba(22,23,26,.38); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: -1px 0 0 var(--ui-line); transition: opacity .25s ease, translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1); }
+    body.swiping :is(#chat-history, #hud-panel, #sv, #topbar, #bub, #stage, #hist-btn, #down-btn, #hist-bg) { transition: none !important; }
     :root:root body #hist-panel { width: var(--pw); padding: calc(18px + env(safe-area-inset-top, 0px)) 12px calc(14px + env(safe-area-inset-bottom, 0px)); gap: 0; background: var(--cl-side); border-right: 0; }
     :root:root body .hp-brand { padding: 6px 10px 18px; font: 500 27px/1.1 'Manrope', system-ui, sans-serif; color: var(--ui-tx-hi); letter-spacing: -.01em; }
     :root:root body .hp-nav { display: flex; flex-direction: column; gap: 2px; }
@@ -1185,13 +1202,13 @@
     @keyframes stSpin { to { transform: rotate(360deg); } }
     @keyframes stCk { to { stroke-dashoffset: 0; } }
     @media (prefers-reduced-motion: reduce) { .stbar .st-row { animation: none; } .stbar .st-row.now .st-dot { animation-duration: 2s; } .stbar .st-ck path { animation: none; stroke-dashoffset: 0; } }
-#empty-logo { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; pointer-events: none; opacity: 0; translate: var(--push, 0px) 0; transition: opacity .3s ease, translate .32s cubic-bezier(.2,.8,.2,1); }
+#empty-logo { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; pointer-events: none; opacity: 0; translate: var(--push, 0px) 0; transition: opacity .3s ease, translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1); }
 body.logo-play #empty-logo { opacity: 1; }
 #empty-logo .el-mark { width: 10px; height: 10px; border-radius: 50%; background: var(--cl-acc); box-shadow: 0 0 24px 4px var(--cl-acc-soft); }
 #empty-logo .el-word { font: 700 14px 'Manrope', system-ui, sans-serif; letter-spacing: .38em; padding-left: .38em; color: var(--ui-tx-lo); }
 /* Стеклянные кнопки-меню (как на iPhone): лёгкая прозрачность, пружинистое нажатие */
-#hist-btn, #menu-btn { width: 44px !important; height: 44px !important; border-radius: 50% !important; color: var(--ui-tx-hi) !important; border: 1px solid rgba(255,255,255,.1) !important; background: rgba(118,122,135,.2) !important; -webkit-backdrop-filter: blur(18px) saturate(160%) !important; backdrop-filter: blur(18px) saturate(160%) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 18px -8px rgba(0,0,0,.4) !important; transform: scale(1) !important; transition: transform .45s cubic-bezier(.34,1.7,.64,1), translate .32s cubic-bezier(.2,.8,.2,1), background-color .2s ease !important; will-change: transform; }
-#hist-btn:active, #menu-btn:active { transform: scale(.86) !important; background: rgba(118,122,135,.32) !important; transition: transform .08s ease-out, translate .32s cubic-bezier(.2,.8,.2,1), background-color .08s ease !important; opacity: 1 !important; scale: 1 !important; }
+#hist-btn, #menu-btn { width: 44px !important; height: 44px !important; border-radius: 50% !important; color: var(--ui-tx-hi) !important; border: 1px solid rgba(255,255,255,.1) !important; background: rgba(118,122,135,.2) !important; -webkit-backdrop-filter: blur(18px) saturate(160%) !important; backdrop-filter: blur(18px) saturate(160%) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 18px -8px rgba(0,0,0,.4) !important; transform: scale(1) !important; transition: transform .45s cubic-bezier(.34,1.7,.64,1), translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1), background-color .2s ease !important; will-change: transform; }
+#hist-btn:active, #menu-btn:active { transform: scale(.86) !important; background: rgba(118,122,135,.32) !important; transition: transform .08s ease-out, translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1), background-color .08s ease !important; opacity: 1 !important; scale: 1 !important; }
 #hist-btn svg, #menu-btn svg { width: 20px; height: 20px; }
 body.light-theme #hist-btn, body.light-theme #menu-btn { color: #111214 !important; border: 1px solid rgba(0,0,0,.06) !important; background: rgba(120,124,135,.16) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 6px 18px -10px rgba(22,23,26,.3) !important; }
 body.light-theme #hist-btn:active, body.light-theme #menu-btn:active { background: rgba(120,124,135,.28) !important; }
@@ -2000,19 +2017,287 @@ function revealAnimate(root, row){
     root.addEventListener('click', finish);
     requestAnimationFrame(tick);
 }
+// ======================= HOLO MOTION: рендер ролика в MP4 на устройстве =======================
+// Схема: sandbox-iframe (allow-scripts, БЕЗ allow-same-origin) с кодом анимации <-> postMessage <-> этот модуль.
+// В iframe внедряется мост: он по команде вызывает window.renderAt(t) и возвращает кадр (ImageBitmap).
+//   canvas-режим (<canvas id="stage">): кадр = сам canvas, без html2canvas (быстро и точно).
+//   DOM-режим (<div id="stage">): кадр = html2canvas(#stage) (медленнее, часть CSS-эффектов не рисуется).
+// Кодирование: WebCodecs (H.264, аппаратно) + mp4-muxer; если недоступно — ffmpeg.wasm (libx264, один поток, без SharedArrayBuffer).
+function holoBridge(){
+    var V = function(){ var v = window.VIDEO || {}; return { width: v.width || 1080, height: v.height || 1920, fps: v.fps || 30, duration: v.duration || 8000, fonts: v.fonts || [] }; };
+    var stage = function(){ return document.getElementById('stage'); };
+    function fit(){   // предпросмотр: вписываем #stage в окно (letterbox)
+        if (window.__capture) return;
+        var s = stage(); if (!s) return; var c = V();
+        var k = Math.min(innerWidth / c.width, innerHeight / c.height) || 1;
+        s.style.position = 'absolute'; s.style.transformOrigin = '0 0';
+        s.style.left = ((innerWidth - c.width * k) / 2) + 'px'; s.style.top = ((innerHeight - c.height * k) / 2) + 'px';
+        s.style.transform = 'scale(' + k + ')';
+    }
+    addEventListener('load', fit); addEventListener('resize', fit);
+    function seekAnims(t){ try { (document.getAnimations ? document.getAnimations() : []).forEach(function(a){ try { a.pause(); a.currentTime = t; } catch (e) {} }); } catch (e) {} }
+    function loadH2C(){
+        return new Promise(function(res, rej){
+            if (window.html2canvas) return res();
+            var s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            s.onload = function(){ res(); }; s.onerror = function(){ rej(new Error('html2canvas не загрузился')); };
+            document.head.appendChild(s);
+        });
+    }
+    var mode = 'dom';
+    addEventListener('message', async function(e){
+        var m = e.data; if (!m || !m.holoCap || e.source !== parent) return;
+        var reply = function(o, tr){ o.holoCapRes = 1; o.id = m.id; parent.postMessage(o, '*', tr || []); };
+        try {
+            if (m.holoCap === 'probe'){
+                if (typeof window.renderAt !== 'function') throw new Error('В анимации нет window.renderAt');
+                if (!stage()) throw new Error('В анимации нет элемента #stage');
+                reply({ cfg: V() });
+            } else if (m.holoCap === 'init'){
+                window.__capture = true;                            // рендер-цикл предпросмотра выключаем
+                window.requestAnimationFrame = function(){ return 0; };  // и на всякий случай обрубаем любые rAF-цепочки
+                var c = V(), s = stage();
+                s.style.position = 'absolute'; s.style.left = '0px'; s.style.top = '0px'; s.style.transform = 'none';
+                await new Promise(function(r){ setTimeout(r, 80); });   // даём доиграть уже запланированному rAF-кадру
+                if (document.fonts){
+                    await document.fonts.ready;
+                    await Promise.all(c.fonts.map(function(f){ return document.fonts.load(f).catch(function(){}); }));
+                    await document.fonts.ready;
+                }
+                mode = s.tagName === 'CANVAS' ? 'canvas' : 'dom';
+                if (mode === 'dom') await loadH2C();
+                reply({ mode: mode });
+            } else if (m.holoCap === 'frame'){
+                var st = stage(); window.renderAt(m.t); seekAnims(m.t);
+                var src = st;
+                if (mode === 'dom') src = await window.html2canvas(st, { scale: 1, backgroundColor: null, logging: false, useCORS: false, width: st.offsetWidth, height: st.offsetHeight, windowWidth: innerWidth, windowHeight: innerHeight });
+                var bmp = await createImageBitmap(src);
+                reply({ bmp: bmp }, [bmp]);
+            }
+        } catch (err) { reply({ error: String((err && err.message) || err) }); }
+    });
+}
+const MOTION = (() => {
+    const CDN = {
+        ffmpeg: 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd',
+        util:   'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd',
+        core:   'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',   // single-thread: не нужен SharedArrayBuffer / COOP+COEP
+        muxer:  'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js'
+    };
+    const MAX_FRAMES = 450, FRAME_TIMEOUT = 30000;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const even = n => Math.max(2, Math.round(n / 2) * 2);
+    const _s = {};
+    const loadScript = src => _s[src] || (_s[src] = new Promise((res, rej) => {
+        const s = document.createElement('script'); s.src = src; s.async = true; s.onload = () => res();
+        s.onerror = () => { delete _s[src]; rej(new Error('Не удалось загрузить ' + src.split('/').pop())); };
+        document.head.appendChild(s);
+    }));
+    const abortErr = () => { const e = new Error('Отменено'); e.name = 'AbortError'; return e; };
+
+    // код анимации + мост перед последним </body>
+    function doc(code){
+        const bridge = '<script>(' + holoBridge.toString() + ')()<\/script>';
+        const s = String(code || ''), i = s.toLowerCase().lastIndexOf('</body>');
+        return i >= 0 ? s.slice(0, i) + bridge + s.slice(i) : s + bridge;
+    }
+
+    // скрытая сессия захвата: iframe того же вида, что и предпросмотр (та же CSP), общение только через postMessage
+    function openSession(v){
+        const f = document.createElement('iframe');
+        f.setAttribute('sandbox', 'allow-scripts'); f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+        f.style.cssText = 'position:fixed;left:-99999px;top:0;width:1080px;height:1920px;border:0;opacity:0;pointer-events:none';
+        const pend = new Map(); let seq = 0;
+        const onMsg = e => {
+            if (e.source !== f.contentWindow) return;
+            const m = e.data; if (!m || !m.holoCapRes) return;
+            const p = pend.get(m.id); if (!p) return; pend.delete(m.id); clearTimeout(p.t);
+            if (m.error) p.rej(new Error(m.error)); else p.res(m);
+        };
+        addEventListener('message', onMsg);
+        const call = (msg, ms) => new Promise((res, rej) => {
+            const id = ++seq, t = setTimeout(() => { pend.delete(id); rej(new Error('Кадр не отрисовался за отведённое время')); }, ms || FRAME_TIMEOUT);
+            pend.set(id, { res, rej, t }); f.contentWindow.postMessage({ ...msg, id }, '*');
+        });
+        const loaded = new Promise((res, rej) => { f.addEventListener('load', () => res(), { once: true }); setTimeout(() => rej(new Error('Анимация не загрузилась')), 25000); });
+        f.srcdoc = visDoc(v);   // тот же документ, что в предпросмотре (визуально ролик гарантированно совпадёт)
+        document.body.appendChild(f);
+        return { f, call, loaded, close(){ removeEventListener('message', onMsg); pend.forEach(p => clearTimeout(p.t)); f.remove(); } };
+    }
+
+    // ---- кодировщик 1: WebCodecs (H.264 в железе) + mp4-muxer ----
+    async function webCodecsSink(w, h, fps){
+        if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
+        const bitrate = Math.round(w * h * fps * 0.12);
+        let codec = null;
+        for (const c of ['avc1.64002a', 'avc1.640028', 'avc1.4d0028', 'avc1.42001f']){
+            try { const r = await VideoEncoder.isConfigSupported({ codec: c, width: w, height: h, bitrate, framerate: fps }); if (r && r.supported){ codec = c; break; } } catch (e) {}
+        }
+        if (!codec) return null;
+        await loadScript(CDN.muxer);
+        const M = window.Mp4Muxer; if (!M) return null;
+        const target = new M.ArrayBufferTarget();
+        const muxer = new M.Muxer({ target, video: { codec: 'avc', width: w, height: h }, fastStart: 'in-memory' });
+        let encErr = null;
+        const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: e => { encErr = e; } });
+        enc.configure({ codec, width: w, height: h, bitrate, framerate: fps });
+        return {
+            name: 'WebCodecs',
+            async push(i, cvs){
+                if (encErr) throw encErr;
+                while (enc.encodeQueueSize > 6) await sleep(4);   // не копим очередь несжатых кадров в памяти
+                const vf = new VideoFrame(cvs, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+                enc.encode(vf, { keyFrame: i % (fps * 2) === 0 }); vf.close();
+            },
+            async finish(){ await enc.flush(); if (encErr) throw encErr; muxer.finalize(); return new Blob([target.buffer], { type: 'video/mp4' }); },
+            dispose(){ try { enc.close(); } catch (e) {} }
+        };
+    }
+
+    // ---- кодировщик 2: ffmpeg.wasm (JPEG-кадры -> libx264), запасной путь ----
+    async function ffmpegSink(w, h, fps, ui){
+        ui.status('Загружаю видеодвижок ffmpeg (один раз, ~30 МБ)…');
+        await loadScript(CDN.ffmpeg + '/ffmpeg.js'); await loadScript(CDN.util + '/index.js');
+        const FFmpeg = window.FFmpegWASM && window.FFmpegWASM.FFmpeg, U = window.FFmpegUtil;
+        if (!FFmpeg || !U) throw new Error('ffmpeg.wasm не инициализировался');
+        const ff = new FFmpeg();
+        await ff.load({   // воркер и ядро подгружаем через blob: кросс-доменный Worker браузер иначе не создаст
+            classWorkerURL: await U.toBlobURL(CDN.ffmpeg + '/814.ffmpeg.js', 'text/javascript'),
+            coreURL: await U.toBlobURL(CDN.core + '/ffmpeg-core.js', 'text/javascript'),
+            wasmURL: await U.toBlobURL(CDN.core + '/ffmpeg-core.wasm', 'application/wasm')
+        });
+        const fn = i => 'f' + String(i).padStart(5, '0') + '.jpg';
+        let n = 0;
+        return {
+            name: 'ffmpeg.wasm',
+            async push(i, cvs){
+                const blob = await new Promise(r => cvs.toBlob(r, 'image/jpeg', 0.92));
+                if (!blob) throw new Error('Не удалось сохранить кадр');
+                await ff.writeFile(fn(i), new Uint8Array(await blob.arrayBuffer())); n = i + 1;
+            },
+            async finish(onProgress){
+                ff.on('progress', p => onProgress && onProgress(Math.min(1, Math.max(0, p.progress || 0))));
+                const rc = await ff.exec(['-framerate', String(fps), '-i', 'f%05d.jpg', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', 'out.mp4']);
+                if (rc !== 0) throw new Error('ffmpeg завершился с ошибкой ' + rc);
+                const data = await ff.readFile('out.mp4');
+                return new Blob([data.buffer], { type: 'video/mp4' });
+            },
+            dispose(){ try { ff.terminate(); } catch (e) {} }
+        };
+    }
+
+    // ---- основной проход: кадры из iframe -> canvas нужного размера -> кодировщик ----
+    async function render(v, ui, forceFfmpeg){
+        const s = openSession(v); let sink = null;
+        try {
+            ui.status('Запускаю анимацию…');
+            await s.loaded;
+            const cfg = (await s.call({ holoCap: 'probe' }, 15000)).cfg;
+            s.f.style.width = cfg.width + 'px'; s.f.style.height = cfg.height + 'px';   // вьюпорт iframe = размер ролика
+            await s.call({ holoCap: 'init' }, 60000);
+            const fps = Math.min(60, Math.max(10, Math.round(cfg.fps)));
+            const total = Math.min(MAX_FRAMES, Math.max(1, Math.round(cfg.duration / 1000 * fps)));
+            const dims = side => { const k = Math.min(1, side / Math.max(cfg.width, cfg.height)); return [even(cfg.width * k), even(cfg.height * k)]; };
+            let [w, h] = dims(1920);
+            if (!forceFfmpeg) sink = await webCodecsSink(w, h, fps);
+            if (!sink){ [w, h] = dims(1280); sink = await ffmpegSink(w, h, fps, ui); }   // ffmpeg в wasm однопоточный: режем до 720x1280
+            const cvs = document.createElement('canvas'); cvs.width = w; cvs.height = h;
+            const ctx = cvs.getContext('2d', { alpha: false }); ctx.imageSmoothingQuality = 'high';
+            for (let i = 0; i < total; i++){
+                if (ui.signal.aborted) throw abortErr();
+                const r = await s.call({ holoCap: 'frame', t: i * 1000 / fps });
+                ctx.drawImage(r.bmp, 0, 0, w, h); r.bmp.close();
+                try { await sink.push(i, cvs); } catch (e) { e.enc = true; throw e; }
+                ui.progress((i + 1) / total * 0.85, 'Кадр ' + (i + 1) + ' из ' + total);
+            }
+            ui.status('Склеиваю MP4…'); ui.progress(0.86);
+            let blob; try { blob = await sink.finish(p => ui.progress(0.86 + p * 0.14)); } catch (e) { e.enc = true; throw e; }
+            return { blob, w, h, fps, total, engine: sink.name };
+        } finally { s.close(); if (sink) sink.dispose(); }
+    }
+    async function renderWithFallback(v, ui){
+        try { return await render(v, ui, false); }
+        catch (e) {
+            if (e && e.name === 'AbortError') throw e;
+            if (!e || !e.enc) throw e;   // ошибка самой анимации — повтор не поможет; ошибка кодировщика — пробуем ffmpeg
+            console.warn('WebCodecs не справился, пробую ffmpeg.wasm', e); ui.status('Пробую запасной кодировщик…'); ui.progress(0);
+            return await render(v, ui, true);
+        }
+    }
+
+    // ---- сохранение на устройство (File API) ----
+    async function saveFile(file){
+        if (window.showSaveFilePicker){   // десктоп Chromium: настоящий диалог «Сохранить как»
+            try { const h = await showSaveFilePicker({ suggestedName: file.name, types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }] }); const w = await h.createWritable(); await w.write(file); await w.close(); return 'saved'; }
+            catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
+        }
+        try {   // телефон: системное меню «Поделиться» -> «Сохранить видео» / TikTok / YouTube / Telegram
+            if (navigator.canShare && navigator.canShare({ files: [file] })){ await navigator.share({ files: [file], title: file.name }); return 'shared'; }
+        } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
+        const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;   // запасной путь: обычная загрузка
+        document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+        return 'link';
+    }
+
+    // ---- окно прогресса ----
+    function overlay(){
+        const ov = document.createElement('div'); ov.id = 'mo-ov';
+        ov.innerHTML = '<div class="mo-card"><div class="mo-title">Собираю MP4</div><div class="mo-sub"></div><div class="mo-bar"><i></i></div><div class="mo-vid"></div><div class="mo-btns"><button type="button" class="txtbtn mo-cancel">Отмена</button><button type="button" class="txtbtn mo-save" style="display:none">Сохранить видео</button></div></div>';
+        document.body.appendChild(ov);
+        const q = c => ov.querySelector(c), ac = new AbortController();
+        const title = q('.mo-title'), sub = q('.mo-sub'), fill = q('.mo-bar i'), vid = q('.mo-vid'), bCancel = q('.mo-cancel'), bSave = q('.mo-save');
+        let url = null;
+        const close = () => { ac.abort(); if (url) URL.revokeObjectURL(url); ov.remove(); };
+        bCancel.addEventListener('click', close);
+        return {
+            signal: ac.signal, close,
+            status(t){ sub.textContent = t; },
+            progress(p, t){ fill.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%'; if (t) sub.textContent = t; },
+            done(res){
+                const d = new Date(), pad = n => String(n).padStart(2, '0');
+                const file = new File([res.blob], 'holo-video-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + '.mp4', { type: 'video/mp4' });
+                url = URL.createObjectURL(file);
+                title.textContent = 'Готово'; fill.style.width = '100%';
+                sub.textContent = res.w + '×' + res.h + ', ' + res.fps + ' fps, ' + (res.blob.size / 1048576).toFixed(1) + ' МБ · ' + res.engine;
+                const vEl = document.createElement('video'); vEl.src = url; vEl.controls = true; vEl.loop = true; vEl.muted = true; vEl.playsInline = true; vEl.autoplay = true;
+                vid.appendChild(vEl); vid.style.display = 'block';
+                bCancel.textContent = 'Закрыть'; bSave.style.display = '';
+                // сохранение — только по свежему тапу: после долгого рендера «жест пользователя» уже истёк, и share()/showSaveFilePicker() без него отклоняются
+                bSave.addEventListener('click', async () => { const r = await saveFile(file); if (r === 'saved' || r === 'shared') toast('Видео сохранено'); else if (r === 'link') toast('Если файл не появился, удерживай палец на видео и выбери «Сохранить»'); });
+            },
+            fail(e){ title.textContent = 'Не получилось'; sub.textContent = (e && e.message) ? e.message : 'Ошибка рендера'; bCancel.textContent = 'Закрыть'; fill.style.width = '0%'; }
+        };
+    }
+
+    let busy = false;
+    async function download(v){
+        if (!isPro()){ tap(); toast('Скачивание доступно только на тарифе'); return; }
+        if (busy){ toast('Рендер уже идёт'); return; }
+        busy = true; const ui = overlay(); let wl = null;
+        try {
+            try { wl = navigator.wakeLock ? await navigator.wakeLock.request('screen') : null; } catch (e) {}   // экран не гаснет во время рендера
+            ui.done(await renderWithFallback(v, ui));
+        } catch (e) {
+            if (e && e.name === 'AbortError') { /* окно уже закрыто пользователем */ } else { console.error('motion render failed', e); ui.fail(e); }
+        } finally { busy = false; if (wl) wl.release().catch(() => {}); }
+    }
+    return { doc, download };
+})();
+const VID_BAR_HTML = '<button type="button" class="txtbtn vis-open" data-vis="open">Открыть</button><button type="button" class="txtbtn vis-dl" data-vis="dl">Скачать MP4</button>';
 const MORE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
 function attachVis(row, msg, visual, opts){
     opts = opts || {};
         row.classList.add('has-vis'); msg.classList.add('has-vis');
         const vis = document.createElement('div'); vis.className = 'vis'; if (!opts.live) vis._v = visual;
-        const fr = document.createElement('div'); fr.className = 'vis-frame';
+        const fr = document.createElement('div'); fr.className = 'vis-frame'; if (visual.type === 'video-html') fr.classList.add('vid');
         const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = opts.doc || visDoc(visual);
         fr.appendChild(ifr); vis._ifr = ifr;
         const bar = document.createElement('div'); bar.className = 'vis-bar';
-        bar.innerHTML = '<button type="button" class="txtbtn vis-open" data-vis="open">Открыть</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править</button>' : '') + '<button type="button" class="txtbtn vis-more" data-vis="more" aria-label="Ещё" aria-haspopup="true">' + MORE_ICON + '</button>';
+        bar.innerHTML = visual.type === 'video-html' ? VID_BAR_HTML : '<button type="button" class="txtbtn vis-open" data-vis="open">Открыть</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править</button>' : '') + '<button type="button" class="txtbtn vis-more" data-vis="more" aria-label="Ещё" aria-haspopup="true">' + MORE_ICON + '</button>';
         if (opts.live) bar.style.display = 'none';
         vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis); vis._bar = bar;
-        const fit = () => { const w = fr.clientWidth; const f = vis._ifr || ifr; if (w) f.style.transform = 'scale(' + (w / 800) + ')'; };
+        const fit = () => { if (visual.type === 'video-html') return; const w = fr.clientWidth; const f = vis._ifr || ifr; if (w) f.style.transform = 'scale(' + (w / 800) + ')'; };
         requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(fr);
     return vis;
 }
@@ -2041,7 +2326,7 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
         msg.classList.add('has-copy');
         const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = body; msg.appendChild(cb);
     }
-    if (visual && typeof visual.code === 'string' && (visual.type === 'html' || visual.type === 'svg')) attachVis(row, msg, visual);
+    if (visual && typeof visual.code === 'string' && (visual.type === 'html' || visual.type === 'svg' || visual.type === 'video-html')) attachVis(row, msg, visual);
     const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = time === undefined ? nowTime() : time;
     col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
     row.appendChild(avatar); row.appendChild(col);
@@ -2101,6 +2386,7 @@ async function copyVisCode(v, btn){
 const LOCK_CSP = "default-src 'none'; frame-src " + BACKEND_URL + "; style-src 'unsafe-inline'";
 function visDoc(v){
     const head = '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style>';
+    if (v.type === 'video-html') return head + MOTION.doc(v.code);
     if (v.type === 'svg') return head + '<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}svg{max-width:100%;max-height:100vh;height:auto}</style>' + v.code;
     if (v.pid) return '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + LOCK_CSP + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{display:block;border:0;width:100%;height:100%}</style><iframe sandbox="allow-scripts" title="Проект" src="' + BACKEND_URL + '/p/' + encodeURIComponent(v.pid) + '"></iframe>';
     return head + VIS_NAV + (isPro() ? stripWm(v.code) : v.code);
@@ -2245,7 +2531,7 @@ function vvMode(edit){
     $('vv-code-i').innerHTML = edit ? VV_EYE : VV_CODE;
     $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
 }
-function openVis(v, el){ tap(); curVis = { v, el }; const lk = isLocked(v); $('vv-code').style.display = lk ? 'none' : ''; $('vv-copy').style.display = lk ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+function openVis(v, el){ tap(); curVis = { v, el }; const lk = isLocked(v); const vid = v.type === 'video-html'; $('vv-code').style.display = (lk || vid) ? 'none' : ''; $('vv-copy').style.display = (lk || vid) ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
 function closeVis(){ vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); if (typeof exAfterVis === 'function') exAfterVis(); }
 $('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!curVis) return; if (vvEditing){ vvMode(false); return; } if (isLocked(curVis.v)){ lockedToast(); return; } const c = await fetchCode(curVis.v); if (c === null || !curVis) return; $('vv-edit').value = c; vvMode(true); });
 $('vv-apply').addEventListener('click', () => {
@@ -2261,7 +2547,8 @@ $('vv-apply').addEventListener('click', () => {
 async function dlVis(){
     if (!curVis) return;
     if (!isPro()){ tap(); toast('Скачивание доступно только на тарифе'); return; }
-    const v = curVis.v, isSvg = v.type === 'svg', name = isSvg ? 'holo-image.svg' : 'holo-site.html';
+    const v = curVis.v; if (v.type === 'video-html'){ MOTION.download(v); return; }
+    const isSvg = v.type === 'svg', name = isSvg ? 'holo-image.svg' : 'holo-site.html';
     let full = await fetchCode(v); if (full === null) return;
     full = stripWm(full);
     if (!isSvg){
@@ -2305,7 +2592,8 @@ let visPopFor = null;
 function visPopClose(){ visPop.classList.remove('open'); visPopFor = null; }
 function visPopOpen(vis, btn){
     visPopFor = vis;
-    { const cp = visPop.querySelector('[data-a="copy"]'); if (cp) cp.style.display = isLocked(vis._v) ? 'none' : ''; }
+    { const cp = visPop.querySelector('[data-a="copy"]'); if (cp) cp.style.display = (isLocked(vis._v) || (vis._v && vis._v.type === 'video-html')) ? 'none' : ''; }
+    { const hp = visPop.querySelector('[data-a="help"]'); if (hp) hp.style.display = (vis._v && vis._v.type === 'video-html') ? 'none' : ''; }
     { const pb = visPop.querySelector('[data-a="publish"]'); if (pb) pb.style.display = (vis._v && vis._v.type === 'html') ? '' : 'none'; }
     const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;  // меню скрыто, но размеры известны
     const below = r.bottom + 6 + hh <= innerHeight - 8;
@@ -2339,6 +2627,7 @@ chatHistory.addEventListener('click', e => {
         if (!isPro()){ tap(); botSay('Правки доступны только на Pro-тарифе.'); return; }
         setEditTarget(vis._v); botSay('Что именно изменить?'); input.focus(); return;
     }
+    if (b && b.dataset.vis === 'dl'){ curVis = { v: vis._v, el: vis }; dlVis(); curVis = null; return; }
     if (b && b.dataset.vis === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); return; }
     if (b || e.target.closest('.vis-frame')) openVis(vis._v, vis);
 });
@@ -3156,7 +3445,7 @@ async function sendMessage(text, opts) {
 
     const hs = editTarget ? [] : chatHistoryForServer.slice(-40);  // в правке история серверу не нужна
     const historyText = hs.map(m => `${m.sender === 'user' ? 'Пользователь' : 'Ты'}: ${m.text}`).join('\n');
-    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } // проект для правки берём только из последних 12 сообщений, сервер сам решает, правка это или нет (looks_like_edit), и списывает 30–120 единиц по размеру кода
+    let lastVisual = null; for (let i = chatHistoryForServer.length - 1; i >= Math.max(0, chatHistoryForServer.length - 12); i--){ if (chatHistoryForServer[i].vis && !chatHistoryForServer[i].vis.x){ lastVisual = chatHistoryForServer[i].vis; break; } } if (lastVisual && lastVisual.type === 'video-html') lastVisual = { type: 'video-html' }; // проект для правки берём только из последних 12 сообщений, сервер сам решает, правка это или нет (looks_like_edit), и списывает 30–120 единиц по размеру кода
 
     const ac = new AbortController(); sendAbort = ac; setStopMode(true);  // квадрат «Остановить» на время запроса
     const cancelledUi = (live) => {  // пользователь нажал стоп: убираем «думает» и черновой пузырь, ошибку не показываем
@@ -3190,7 +3479,7 @@ async function sendMessage(text, opts) {
             }
 
             const vis0 = data.visual; if (vis0 && vis0.type === 'html' && (String(vis0.code).length > 3000 || vis0.pid) && !PRO.active && PRO.trial){ PRO.trial = false; }
-            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg') ? { type: data.visual.type, code: data.visual.code, pid: data.visual.pid || undefined } : null;
+            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg' || data.visual.type === 'video-html') ? { type: data.visual.type, code: data.visual.code, pid: data.visual.pid || undefined } : null;
             let outText = data.text;
             if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
             // режим правки (diff): живого iframe не было, итог приходит целиком, поэтому заменяем черновой пузырь готовым
@@ -3583,58 +3872,121 @@ $('st-up-btn').addEventListener('click', () => $('pro-btn').click());
 
 
 
-// ЖЕСТЫ: выдвинуть панель пальцем от края, закрыть смахиванием
+// ЖЕСТЫ: панели едут за пальцем 1:1, при отпускании учитываются скорость и «инерция» движения; панель можно схватить в полёте
 (function(){
   const hp = $('hist-panel'), hbg = $('hist-bg'), dp = $('drawer'), dbg = $('drawer-bg');
-  const EDGE = 28;
-  let g = null;
+  const EDGE = 28, TRAVEL = 1.05, EASE = 'cubic-bezier(.2,.8,.2,1)';
+  let g = null, tid = 0;
   const busy = () => document.querySelector('.overlay.open, #visview.open, #lightbox.open, #fileview.open');
-  function clear(g){ document.body.style.removeProperty('--push'); document.body.classList.remove('swiping'); [g.p, g.bg].forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; el.style.pointerEvents = ''; }); }
+  // насколько панель открыта прямо сейчас (0..1) — по живому transform, поэтому её можно перехватить посреди анимации
+  const progOf = (p, s) => {
+    const m = getComputedStyle(p).transform; if (!m || m === 'none') return 1;
+    const tx = parseFloat(m.split(',')[4]); if (isNaN(tx)) return 1;
+    return Math.max(0, Math.min(1, 1 + s * tx / (TRAVEL * (p.offsetWidth || 320))));
+  };
+  const velocity = g => { const a = g.hist; if (a.length < 2) return 0; const f = a[0], l = a[a.length - 1], dt = l.t - f.t; return dt > 0 ? (l.d - f.d) / dt : 0; };   // px/мс, > 0 — в сторону открытия
   document.addEventListener('touchstart', e => {
     if (e.touches.length !== 1 || busy()) { g = null; return; }
-    const t = e.touches[0], W = innerWidth, o = document.body.classList;
-    let side = null, mode = null;
-    if (o.contains('hp')) { side = 'l'; mode = 'close'; }
-    else if (o.contains('dr')) { side = 'r'; mode = 'close'; }
-    else if (t.clientX <= EDGE) { side = 'l'; mode = 'open'; }
+    const t = e.touches[0], ph = progOf(hp, 1), pd = progOf(dp, -1);
+    let side = null, p0 = 0, mode = 'open';
+    if (ph > .02) { side = 'l'; p0 = ph; mode = 'grab'; }
+    else if (pd > .02) { side = 'r'; p0 = pd; mode = 'grab'; }
+    else if (t.clientX <= EDGE) side = 'l';
     if (!side) { g = null; return; }
-    g = { side, mode, x0: t.clientX, y0: t.clientY, t0: Date.now(), lock: null, p: side === 'l' ? hp : dp, bg: side === 'l' ? hbg : dbg, w: (side === 'l' ? hp : dp).offsetWidth || 320, prog: 0 };
+    const p = side === 'l' ? hp : dp;
+    g = { side, mode, p0, prog: p0, x0: t.clientX, y0: t.clientY, lock: false, p, bg: side === 'l' ? hbg : dbg, w: p.offsetWidth || 320, hist: [{ t: performance.now(), d: 0 }] };
   }, { passive: true });
   document.addEventListener('touchmove', e => {
     if (!g) return;
-    const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0, s = g.side === 'l' ? 1 : -1, d = s * dx;
     if (!g.lock) {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      const okDir = g.mode === 'open' ? (g.side === 'l' ? dx > 0 : dx < 0) : (g.side === 'l' ? dx < 0 : dx > 0);
-      if (Math.abs(dx) > Math.abs(dy) * 1.2 && okDir) {
-        g.lock = 'x';
-        if (g.mode === 'open') { if (g.side === 'l') renderHistList(); else drTab('menu'); }
-        g.p.style.transition = 'none'; g.bg.style.transition = 'none'; g.bg.style.pointerEvents = 'none'; document.body.classList.add('swiping');
-      } else { g = null; return; }
+      const ok = Math.abs(dx) > Math.abs(dy) * 1.2 && (g.mode === 'open' ? d > 0 : (g.p0 < .98 || d < 0));
+      if (!ok) { g = null; return; }
+      g.lock = true; clearTimeout(tid);
+      if (g.mode === 'open') { if (g.side === 'l') renderHistList(); else drTab('menu'); }
+      g.p.style.transition = 'none'; g.bg.style.transition = 'none'; g.bg.style.pointerEvents = 'none';
+      document.body.classList.add('swiping');
     }
     e.preventDefault();
-    const s = g.side === 'l' ? 1 : -1;           // l: панель слева, r: справа
-    let open = g.mode === 'open' ? s * dx / g.w : 1 + s * dx / g.w;
-    open = Math.max(0, Math.min(1, open));
+    const open = Math.max(0, Math.min(1, g.p0 + d / g.w));
     g.prog = open;
-    g.p.style.transform = 'translateX(' + (-s * (1 - open) * g.w * 1.05) + 'px)';
+    g.p.style.transform = 'translateX(' + (-s * (1 - open) * g.w * TRAVEL) + 'px)';
     g.bg.style.opacity = open;
     if (g.side === 'l') document.body.style.setProperty('--push', (open * g.w) + 'px');
+    const now = performance.now(); g.hist.push({ t: now, d: d });
+    while (g.hist.length > 2 && now - g.hist[0].t > 100) g.hist.shift();
   }, { passive: false });
-  function end(e){
+  function end(){
     if (!g) return;
     const cur = g; g = null;
-    if (cur.lock !== 'x') return;
-    const t = (e.changedTouches && e.changedTouches[0]) || { clientX: cur.x0 };
-    const dx = t.clientX - cur.x0, dt = Math.max(1, Date.now() - cur.t0), v = (cur.side === 'l' ? dx : -dx) / dt;
-    const fast = Math.abs(v) > 0.5, openDir = v > 0.5;
-    const want = fast ? openDir : (cur.mode === 'open' ? cur.prog > 0.35 : cur.prog > 0.7);
-    clear(cur);
-    const cls = cur.side === 'l' ? 'hp' : 'dr';
-    if (want) { if (cur.side === 'l') openHist(); else openDrawer(); } else document.body.classList.remove(cls);
+    if (!cur.lock) return;
+    const v = velocity(cur);                                     // скорость пальца в конце жеста
+    let want = cur.prog * cur.w + v * 99 > cur.w * .5;           // куда палец «долетел бы» по инерции (затухание 0.99)
+    if (Math.abs(v) > .45) want = v > 0;                         // быстрый бросок решает направлением
+    const px = Math.abs((want ? 1 : 0) - cur.prog) * cur.w * TRAVEL;
+    const dur = Math.round(Math.max(160, Math.min(380, px / Math.max(Math.abs(v), .6))));   // быстрее палец — короче доводка
+    const cls = cur.side === 'l' ? 'hp' : 'dr', b = document.body;
+    cur.p.style.transition = 'transform ' + dur + 'ms ' + EASE;
+    cur.bg.style.transition = 'opacity ' + dur + 'ms ease, translate ' + dur + 'ms ' + EASE;
+    b.style.setProperty('--pdur', dur + 'ms');
+    cur.p.style.transform = ''; cur.bg.style.opacity = ''; cur.bg.style.pointerEvents = '';
+    b.style.removeProperty('--push'); b.classList.remove('swiping');
+    if (want) { if (!b.classList.contains(cls)) { if (cur.side === 'l') openHist(); else openDrawer(); } }
+    else b.classList.remove(cls);
+    tid = setTimeout(() => { cur.p.style.transition = ''; cur.bg.style.transition = ''; b.style.removeProperty('--pdur'); }, dur + 40);
   }
   document.addEventListener('touchend', end, { passive: true });
   document.addEventListener('touchcancel', end, { passive: true });
+})();
+
+// ЖЕСТ: потянуть шапку просмотра вниз, чтобы закрыть (как шторка в iOS); вверх — лёгкое сопротивление
+(function(){
+  const vv = $('visview'), bar = $('vv-bar');
+  if (!vv || !bar) return;
+  const EASE = 'cubic-bezier(.2,.8,.2,1)';
+  let s = null, tid = 0;
+  const reset = () => { vv.style.transition = ''; vv.style.transform = ''; vv.style.opacity = ''; vv.style.borderRadius = ''; };
+  bar.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || !vv.classList.contains('open')) { s = null; return; }
+    clearTimeout(tid); reset();
+    s = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, lock: false, y: 0, hist: [{ t: performance.now(), y: 0 }] };
+  }, { passive: true });
+  bar.addEventListener('touchmove', e => {
+    if (!s) return;
+    const dy = e.touches[0].clientY - s.y0, dx = e.touches[0].clientX - s.x0;
+    if (!s.lock) {
+      if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
+      if (dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.2) { s.lock = true; vv.style.transition = 'none'; vv.style.borderRadius = '22px 22px 0 0'; }
+      else { s = null; return; }
+    }
+    e.preventDefault();
+    s.y = dy >= 0 ? dy : -Math.min(18, -dy * .25);               // вверх — резиновое сопротивление
+    vv.style.transform = 'translateY(' + s.y + 'px)';
+    const now = performance.now(); s.hist.push({ t: now, y: dy });
+    while (s.hist.length > 2 && now - s.hist[0].t > 100) s.hist.shift();
+  }, { passive: false });
+  function end(){
+    if (!s) return;
+    const cur = s; s = null;
+    if (!cur.lock) return;
+    const a = cur.hist, dt = a[a.length - 1].t - a[0].t, v = dt > 0 ? (a[a.length - 1].y - a[0].y) / dt : 0;   // px/мс, > 0 — вниз
+    const H = innerHeight;
+    const close = Math.max(cur.y, 0) > 40 && (v > .6 || (Math.abs(v) <= .6 && cur.y + v * 99 > H * .35));
+    if (close) {
+      const dur = Math.round(Math.max(180, Math.min(340, (H - cur.y) / Math.max(v, .8))));
+      tap();
+      vv.style.transition = 'transform ' + dur + 'ms ' + EASE;
+      vv.style.transform = 'translateY(100%)';
+      tid = setTimeout(() => { vv.style.transition = 'none'; vv.style.opacity = '0'; closeVis(); tid = setTimeout(reset, 400); }, dur);
+    } else {
+      vv.style.transition = 'transform 380ms cubic-bezier(.32,.72,0,1)';
+      vv.style.transform = '';
+      tid = setTimeout(reset, 420);
+    }
+  }
+  bar.addEventListener('touchend', end, { passive: true });
+  bar.addEventListener('touchcancel', end, { passive: true });
 })();
 
 // ПОДЕЛИТЬСЯ
