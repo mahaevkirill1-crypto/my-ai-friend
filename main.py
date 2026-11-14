@@ -626,6 +626,7 @@ PREVIEW_TTL = 90 * 24 * 3600
 PID_RE = re.compile(r"^[A-Za-z0-9_-]{24,64}$")
 PREVIEW_CSP = ("sandbox allow-scripts; default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; "
                "script-src 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: https:; "
+               "frame-src https://www.google.com https://yandex.ru; "
                "font-src https://fonts.gstatic.com data:; base-uri 'none'; form-action 'none'")
 PREVIEW_HEADERS = {"Content-Security-Policy": PREVIEW_CSP, "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
                    "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}
@@ -1852,6 +1853,131 @@ def referral_status(data: dict = Body(...)):
 
 _http = httpx.AsyncClient(timeout=8)
 
+# ---------- ссылки на карты: достаём название и координаты из самой ссылки ----------
+from urllib.parse import urlparse, parse_qs, unquote, unquote_plus, urljoin
+MAP_LINK_RE = re.compile(r"https?://[^\s<>\"'()\[\]]+", re.I)
+_GOOGLE_HOSTS = {"google.com", "www.google.com", "maps.google.com", "google.ru", "www.google.ru", "google.by", "www.google.by", "google.kz", "www.google.kz"}
+_YANDEX_HOSTS = {"yandex.ru", "www.yandex.ru", "yandex.com", "www.yandex.com", "yandex.by", "yandex.kz", "yandex.uz"}
+_GIS_HOSTS = {"2gis.ru", "www.2gis.ru", "2gis.com", "www.2gis.com", "go.2gis.com", "2gis.kz", "2gis.ae", "2gis.ua", "2gis.cl"}
+_MAP_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", "Accept-Language": "ru,en;q=0.8"}
+_MAP_GENERIC_TITLES = ("google maps", "google карты", "яндекс карты", "яндекс.карты", "2гис", "2gis", "карты")
+
+def _map_url_ok(url: str) -> bool:
+    """Только https и только страницы карт с точным списком хостов: защита от SSRF (сервер не ходит по чужим адресам)."""
+    try:
+        u = urlparse(url); h = (u.hostname or "").lower().rstrip(".")
+    except Exception:
+        return False
+    if u.scheme != "https" or not h or u.username or u.port not in (None, 443): return False
+    path = u.path or ""
+    if h == "maps.app.goo.gl": return True
+    if h == "goo.gl": return path.startswith("/maps")
+    if h in _GOOGLE_HOSTS: return h.startswith("maps.") or path.startswith("/maps")
+    if h in _YANDEX_HOSTS: return path.startswith("/maps")
+    return h in _GIS_HOSTS
+
+def _map_clean(text, n=120) -> str:
+    t = re.sub(r"[\x00-\x1f\x7f\[\]{}<>`]+", " ", str(text or ""))
+    return re.sub(r"\s+", " ", t).strip()[:n]
+
+def _map_coords(a, b):
+    try: la, ln = float(a), float(b)
+    except Exception: return None
+    return (la, ln) if -90 <= la <= 90 and -180 <= ln <= 180 else None
+
+def parse_map_url(url: str) -> dict:
+    """Что можно узнать из адреса: название/запрос и координаты. Адрес, телефон и часы работы в ссылках не лежат."""
+    info = {"name": "", "query": "", "coords": None, "provider": ""}
+    try:
+        u = urlparse(url); h = (u.hostname or "").lower(); q = parse_qs(u.query); path = unquote(u.path); full = unquote(url)
+    except Exception:
+        return info
+    if h in _GOOGLE_HOSTS or h == "maps.app.goo.gl" or h == "goo.gl":
+        info["provider"] = "google"
+        m = re.search(r"/maps/place/([^/@]+)", path)
+        if m: info["name"] = _map_clean(unquote_plus(m.group(1)))
+        m = re.search(r"/maps/search/([^/@]+)", path)
+        if m: info["query"] = _map_clean(unquote_plus(m.group(1)))
+        m = re.search(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)", full) or re.search(r"@(-?\d+\.\d+),(-?\d+\.\d+)", full)   # точка места точнее центра карты
+        if m: info["coords"] = _map_coords(m.group(1), m.group(2))
+        for key in ("q", "query", "destination"):
+            v = (q.get(key) or [""])[0]
+            m = re.fullmatch(r"\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*", v)
+            if m and not info["coords"]: info["coords"] = _map_coords(m.group(1), m.group(2))
+            elif v and not m and not info["query"]: info["query"] = _map_clean(v)
+    elif h in _YANDEX_HOSTS:
+        info["provider"] = "yandex"
+        for key in ("pt", "ll"):   # у Яндекса порядок «долгота,широта»
+            m = re.match(r"\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)", (q.get(key) or [""])[0])
+            if m and not info["coords"]: info["coords"] = _map_coords(m.group(2), m.group(1))
+        v = (q.get("text") or [""])[0]
+        if v: info["query"] = _map_clean(v)
+    elif h in _GIS_HOSTS:
+        info["provider"] = "2gis"
+        m = re.search(r"[?&]m=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)", url)
+        if m: info["coords"] = _map_coords(m.group(2), m.group(1))
+        m = re.search(r"/search/([^/?]+)", path)
+        if m: info["query"] = _map_clean(unquote_plus(m.group(1)))
+    return info
+
+async def resolve_map_link(url: str, client=None) -> dict:
+    """Раскрывает короткую ссылку вручную (каждый шаг проверяется по белому списку) и разбирает итоговый адрес."""
+    client = client or _http
+    cur, title = url, ""
+    try:
+        for _ in range(5):
+            if not _map_url_ok(cur): break
+            async with client.stream("GET", cur, headers=_MAP_UA, follow_redirects=False) as r:
+                loc = r.headers.get("location")
+                if r.status_code in (301, 302, 303, 307, 308) and loc:
+                    nxt = urljoin(cur, loc)
+                    nu = urlparse(nxt)
+                    if (nu.hostname or "").lower() == "consent.google.com":   # страница согласия: настоящий адрес лежит в параметре continue
+                        c = (parse_qs(nu.query).get("continue") or [""])[0]
+                        if c: nxt = c
+                    if not _map_url_ok(nxt): break
+                    cur = nxt; continue
+                if r.status_code == 200:
+                    body = b""
+                    async for chunk in r.aiter_bytes():
+                        body += chunk
+                        if len(body) > 150_000: break
+                    page = body.decode("utf-8", "ignore")
+                    mt = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)', page, re.I) or re.search(r"<title[^>]*>([^<]+)</title>", page, re.I)
+                    if mt:
+                        import html as _h2
+                        title = re.split(r"\s[-–—|]\s", _h2.unescape(mt.group(1)))[0]
+                break
+    except Exception as e:
+        log.warning("map link resolve failed: %s", type(e).__name__)
+    info = parse_map_url(cur)
+    title = _map_clean(title)
+    if not info["name"] and title and title.lower() not in _MAP_GENERIC_TITLES: info["name"] = title
+    info["final_url"] = cur if _map_url_ok(cur) else url
+    return info
+
+def map_context_block(info: dict) -> str:
+    """Текст для модели: только то, что реально прочитано из ссылки, и запрет выдумывать остальное."""
+    lines = ["ДАННЫЕ ИЗ ССЫЛКИ НА КАРТУ (получены автоматически, это ВСЁ, что известно о месте):"]
+    if info.get("name"): lines.append(f"- Название: {info['name']}")
+    if info.get("query"): lines.append(f"- Поисковый запрос на карте: {info['query']}")
+    c = info.get("coords")
+    if c:
+        la, ln = c
+        lines.append(f"- Координаты: {la}, {ln}")
+        if info.get("provider") == "yandex":
+            embed = f"https://yandex.ru/map-widget/v1/?ll={ln}%2C{la}&z=16&pt={ln},{la},pm2rdm"
+            route = f"https://yandex.ru/maps/?rtext=~{la},{ln}&rtt=auto"
+        else:
+            embed = f"https://www.google.com/maps?q={la},{ln}&z=16&output=embed"
+            route = f"https://www.google.com/maps/dir/?api=1&destination={la},{ln}"
+        lines.append(f"- Карта на сайте: <iframe src=\"{embed}\" loading=\"lazy\" style=\"border:0;width:100%;height:320px\"></iframe>")
+        lines.append(f"- Кнопка «Проложить маршрут» ведёт на: {route}")
+    if not (info.get("name") or info.get("query") or c):
+        lines.append("- Из ссылки не удалось получить ни названия, ни координат.")
+    lines.append("В ссылке НЕТ адреса, телефона, часов работы, отзывов и фото. Не выдумывай их: оставь заглушки в квадратных скобках, например [адрес], [телефон], [часы работы], либо не показывай такой блок. Название и карту используй только если они указаны выше.")
+    return "\n".join(lines)
+
 # --- ВЛОЖЕНИЯ ДЛЯ /ask ---
 def _pdf_to_text(b64):
     try:
@@ -2256,6 +2382,14 @@ async def ask(request: Request):
             user_content = raw_text
             if build_mode and build_choice == "build" and not BUILD_THING_RE.search(user_text):
                 user_content += "\n(Пользователь выбрал: собрать сайт. Сделай одностраничный сайт по этому описанию.)"
+            if build_mode:
+                for _u in MAP_LINK_RE.findall(raw_text)[:3]:
+                    _u = re.sub(r"^http://", "https://", _u.rstrip(".,;:!?"))
+                    if _map_url_ok(_u):
+                        try: _info = await asyncio.wait_for(resolve_map_link(_u), timeout=12)
+                        except Exception: _info = {"name": "", "query": "", "coords": None, "provider": ""}
+                        user_content += "\n\n" + map_context_block(_info)
+                        break
             
         pro = None
         used_bonus = False  # запрос оплачен бонусными запросами за друзей (нужно для возврата при сбое)
@@ -2333,6 +2467,8 @@ async def ask(request: Request):
             system_prompt = ASTRO_PLAIN if persona == "astronaut" else BASE_PLAIN
         
         system_prompt += user_name_line(first_name)   # обычный чат: имя пользователя в системный промпт
+        if re.search(r"https?://", raw_text):
+            system_prompt += "\n\nВ сообщении есть ссылка. Открывать ссылки ты не умеешь: не выдумывай, что по ней находится (адрес, телефон, часы, содержимое страницы). Скажи об этом и попроси описать своими словами."
 
         if lv and DEPLOY_RE.search(user_text):
             system_prompt += "\n\nВАЖНО: Пользователь только что сгенерировал проект в Студии. Если он спрашивает про запуск, оплату или хостинг — давай инструкции именно для этого проекта"
