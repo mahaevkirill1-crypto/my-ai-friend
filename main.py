@@ -2695,6 +2695,45 @@ async def ask(request: Request):
             return {"text": API_LOAD_TEXT, "emotion": "sleepy"}
         return {"text": "Не получилось ответить. Попробуй ещё раз через пару секунд.", "emotion": "sad"}
 
+# ---------- ГЕНЕРАЦИЯ ТЕКСТА ДЛЯ БЛОКА В РЕДАКТОРЕ (только Pro, небольшая цена в единицах лимита) ----------
+BLOCK_TEXT_WEIGHT = int(os.getenv("BLOCK_TEXT_WEIGHT", "5"))
+BLOCK_TEXT_SYSTEM = ("Ты пишешь короткий текст для блока на сайте. Пользователь даёт тему блока и название сайта. "
+                     "Ответь ТОЛЬКО готовым текстом на языке темы: 3-5 коротких строк, каждая с новой строки, без нумерации, "
+                     "без markdown, без звёздочек, без пояснений и вступлений. Каждая строка до 160 символов. "
+                     "Для отзывов пиши в формате «Имя: текст отзыва». Не выдумывай телефоны, адреса и точные цены.")
+
+@app.post("/block_text")
+async def block_text(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return JSONResponse({"status": "error", "text": "Ошибка авторизации. Открой приложение из Telegram."}, status_code=401)
+    uid = info["user"]["id"]
+    topic = str(data.get("topic") or "").strip()[:200]
+    site = str(data.get("site") or "").strip()[:200]
+    if not topic: return JSONResponse({"status": "error", "text": "Напиши в заголовке, о чём блок."}, status_code=400)
+    now = int(time.time())
+    conn = get_db_connection()
+    if not pro_info(conn, uid, now)["active"]:
+        return JSONResponse({"status": "error", "text": "Генерация текста доступна на платных тарифах."}, status_code=402)
+    cur = conn.execute("UPDATE pro_state SET requests_left = requests_left - ? WHERE user_id = ? AND requests_left >= ? AND expires_at > ?", (BLOCK_TEXT_WEIGHT, uid, BLOCK_TEXT_WEIGHT, now))
+    conn.commit()
+    if cur.rowcount != 1:
+        return JSONResponse({"status": "error", "text": "Не хватает лимита. Пополни тариф.", "pro": pro_info(conn, uid, now)}, status_code=402)
+    try:
+        resp = await llm([{"role": "system", "content": BLOCK_TEXT_SYSTEM},
+                          {"role": "user", "content": f"Тема блока: {topic}\nСайт: {site or 'не указан'}"}], 400, temperature=0.8)
+        text = (resp.choices[0].message.content or "").strip()
+        text = re.sub(r"[*_`#]+", "", text)
+        lines = [ln.strip(" -•\t") for ln in text.splitlines() if ln.strip()]
+        text = "\n".join(lines[:6])[:900]
+        if not text: raise ValueError("empty block text")
+        return {"status": "ok", "text": text, "pro": pro_info(conn, uid, int(time.time()))}
+    except Exception as e:
+        refund_units(conn, uid, BLOCK_TEXT_WEIGHT)
+        kind = api_error_kind(e)
+        if kind == "funds": alert_api_funds(e)
+        log.warning("block_text failed uid=%s", uid, exc_info=True)
+        return JSONResponse({"status": "error", "text": API_LOAD_TEXT if kind else "Не получилось написать текст. Попробуй ещё раз.", "pro": pro_info(conn, uid, int(time.time()))}, status_code=503 if kind else 500)
+
 @app.get("/p/{pid}")
 def preview_page(pid: str):
     """Страница проекта для iframe. Плашка не добавляется."""
