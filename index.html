@@ -554,6 +554,32 @@
     #vv-menu button svg { flex: none; }
     #vv-code-i { display: flex; flex: none; }
     #vv-edit { display: none; position: absolute; left: 0; right: 0; bottom: 0; top: calc(60px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 60px - env(safe-area-inset-top)); box-sizing: border-box; padding: 12px; border: 0; outline: none; resize: none; background: #2A2B2F; color: #EAF0FA; font: 12px/1.5 ui-monospace, Menlo, monospace; tab-size: 2; -webkit-text-fill-color: #EAF0FA; caret-color: var(--ui-cyan); }
+/* ВИЗУАЛЬНЫЙ РЕДАКТОР */
+#ed-panel { display: none; position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; max-height: 55%; overflow-y: auto; box-sizing: border-box; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); background: var(--ui-bg-1, #2A2B2F); border-top: .5px solid rgba(255,255,255,.14); color: var(--ui-tx-hi, #EAF0FA); font: 600 14px 'Manrope', system-ui, sans-serif; }
+#visview.ed-on #ed-panel { display: block; }
+#ed-mv { display: none; align-items: center; gap: 8px; margin-bottom: 10px; }
+#ed-mv.on { display: flex; }
+#ed-mv span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-tx-mid, #A7B4CC); font-size: 13px; }
+.ed-b { height: 38px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--cl-btn, rgba(255,255,255,.1)); color: inherit; font: inherit; cursor: pointer; flex: none; }
+.ed-b:active { transform: scale(.97); }
+.ed-b.pri { background: var(--cl-acc, #F2F3F5); color: var(--cl-acc-fg, #111214); }
+.ed-b:disabled { opacity: .45; }
+#ed-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+#ed-tabs button { flex: 1; }
+#ed-tabs button.on { background: var(--cl-acc, #F2F3F5); color: var(--cl-acc-fg, #111214); }
+.ed-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ed-card { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 12px; border: .5px solid rgba(255,255,255,.14); border-radius: 14px; background: var(--cl-btn, rgba(255,255,255,.07)); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ed-card i { font-style: normal; font-size: 18px; }
+.ed-card:active { transform: scale(.98); }
+.ed-hint { margin: 0 0 8px; color: var(--ui-tx-mid, #A7B4CC); font-weight: 500; font-size: 13px; line-height: 1.4; }
+.ed-lbl { display: block; margin: 10px 0 6px; font-size: 12px; color: var(--ui-tx-mid, #A7B4CC); }
+.ed-sw { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ed-sw button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.28); padding: 0; cursor: pointer; }
+.ed-sw button.ed-rs { width: auto; border-radius: 12px; border: 0; padding: 0 10px; background: var(--cl-btn, rgba(255,255,255,.1)); color: inherit; font: 600 12px 'Manrope', system-ui, sans-serif; }
+.ed-sw input[type=color] { width: 34px; height: 34px; padding: 0; border: 0; background: none; border-radius: 50%; }
+.ed-in { width: 100%; box-sizing: border-box; padding: 11px 12px; border: .5px solid rgba(255,255,255,.18); border-radius: 12px; background: var(--ui-bg-0, #1E1F22); color: inherit; font: 500 15px 'Manrope', system-ui, sans-serif; outline: none; resize: vertical; }
+.ed-row { display: flex; gap: 8px; margin-top: 12px; }
+:root:root body #pro { z-index: 1200; }
     /* Просмотр вложений */
     .message.has-file { cursor: pointer; }
     .message.has-file::after { content: 'Нажми, чтобы открыть'; display: block; margin-top: 4px; font-size: 11px; color: var(--ui-cyan); opacity: .85; }
@@ -1607,7 +1633,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
-<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><button id="vv-menu-btn" type="button" aria-label="Меню" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><div id="vv-menu" role="menu"><button id="vv-dl" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button><button id="vv-copy" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать</span></button><button id="vv-code" type="button" role="menuitem"><span id="vv-code-i"></span><span id="vv-code-t">Показать код</span></button></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
+<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><button class="pill" id="vv-ed" type="button" style="display:none">Редактор</button><button id="vv-menu-btn" type="button" aria-label="Меню" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><div id="vv-menu" role="menu"><button id="vv-dl" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button><button id="vv-copy" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать</span></button><button id="vv-code" type="button" role="menuitem"><span id="vv-code-i"></span><span id="vv-code-t">Показать код</span></button></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><div id="ed-panel"><div id="ed-mv"><span id="ed-mv-n"></span><button class="ed-b" type="button" data-mv="-1">↑ Вверх</button><button class="ed-b" type="button" data-mv="1">↓ Вниз</button></div><div id="ed-tabs"><button class="ed-b on" type="button" data-tab="blocks">Блоки</button><button class="ed-b" type="button" data-tab="colors">Цвета</button></div><div id="ed-body"></div></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
 <div id="lightbox"><button id="lb-close" type="button" aria-label="Закрыть">✕</button><div id="lb-box"><img id="lb-img" alt=""></div></div>
 <div id="fileview"><div id="fv-bar"><span id="fv-title"></span><button id="fv-copy" type="button" aria-label="Копировать" style="display:none"></button><button id="fv-close" type="button" aria-label="Закрыть">✕</button></div><div id="fv-body"></div></div>
 <div id="toast"></div>
@@ -2365,14 +2391,17 @@ const stripWm = c => String(c || '').replace(WM_RE, '');
 const isPro = () => { try { return !!PRO.active; } catch (e) { return false; } };  // PRO объявлен ниже по файлу: страхуемся от TDZ
 // Код (копирование, редактор, скачивание) доступен всем владельцам проекта, в том числе без Pro (старые проекты с v.pid берутся через /export).
 const hasWm = v => /<!--HF-WM-->/.test(String((v && v.code) || ''));
-const isLocked = v => false;   // копирование, код и скачивание доступны и без Pro
-function lockedToast(){ tap(); toast('Код доступен только на тарифе'); }
+const EDMARK = '<!--HF-EDITED-->', EDMARK_RE = /<!--HF-EDITED-->/g, EDMARK_T = /<!--HF-EDITED-->/;
+const stripMark = c => String(c || '').replace(EDMARK_RE, '');
+// Код доступен всем, КРОМЕ проектов, изменённых в визуальном редакторе: их скачать/скопировать/опубликовать можно только на тарифе
+const isLocked = v => !isPro() && !!v && (v.edited === true || EDMARK_T.test(String(v.code || '')));
+function lockedToast(){ tap(); edPaywall('Редактор доступен всем, но забрать изменённый сайт (скачать, скопировать код, опубликовать) можно на платном тарифе.'); }
 async function fetchCode(v){
-    if (!v.pid && !hasWm(v)) return v.code;
+    if (!v.pid && !hasWm(v)) return stripMark(v.code);
     try {
         const r = await fetch(`${BACKEND_URL}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ init_data: (tg && tg.initData) || '', pid: v.pid || undefined, code: v.pid ? undefined : v.code }) });
         const d = await r.json().catch(() => null);
-        if (r.ok && d && d.status === 'ok' && typeof d.code === 'string') return d.code;
+        if (r.ok && d && d.status === 'ok' && typeof d.code === 'string') return stripMark(d.code);
         toast((d && d.text) || 'Не удалось получить код');
     } catch (e) { toast('Не удалось получить код'); }
     return null;
@@ -2530,9 +2559,9 @@ function vvMode(edit){
     $('vv-code-i').innerHTML = edit ? VV_EYE : VV_CODE;
     $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
 }
-function openVis(v, el){ tap(); curVis = { v, el }; const lk = isLocked(v); const vid = v.type === 'video-html'; $('vv-code').style.display = (lk || vid) ? 'none' : ''; $('vv-copy').style.display = (lk || vid) ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
-function closeVis(){ vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); if (typeof exAfterVis === 'function') exAfterVis(); }
-$('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!curVis) return; if (vvEditing){ vvMode(false); return; } if (isLocked(curVis.v)){ lockedToast(); return; } const c = await fetchCode(curVis.v); if (c === null || !curVis) return; $('vv-edit').value = c; vvMode(true); });
+function openVis(v, el){ tap(); edReset(); curVis = { v, el }; $('vv-ed').style.display = v.type === 'html' ? '' : 'none'; const lk = isLocked(v); const vid = v.type === 'video-html'; $('vv-code').style.display = (lk || vid) ? 'none' : ''; $('vv-copy').style.display = (lk || vid) ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+function closeVis(force){ if (force !== true && edGuard(() => closeVis(true))) return; edReset(); vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); if (typeof exAfterVis === 'function') exAfterVis(); }
+$('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!curVis) return; if (ED.on){ toast('Сначала нажми «Готово»'); return; } if (vvEditing){ vvMode(false); return; } if (isLocked(curVis.v)){ lockedToast(); return; } const c = await fetchCode(curVis.v); if (c === null || !curVis) return; $('vv-edit').value = c; vvMode(true); });
 $('vv-apply').addEventListener('click', () => {
     if (!curVis) return;
     if (isLocked(curVis.v)){ lockedToast(); return; }
@@ -2546,6 +2575,7 @@ $('vv-apply').addEventListener('click', () => {
 async function dlVis(){
     if (!curVis) return;
     const v = curVis.v; if (v.type === 'video-html'){ MOTION.download(v); return; }
+    if (isLocked(v)){ lockedToast(); return; }
     const isSvg = v.type === 'svg', name = isSvg ? 'holo-image.svg' : 'holo-site.html';
     let full = await fetchCode(v); if (full === null) return;
     full = stripWm(full);
@@ -2563,16 +2593,405 @@ async function dlVis(){
         toast('Если файл не скачался, используй «Копировать код» в чате');
     } catch(e){ toast('Не удалось скачать'); }
 }
-$('vv-dl').addEventListener('click', () => { vvMenuToggle(false); dlVis(); });
+$('vv-dl').addEventListener('click', () => { vvMenuToggle(false); if (ED.on){ if (!isPro()){ lockedToast(); return; } edFinish(); } dlVis(); });
 $('vv-copy').addEventListener('click', () => {
     vvMenuToggle(false); if (!curVis) return;
+    if (ED.on){ if (!isPro()){ lockedToast(); return; } edFinish(); }
     if (vvEditing) copyText($('vv-edit').value, document.createElement('span'));  // в режиме кода копируем то, что сейчас в редакторе
     else copyVisCode(curVis.v);
 });
 $('vv-menu-btn').addEventListener('click', e => { e.stopPropagation(); vvMenuToggle(); });
 $('visview').addEventListener('click', e => { if (!$('vv-menu').contains(e.target)) vvMenuToggle(false); });  // тап мимо меню закрывает его
 addEventListener('blur', () => vvMenuToggle(false));  // фокус ушёл в iframe с сайтом
-$('vv-close').addEventListener('click', closeVis);
+$('vv-close').addEventListener('click', () => closeVis());
+// ---------- ВИЗУАЛЬНЫЙ РЕДАКТОР (0 токенов): блоки и цвета меняются только через DOM, без нейросети ----------
+// Одни и те же операции работают и внутри iframe (живое превью), и в родителе (итоговый код собирается из исходника).
+// Эти две функции превращаются в текст и уходят в iframe: внутри не должно быть закрывающих script-тегов.
+function hfOps(){
+    var CSS_ID = 'hf-section-css';
+    var CSS = '[data-sbg]{background:var(--section-bg)!important}[data-stx]{color:var(--section-text)!important}' +
+        '[data-stx] :is(h1,h2,h3,h4,h5,h6,p,li,blockquote,small,label,summary,dt,dd,span,em,strong,b,i,cite){color:var(--section-text)!important}';
+    function kids(p){
+        var r = [], c = p.children;
+        for (var i = 0; i < c.length; i++){
+            if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|BR)$/.test(c[i].tagName) || c[i].hasAttribute('data-hf-ed')) continue;
+            r.push(c[i]);
+        }
+        return r;
+    }
+    function root(doc){ return doc.querySelector('[data-hf-box]') || doc.body; }
+    function tag(doc){
+        var b = doc.body; if (!b) return 0;
+        if (!doc.querySelector('[data-hf-box]')){
+            var k = kids(b);
+            if (k.length < 3){
+                var best = null, n = 0;
+                k.forEach(function(e){ var c = kids(e).length; if (c > n){ n = c; best = e; } });
+                if (best && n >= 3) best.setAttribute('data-hf-box', '1');
+            }
+        }
+        var rt = root(doc), used = {}, cnt = 0, main = false;
+        [].forEach.call(rt.querySelectorAll('[data-section]'), function(e){ used[e.getAttribute('data-section')] = 1; });
+        kids(rt).forEach(function(el){
+            if (el.hasAttribute('data-section')){ cnt++; return; }
+            var t = el.tagName.toLowerCase(), id = '';
+            if (t === 'header') id = 'header'; else if (t === 'nav') id = 'nav'; else if (t === 'footer') id = 'footer';
+            else if (el.id && /^[A-Za-z0-9_-]{1,30}$/.test(el.id)) id = el.id.toLowerCase();
+            else { var cl = typeof el.className === 'string' ? el.className.trim().split(/\s+/)[0] : ''; if (/^[A-Za-z0-9_-]{2,24}$/.test(cl)) id = cl.toLowerCase(); }
+            if (!id) id = main ? 'section' : 'hero';
+            if (t !== 'header' && t !== 'nav' && t !== 'footer') main = true;
+            var base = id, i = 1; while (used[id]) id = base + '-' + (++i);
+            used[id] = 1; el.setAttribute('data-section', id); cnt++;
+        });
+        return cnt;
+    }
+    function find(doc, id){ return doc.querySelector('[data-section="' + String(id).replace(/[^A-Za-z0-9_-]/g, '') + '"]'); }
+    function footerOf(rt){
+        var s = [].filter.call(rt.children, function(e){ return e.hasAttribute('data-section'); });
+        for (var i = s.length - 1; i >= 0; i--){ if (s[i].tagName === 'FOOTER' || /foot/i.test(s[i].getAttribute('data-section'))) return s[i]; }
+        return null;
+    }
+    function add(doc, id, html){
+        var rt = root(doc); if (!rt) return null;
+        var d = doc.createElement('div'); d.innerHTML = html;
+        var el = d.firstElementChild; if (!el) return null;
+        el.setAttribute('data-section', id);
+        var f = footerOf(rt);
+        if (f) rt.insertBefore(el, f); else rt.appendChild(el);
+        return el;
+    }
+    function move(doc, id, dir){
+        var el = find(doc, id); if (!el) return false;
+        var o = dir < 0 ? el.previousElementSibling : el.nextElementSibling;
+        while (o && !o.hasAttribute('data-section')) o = dir < 0 ? o.previousElementSibling : o.nextElementSibling;
+        if (!o) return false;
+        if (dir < 0) o.parentNode.insertBefore(el, o); else o.parentNode.insertBefore(el, o.nextElementSibling);
+        return true;
+    }
+    function color(doc, id, bg, tx){
+        var el = find(doc, id); if (!el) return false;
+        if (!doc.getElementById(CSS_ID)){ var st = doc.createElement('style'); st.id = CSS_ID; st.textContent = CSS; (doc.head || doc.documentElement).appendChild(st); }
+        if (bg !== undefined){
+            if (bg){ el.style.setProperty('--section-bg', bg); el.setAttribute('data-sbg', '1'); }
+            else { el.style.removeProperty('--section-bg'); el.removeAttribute('data-sbg'); }
+        }
+        if (tx !== undefined){
+            if (tx){ el.style.setProperty('--section-text', tx); el.setAttribute('data-stx', '1'); }
+            else { el.style.removeProperty('--section-text'); el.removeAttribute('data-stx'); }
+        }
+        return true;
+    }
+    function label(el){ var h = el.querySelector('h1,h2,h3'); return h ? (h.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 28) : ''; }
+    return { tag: tag, add: add, move: move, color: color, label: label };
+}
+
+// Скрипт внутри iframe: выбор блока тапом (вкладка «Цвета»), команды add / move / setColor, сообщения наверх через postMessage
+function hfFrame(OPS){
+    var mode = 'blocks', cur = null;
+    function post(m){ m.hf = 1; try { parent.postMessage(m, '*'); } catch (e) {} }
+    var st = document.createElement('style'); st.setAttribute('data-hf-ed', '');
+    st.textContent = '[data-hf-sel]{outline:3px solid #6366f1!important;outline-offset:-3px!important}';
+    document.head.appendChild(st);
+    function hex(c){
+        var m = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,\/]+([\d.]+))?/.exec(c || '');
+        if (!m) return null;
+        if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+        return '#' + [1, 2, 3].map(function(i){ return ('0' + (+m[i]).toString(16)).slice(-2); }).join('');
+    }
+    function bgOf(el){ for (var n = el; n && n.nodeType === 1; n = n.parentElement){ var h = hex(getComputedStyle(n).backgroundColor); if (h) return h; } return '#ffffff'; }
+    // Переменные темы, которых нет у сайта, берём из его реальных цветов: блок выглядит родным
+    function theme(){
+        var rs = getComputedStyle(document.documentElement), bs = getComputedStyle(document.body), o = [];
+        function has(n){ return ((rs.getPropertyValue(n) || bs.getPropertyValue(n)) || '').trim() !== ''; }
+        var bg = bgOf(document.body), tx = hex(bs.color) || '#111111';
+        var r = parseInt(tx.slice(1, 3), 16), g = parseInt(tx.slice(3, 5), 16), b = parseInt(tx.slice(5, 7), 16);
+        var bt = document.querySelector('button,.btn,a[class*="btn"],a[class*="button"]');
+        var ac = bt ? hex(getComputedStyle(bt).backgroundColor) : null;
+        if (ac === bg) ac = null;
+        if (!has('--bg')) o.push('--bg:' + bg);
+        if (!has('--text')) o.push('--text:' + tx);
+        if (!has('--surface')) o.push('--surface:rgba(127,127,127,.1)');
+        if (!has('--muted')) o.push('--muted:rgba(' + r + ',' + g + ',' + b + ',.68)');
+        if (!has('--line')) o.push('--line:rgba(127,127,127,.28)');
+        if (!has('--accent')) o.push('--accent:' + (ac || '#6366f1'));
+        if (!has('--r')) o.push('--r:14px');
+        return o.join(';');
+    }
+    function byId(id){ return document.querySelector('[data-section="' + String(id).replace(/[^A-Za-z0-9_-]/g, '') + '"]'); }
+    function clearSel(){ var o = document.querySelector('[data-hf-sel]'); if (o) o.removeAttribute('data-hf-sel'); }
+    function info(el){
+        return { type: 'selected', section: el.getAttribute('data-section'), name: OPS.label(el), bg: bgOf(el), text: hex(getComputedStyle(el).color) || '#111111',
+                 hasBg: el.hasAttribute('data-sbg'), hasTx: el.hasAttribute('data-stx') };
+    }
+    function pick(id){
+        var el = byId(id); if (!el) return;
+        clearSel(); cur = id; el.setAttribute('data-hf-sel', '1');
+        if (mode !== 'colors') setTimeout(function(){ if (mode !== 'colors') el.removeAttribute('data-hf-sel'); }, 1400);
+        post(info(el));
+    }
+    document.addEventListener('click', function(e){
+        if (mode !== 'colors') return;
+        e.preventDefault(); e.stopPropagation();
+        var el = e.target && e.target.closest ? e.target.closest('[data-section]') : null;
+        if (el) pick(el.getAttribute('data-section'));
+    }, true);
+    window.addEventListener('message', function(e){
+        if (e.source !== parent) return;
+        var d = e.data; if (!d || d.hf !== 1) return;
+        var el;
+        if (d.type === 'mode'){
+            mode = d.mode === 'colors' ? 'colors' : 'blocks';
+            clearSel();
+            if (mode === 'colors' && cur){ el = byId(cur); if (el){ el.setAttribute('data-hf-sel', '1'); post(info(el)); } }
+        } else if (d.type === 'add'){
+            el = OPS.add(document, d.id, d.html);
+            if (el){ pick(d.id); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        } else if (d.type === 'move'){
+            if (OPS.move(document, d.section, d.dir < 0 ? -1 : 1)){ el = byId(d.section); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        } else if (d.type === 'setColor'){
+            OPS.color(document, d.section, d.bg, d.text);
+        }
+    });
+    setTimeout(function(){ post({ type: 'ready', theme: theme(), n: document.querySelectorAll('[data-section]').length }); }, 60);
+}
+
+const ED = { on: false, tab: 'blocks', src: '', ops: [], sel: null, theme: '', ready: false, form: false, ft: '', fx: '', used: {}, busy: false, site: '' };
+const ED_OPS = hfOps();
+const edEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ED_NAMES = { hero: 'Главный экран', header: 'Шапка', nav: 'Меню', footer: 'Подвал', reviews: 'Отзывы', faq: 'FAQ', pricing: 'Цены', gallery: 'Галерея', contacts: 'Контакты', team: 'Команда', custom: 'Свой блок' };
+const ED_LIST = [['reviews', 'Отзывы', '⭐'], ['faq', 'FAQ', '❓'], ['pricing', 'Цены', '💳'], ['gallery', 'Галерея', '🖼️'], ['contacts', 'Контакты', '📞'], ['team', 'Команда', '👥']];
+const ED_SW = ['#ffffff', '#f3f4f6', '#111827', '#000000', '#1e3a8a', '#047857', '#b91c1c', '#d97706', '#7c3aed', '#db2777'];
+
+// Шаблоны блоков: только CSS-переменные сайта (--bg, --surface, --text, --muted, --line, --accent, --r)
+const ED_CSS = [
+    '.hfb{box-sizing:border-box;width:100%;padding:56px 20px;background:var(--section-bg,var(--bg));color:var(--section-text,var(--text));font-family:inherit;line-height:1.55}',
+    '.hfb *{box-sizing:border-box}',
+    '.hfb-in{max-width:1000px;margin:0 auto;overflow-wrap:break-word;word-wrap:break-word}',
+    '.hfb-h{margin:0 0 24px;font-size:clamp(24px,5vw,34px);line-height:1.2;text-align:center;overflow-wrap:break-word;word-wrap:break-word}',
+    '.hfb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}',
+    '.hfb-gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}',
+    '.hfb-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;min-width:0;overflow-wrap:break-word;word-wrap:break-word}',
+    '.hfb-card h3{margin:0 0 8px;font-size:18px;line-height:1.3}',
+    '.hfb-card p{margin:0;color:var(--muted);line-height:1.6}',
+    '.hfb-card ul{list-style:none;margin:0;padding:0;color:var(--muted)}',
+    '.hfb-card li{padding:8px 0;border-top:1px solid var(--line)}',
+    '.hfb-accent{border-top:3px solid var(--accent)}',
+    '.hfb-card.hfb-txt p{margin:0 0 10px;color:inherit;text-align:center}',
+    '.hfb-card.hfb-txt p:last-child{margin:0}',
+    '.hfb-price{font-size:30px;font-weight:800;margin:6px 0 12px}',
+    '.hfb-stars{color:var(--accent);letter-spacing:2px;margin-bottom:8px}',
+    '.hfb-img{aspect-ratio:4/3;border-radius:var(--r);border:1px dashed var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}',
+    '.hfb-ava{width:56px;height:56px;border-radius:50%;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;margin-bottom:12px;color:var(--accent)}',
+    '.hfb details{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 18px;margin:0 auto 10px;max-width:720px}',
+    '.hfb summary{cursor:pointer;font-weight:700;overflow-wrap:break-word;word-wrap:break-word}',
+    '.hfb details p{margin:10px 0 0;color:var(--muted);line-height:1.6}'
+].join('');
+function edSec(kind, title, inner){
+    return '<section class="hfb hfb-' + kind + '" style="' + edEsc(ED.theme) + '"><style>' + ED_CSS + '</style><div class="hfb-in"><h2 class="hfb-h">' + edEsc(title) + '</h2>' + inner + '</div></section>';
+}
+const ED_TPL = {
+    reviews: () => edSec('reviews', 'Отзывы клиентов', '<div class="hfb-grid">' + [
+        ['Анна', 'Всё быстро и аккуратно, остались очень довольны.'], ['Игорь', 'Приятная команда и понятные условия. Рекомендую.'], ['Мария', 'Результат превзошёл ожидания, обязательно вернусь.']
+    ].map(r => '<div class="hfb-card"><div class="hfb-stars">★★★★★</div><p>' + edEsc(r[1]) + '</p><h3 style="margin:12px 0 0;font-size:15px">' + edEsc(r[0]) + '</h3></div>').join('') + '</div>'),
+    faq: () => edSec('faq', 'Частые вопросы', [
+        ['Как сделать заказ?', 'Оставьте заявку на сайте, и мы свяжемся с вами в ближайшее время.'], ['Сколько это стоит?', 'Стоимость зависит от задачи. Напишите нам, и мы сориентируем по цене.'],
+        ['Как быстро вы работаете?', 'Сроки обсуждаем заранее, под вашу задачу.'], ['Как с вами связаться?', 'Контакты указаны на этой странице.']
+    ].map(q => '<details><summary>' + edEsc(q[0]) + '</summary><p>' + edEsc(q[1]) + '</p></details>').join('')),
+    pricing: () => edSec('pricing', 'Цены', '<div class="hfb-grid">' + [
+        ['Старт', '990 ₽', ['Базовый набор', 'Быстрый результат']], ['Стандарт', '1 990 ₽', ['Всё из «Старт»', 'Расширенные возможности']], ['Премиум', '4 990 ₽', ['Всё из «Стандарт»', 'Индивидуальный подход']]
+    ].map((p, i) => '<div class="hfb-card' + (i === 1 ? ' hfb-accent' : '') + '"><h3>' + edEsc(p[0]) + '</h3><div class="hfb-price">' + edEsc(p[1]) + '</div><ul>' + p[2].map(x => '<li>' + edEsc(x) + '</li>').join('') + '</ul></div>').join('') + '</div>'),
+    gallery: () => edSec('gallery', 'Галерея', '<div class="hfb-gal">' + [1, 2, 3, 4, 5, 6].map(n => '<div class="hfb-img">Фото ' + n + '</div>').join('') + '</div>'),
+    contacts: () => edSec('contacts', 'Контакты', '<div class="hfb-card hfb-txt hfb-accent" style="max-width:520px;margin:0 auto"><p>Телефон: +7 (000) 000-00-00</p><p>Почта: hello@example.com</p><p>Адрес: ваш адрес</p></div>'),
+    team: () => edSec('team', 'Команда', '<div class="hfb-grid">' + [['ИФ', 'Имя Фамилия', 'Руководитель'], ['ИФ', 'Имя Фамилия', 'Специалист'], ['ИФ', 'Имя Фамилия', 'Менеджер']]
+        .map(m => '<div class="hfb-card"><div class="hfb-ava">' + edEsc(m[0]) + '</div><h3>' + edEsc(m[1]) + '</h3><p>' + edEsc(m[2]) + '</p></div>').join('') + '</div>')
+};
+// «Свой блок»: текст пользователя просто подставляется в шаблон (без нейросети)
+function edCustom(title, text){
+    const lines = String(text).split(/\n+/).map(s => s.trim()).filter(Boolean);
+    return edSec('custom', title, '<div class="hfb-card hfb-txt hfb-accent" style="max-width:720px;margin:0 auto">' + lines.map(s => '<p>' + edEsc(s) + '</p>').join('') + '</div>');
+}
+
+const edWin = () => $('vv-frame').contentWindow;
+function edPost(m){ m.hf = 1; try { edWin().postMessage(m, '*'); } catch (e) {} }
+addEventListener('message', e => {
+    const d = e.data;
+    if (!ED.on || !d || d.hf !== 1 || e.source !== edWin()) return;
+    if (d.type === 'ready'){ ED.theme = String(d.theme || '').replace(/[^\w:;#%.,()\- ]/g, '').slice(0, 400); ED.ready = true; edPost({ type: 'mode', mode: ED.tab }); }
+    else if (d.type === 'selected' && typeof d.section === 'string'){
+        ED.sel = { id: d.section, name: String(d.name || ''), bg: d.bg, text: d.text, hasBg: !!d.hasBg, hasTx: !!d.hasTx };
+        edRender();
+    }
+});
+
+function edSer(doc, src){
+    const m = /^\s*<!doctype[^>]*>/i.exec(src);
+    return (m ? m[0].trim() : '<!DOCTYPE html>') + '\n' + doc.documentElement.outerHTML;
+}
+function edDoc(src){
+    return '<!doctype html><meta data-hf-ed http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta data-hf-ed name="viewport" content="width=device-width,initial-scale=1">' +
+        '<style data-hf-ed>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style><script data-hf-ed>(' + visNav.toString() + ')()<\/script>' + src +
+        '<script data-hf-ed>(function(){var OPS=(' + hfOps.toString() + ')();(' + hfFrame.toString() + ')(OPS);})()<\/script>';
+}
+// Итог = исходный код + записанные операции (скрипты сайта в этот момент не запускаются, поэтому дублей не будет)
+function edReplay(){
+    const doc = new DOMParser().parseFromString(ED.src, 'text/html');
+    ED.ops.forEach(o => {
+        if (o.k === 'add') ED_OPS.add(doc, o.id, o.html);
+        else if (o.k === 'move') ED_OPS.move(doc, o.id, o.dir);
+        else if (o.k === 'color') ED_OPS.color(doc, o.id, o.bg, o.text);
+    });
+    return edSer(doc, ED.src);
+}
+async function edEnter(){
+    if (!curVis || ED.on || curVis.v.type !== 'html') return;
+    if (vvEditing) vvMode(false);
+    const code = await fetchCode(curVis.v); if (code === null || !curVis) return;
+    const src0 = stripMark(stripWm(code));
+    const doc = new DOMParser().parseFromString(src0, 'text/html');
+    ED_OPS.tag(doc);
+    ED.src = edSer(doc, src0); ED.ops = []; ED.sel = null; ED.theme = ''; ED.ready = false; ED.tab = 'blocks'; ED.form = false; ED.ft = ''; ED.fx = ''; ED.busy = false; ED.used = {};
+    ED.site = ((doc.title || (doc.querySelector('h1') || {}).textContent || '') + '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    doc.querySelectorAll('[data-section]').forEach(n => { ED.used[n.getAttribute('data-section')] = 1; });
+    ED.on = true; $('visview').classList.add('ed-on'); $('vv-ed').textContent = 'Готово';
+    $('vv-frame').srcdoc = edDoc(ED.src);
+    edRender();
+}
+function edReset(){
+    ED.on = false; ED.sel = null; ED.ops = []; ED.form = false;
+    const v = $('visview'); if (v) v.classList.remove('ed-on');
+    const b = $('vv-ed'); if (b) b.textContent = 'Редактор';
+    const f = $('vv-frame'); if (f) f.style.height = '';
+}
+function edFinish(){
+    if (!ED.on || !curVis) return;
+    if (ED.ops.length){
+        const code = edReplay();
+        if (code.length > 400000){ toast('Страница получилась слишком большой'); return; }
+        const v = curVis.v;
+        v.code = EDMARK + code; delete v.pid; v.edited = true;
+        if (curVis.el && curVis.el._ifr) curVis.el._ifr.srcdoc = visDoc(v);
+        saveHistory();
+        toast('Изменения сохранены');
+    }
+    edReset();
+    $('vv-frame').srcdoc = visDoc(curVis.v);
+}
+function edGuard(cb){
+    if (!ED.on) return false;
+    if (!ED.ops.length){ edReset(); return false; }
+    const msg = 'Выйти без сохранения изменений?';
+    if (tg && tg.showConfirm) tg.showConfirm(msg, ok => { if (ok){ edReset(); cb(); } });
+    else if (confirm(msg)){ edReset(); cb(); }
+    return true;
+}
+function edPaywall(text){
+    if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('warning'); } catch (e) {} }
+    const go = () => { plTab = 'pro'; openPro(); };
+    if (tg && tg.showPopup){
+        tg.showPopup({ title: 'Нужен тариф', message: text, buttons: [{ id: 'plans', type: 'default', text: 'Выбрать тариф' }, { type: 'cancel' }] }, id => { if (id === 'plans') go(); });
+    } else { toast(text); go(); }
+}
+function edLayout(){
+    const f = $('vv-frame'); if (!f) return;
+    if (!ED.on){ f.style.height = ''; return; }
+    f.style.height = 'calc(100% - 60px - env(safe-area-inset-top) - ' + $('ed-panel').offsetHeight + 'px)';
+}
+addEventListener('resize', edLayout);
+
+function edAdd(kind, html){
+    if (!ED.ready){ toast('Страница ещё загружается'); return false; }
+    let id = kind, i = 1; while (ED.used[id]) id = kind + '-' + (++i);
+    ED.used[id] = 1;
+    ED.ops.push({ k: 'add', id, html });
+    edPost({ type: 'add', id, html });
+    tap();
+    return true;
+}
+function edMove(dir){
+    if (!ED.sel) return;
+    ED.ops.push({ k: 'move', id: ED.sel.id, dir });
+    edPost({ type: 'move', section: ED.sel.id, dir });
+    tap();
+}
+function edColor(which, val){
+    if (!ED.sel) return;
+    if (!(val === '' || /^#[0-9a-f]{3,8}$/i.test(val))) return;
+    const id = ED.sel.id;
+    let o = ED.ops.find(x => x.k === 'color' && x.id === id);
+    if (!o){ o = { k: 'color', id }; ED.ops.push(o); }
+    if (which === 'bg'){ o.bg = val; ED.sel.hasBg = val !== ''; if (val) ED.sel.bg = val; }
+    else { o.text = val; ED.sel.hasTx = val !== ''; if (val) ED.sel.text = val; }
+    edPost({ type: 'setColor', section: id, bg: which === 'bg' ? val : undefined, text: which === 'text' ? val : undefined });
+}
+async function edGen(){
+    if (!isPro()){ edPaywall('Текст блока с ИИ доступен на платных тарифах. Остальной редактор бесплатный.'); return; }
+    const topic = ED.ft.trim();
+    if (!topic){ toast('Напиши в заголовке, о чём блок'); return; }
+    if (ED.busy) return;
+    ED.busy = true; edRender();
+    try {
+        const r = await fetch(`${BACKEND_URL}/block_text`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ init_data: (tg && tg.initData) || '', topic, site: ED.site }) });
+        const d = await r.json().catch(() => null);
+        if (r.ok && d && d.status === 'ok' && d.text){ ED.fx = d.text; refreshPro(); }
+        else toast((d && d.text) || 'Не получилось написать текст');
+    } catch (e) { toast('Не получилось написать текст'); }
+    ED.busy = false; if (ED.on) edRender();
+}
+function edRender(){
+    const p = $('ed-panel'); if (!p) return;
+    p.querySelectorAll('#ed-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ED.tab));
+    $('ed-mv').classList.toggle('on', !!ED.sel);
+    if (ED.sel) $('ed-mv-n').textContent = 'Блок: ' + (ED.sel.name || ED_NAMES[ED.sel.id.replace(/-\d+$/, '')] || ED.sel.id);
+    let h = '';
+    if (ED.tab === 'blocks'){
+        if (ED.form){
+            h = '<label class="ed-lbl" for="ed-ti">Заголовок</label><input class="ed-in" id="ed-ti" maxlength="80" placeholder="Доставка" value="' + edEsc(ED.ft) + '">' +
+                '<label class="ed-lbl" for="ed-tx">Текст</label><textarea class="ed-in" id="ed-tx" rows="4" maxlength="800" placeholder="Привозим за 30 минут">' + edEsc(ED.fx) + '</textarea>' +
+                '<div class="ed-row"><button class="ed-b" type="button" data-f="back">Назад</button><button class="ed-b" type="button" data-f="ai"' + (ED.busy ? ' disabled' : '') + '>' + (ED.busy ? 'Пишу…' : (isPro() ? '✨ Написать с ИИ' : '✨ ИИ · Pro')) + '</button><button class="ed-b pri" type="button" data-f="add" style="margin-left:auto">Добавить</button></div>';
+        } else {
+            h = '<div class="ed-grid">' + ED_LIST.map(b => '<button class="ed-card" type="button" data-blk="' + b[0] + '"><i>' + b[2] + '</i><span>' + b[1] + '</span></button>').join('') +
+                '<button class="ed-card" type="button" data-blk="custom" style="grid-column:1/-1"><i>✏️</i><span>Свой блок</span></button></div>';
+        }
+    } else if (!ED.sel){
+        h = '<p class="ed-hint">Нажми на любой блок на странице выше, чтобы поменять его цвета.</p>';
+    } else {
+        const row = (w, label, cur, has) => '<span class="ed-lbl">' + label + '</span><div class="ed-sw" data-w="' + w + '">' +
+            ED_SW.map(c => '<button type="button" data-c="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>').join('') +
+            '<input type="color" value="' + (/^#[0-9a-f]{6}$/i.test(cur) ? cur : '#ffffff') + '" aria-label="Свой цвет">' +
+            (has ? '<button type="button" class="ed-rs" data-c="">Сброс</button>' : '') + '</div>';
+        h = '<p class="ed-hint">Цвета выбранного блока меняются сразу. Чтобы выбрать другой блок, нажми на него на странице.</p>' + row('bg', 'Фон', ED.sel.bg, ED.sel.hasBg) + row('text', 'Текст', ED.sel.text, ED.sel.hasTx);
+    }
+    $('ed-body').innerHTML = h;
+    requestAnimationFrame(edLayout);
+}
+$('ed-body').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.blk){
+        if (b.dataset.blk === 'custom'){ ED.form = true; edRender(); }
+        else edAdd(b.dataset.blk, ED_TPL[b.dataset.blk]());
+    } else if (b.dataset.c !== undefined){
+        const w = b.closest('[data-w]'); if (w){ edColor(w.dataset.w, b.dataset.c); edRender(); }
+    } else if (b.dataset.f === 'back'){ ED.form = false; edRender(); }
+    else if (b.dataset.f === 'ai') edGen();
+    else if (b.dataset.f === 'add'){
+        const t = ED.ft.trim(), x = ED.fx.trim();
+        if (!t && !x){ toast('Напиши заголовок или текст'); return; }
+        if (edAdd('custom', edCustom(t || 'Новый блок', x))){ ED.ft = ''; ED.fx = ''; ED.form = false; edRender(); }
+    }
+});
+$('ed-body').addEventListener('input', e => {
+    const t = e.target;
+    if (t.id === 'ed-ti') ED.ft = t.value;
+    else if (t.id === 'ed-tx') ED.fx = t.value;
+    else if (t.type === 'color'){ const w = t.closest('[data-w]'); if (w) edColor(w.dataset.w, t.value); }
+});
+$('ed-tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-tab]'); if (!b || b.dataset.tab === ED.tab) return;
+    tap(); ED.tab = b.dataset.tab; ED.form = false; edPost({ type: 'mode', mode: ED.tab }); edRender();
+});
+$('ed-mv').addEventListener('click', e => { const b = e.target.closest('button[data-mv]'); if (b) edMove(+b.dataset.mv < 0 ? -1 : 1); });
+$('vv-ed').addEventListener('click', () => { tap(); if (ED.on) edFinish(); else edEnter(); });
+
 let editTarget = null;
 function setEditTarget(v){
     editTarget = v || null;
@@ -2581,7 +3000,8 @@ function setEditTarget(v){
 }
 // ---- меню «⋯» карточки проекта: Скопировать код / Как запустить / Скачать ----
 const visPop = document.createElement('div'); visPop.id = 'vis-pop'; visPop.setAttribute('role', 'menu');
-visPop.innerHTML = '<button type="button" role="menuitem" data-a="copy"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать код</span></button>'
+visPop.innerHTML = '<button type="button" role="menuitem" data-a="editor"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Редактор</span></button>'
+    + '<button type="button" role="menuitem" data-a="copy"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать код</span></button>'
     + '<button type="button" role="menuitem" data-a="help"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg><span>Как запустить</span></button>'
     + '<button type="button" role="menuitem" data-a="publish"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6M5 21h14"/></svg><span>Опубликовать</span></button>'
     + '<button type="button" role="menuitem" data-a="dl"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button>';
@@ -2593,6 +3013,7 @@ function visPopOpen(vis, btn){
     { const cp = visPop.querySelector('[data-a="copy"]'); if (cp) cp.style.display = (isLocked(vis._v) || (vis._v && vis._v.type === 'video-html')) ? 'none' : ''; }
     { const hp = visPop.querySelector('[data-a="help"]'); if (hp) hp.style.display = (vis._v && vis._v.type === 'video-html') ? 'none' : ''; }
     { const pb = visPop.querySelector('[data-a="publish"]'); if (pb) pb.style.display = (vis._v && vis._v.type === 'html') ? '' : 'none'; }
+    { const eb = visPop.querySelector('[data-a="editor"]'); if (eb) eb.style.display = (vis._v && vis._v.type === 'html') ? '' : 'none'; }
     const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;  // меню скрыто, но размеры известны
     const below = r.bottom + 6 + hh <= innerHeight - 8;
     const top = Math.max(8, below ? r.bottom + 6 : r.top - hh - 6);
@@ -2608,6 +3029,7 @@ visPop.addEventListener('click', e => {
     const b = e.target.closest('button[data-a]'); if (!b || !visPopFor) return;
     const vis = visPopFor, v = vis._v, a = b.dataset.a; visPopClose(); if (!v) return;
     if (a === 'copy') copyVisCode(v);
+    else if (a === 'editor'){ openVis(v, vis); edEnter(); }
     else if (a === 'publish') publishSite(v);
     else if (a === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); }
     else if (a === 'dl'){ curVis = { v, el: vis }; dlVis(); curVis = null; }  // dlVis читает curVis синхронно, до первого await
@@ -3946,7 +4368,7 @@ $('st-up-btn').addEventListener('click', () => $('pro-btn').click());
   let s = null, tid = 0;
   const reset = () => { vv.style.transition = ''; vv.style.transform = ''; vv.style.opacity = ''; vv.style.borderRadius = ''; };
   bar.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1 || !vv.classList.contains('open')) { s = null; return; }
+    if (e.touches.length !== 1 || !vv.classList.contains('open') || ED.on) { s = null; return; }
     clearTimeout(tid); reset();
     s = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, lock: false, y: 0, hist: [{ t: performance.now(), y: 0 }] };
   }, { passive: true });
@@ -4192,7 +4614,7 @@ function openFull(i){
     openVis({ type: 'html', code: exDecode(x.src) }, null);   // штатное окно просмотра приложения: те же защита, ссылки и ✕, что у собранных проектов
     $('vv-title').textContent = x.t + ' · ' + x.d;
     $('vv-code').style.display = 'none'; $('vv-copy').style.display = 'none';
-    $('vv-dl').style.display = 'none'; $('vv-menu-btn').style.display = 'none';   // у примеров меню (скачать/код) не нужно
+    $('vv-dl').style.display = 'none'; $('vv-menu-btn').style.display = 'none'; $('vv-ed').style.display = 'none';   // у примеров меню (скачать/код) не нужно
 }
 function exAfterVis(){ if (exViewing){ exViewing = false; $('vv-dl').style.display = ''; $('vv-menu-btn').style.display = ''; if ($('examples-modal').classList.contains('open')) exPause(false); } }
 function openExamples(){
