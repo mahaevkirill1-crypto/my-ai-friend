@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Body
-from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, Response
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
@@ -537,6 +537,8 @@ def init_db():
         except Exception:
             pass
     conn.execute("CREATE TABLE IF NOT EXISTS published_sites (user_id INTEGER NOT NULL, code_hash TEXT NOT NULL, url TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, code_hash))")
+    conn.execute("CREATE TABLE IF NOT EXISTS photos (pid TEXT PRIMARY KEY, user_id INTEGER NOT NULL, hash TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_user ON photos (user_id, created_at)")
     conn.commit()
 
 @app.on_event("startup")
@@ -2733,6 +2735,55 @@ async def block_text(data: dict = Body(...)):
         if kind == "funds": alert_api_funds(e)
         log.warning("block_text failed uid=%s", uid, exc_info=True)
         return JSONResponse({"status": "error", "text": API_LOAD_TEXT if kind else "Не получилось написать текст. Попробуй ещё раз.", "pro": pro_info(conn, uid, int(time.time()))}, status_code=503 if kind else 500)
+
+# ======================= ФОТО ИЗ РЕДАКТОРА: храним на сервере, в код сайта идёт короткая ссылка =======================
+PHOTO_MAX_BYTES = 400 * 1024        # размер одного фото (уже сжатого клиентом)
+PHOTO_KEEP_PER_USER = 300           # сколько фото хранить на пользователя (старые вытесняются)
+PHOTO_PID_RE = re.compile(r"^[A-Za-z0-9_-]{16,40}$")
+
+@app.post("/photo/upload")
+def photo_upload(data: dict = Body(...)):
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return JSONResponse({"status": "error", "text": "Ошибка авторизации. Открой приложение из Telegram."}, status_code=401)
+    uid = info["user"]["id"]
+    raw = data.get("image")
+    if not isinstance(raw, str) or not raw: return JSONResponse({"status": "error", "text": "Нет фото."}, status_code=400)
+    try:
+        b = _b64_bytes(raw)
+    except Exception:
+        return JSONResponse({"status": "error", "text": "Не удалось прочитать фото."}, status_code=400)
+    if not b.startswith(b"\xff\xd8\xff"):   # клиент всегда присылает JPEG
+        return JSONResponse({"status": "error", "text": "Нужен JPEG."}, status_code=400)
+    if len(b) > PHOTO_MAX_BYTES:
+        return JSONResponse({"status": "error", "text": "Фото слишком большое."}, status_code=413)
+    h = hashlib.sha256(b).hexdigest()
+    now = int(time.time())
+    conn = get_db_connection()
+    row = conn.execute("SELECT pid FROM photos WHERE user_id = ? AND hash = ?", (uid, h)).fetchone()
+    if row:
+        return {"status": "ok", "path": f"/img/{row[0]}.jpg"}
+    pid = secrets.token_urlsafe(18)
+    conn.execute("INSERT INTO photos (pid, user_id, hash, data, created_at) VALUES (?, ?, ?, ?, ?)",
+                 (pid, uid, h, base64.b64encode(b).decode("ascii"), now))
+    conn.execute("DELETE FROM photos WHERE user_id = ? AND pid NOT IN (SELECT pid FROM photos WHERE user_id = ? ORDER BY created_at DESC LIMIT ?)",
+                 (uid, uid, PHOTO_KEEP_PER_USER))
+    conn.commit()
+    return {"status": "ok", "path": f"/img/{pid}.jpg"}
+
+@app.get("/img/{name}")
+def photo_get(name: str):
+    pid = name[:-4] if name.lower().endswith(".jpg") else name
+    if not PHOTO_PID_RE.match(pid): return Response(status_code=404)
+    try:
+        row = get_db_connection().execute("SELECT data FROM photos WHERE pid = ?", (pid,)).fetchone()
+    except Exception:
+        log.exception("photo_get failed")
+        return Response(status_code=503)
+    if not row: return Response(status_code=404)
+    return Response(content=base64.b64decode(row[0]), media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=31536000, immutable",
+                             "Cross-Origin-Resource-Policy": "cross-origin",
+                             "X-Content-Type-Options": "nosniff"})
 
 @app.get("/p/{pid}")
 def preview_page(pid: str):
