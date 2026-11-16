@@ -589,6 +589,13 @@ RULES = """
 ЗАПРЕЩЁННЫЕ ТЕМЫ:
 Если пользователь просит сделать сайт для накрутки отзывов, обмана людей, скама или чего-то незаконного, ты ОБЯЗАН ОТКАЗАТЬСЯ. Ответь только текстом: "Я не создаю сайты для накрутки отзывов или незаконной деятельности". Код не пиши и ничего не объясняй.
 
+ВИЗУАЛЬНЫЙ РЕДАКТОР (только для сайтов):
+У пользователя есть визуальный редактор для сайтов (visual.type === 'html'). Если он упёрся в лимит или не может сделать правку, проверь, есть ли у него сохранённый сайт:
+- Если сайт есть: предложи открыть «Редактор» под проектом. Там он бесплатно (без ИИ и лимитов) может менять цвета, добавлять блоки, править текст и удалять свои блоки.
+- Если сайта нет: скажи, что сначала нужно сгенерировать сайт (у бесплатного тарифа это его единственная бесплатная сборка), и только потом его можно настраивать в редакторе. Не отправляй в редактор того, у кого нет сайта.
+- Для видео (video-html) и игр редактора нет. Не отправляй туда пользователя. Правки только через чат (на Pro, после пополнения лимита, если он закончился).
+Если про сайт спрашивают «Как поменять цвет?», «Как добавить блок?», «Как убрать этот блок?», «Как изменить текст?», отвечай коротко: открой «Редактор» под проектом, там это делается в пару кликов без лимитов. Если спрашивают «Как изменить видео/игру?», отвечай: ручного редактора для них нет, правки только через чат.
+
 ФОРМАТ ОТВЕТА (строго): никаких рассуждений. Сразу выведи метку [[ANSWER]] отдельной строкой, на следующей строке — одно слово-эмоция (happy, sad, surprised, angry, thinking или sleepy), а со следующей — сам ответ пользователю обычным текстом.
 """
 
@@ -627,6 +634,73 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
     out = {"type": kind, "code": code}
     if kind == "html" and (looks_like_game(code) or motion_contract_ok(code)): out["noedit"] = True   # игра или ролик, пришедший как html
     return out
+
+# ---------- ПОДСКАЗКИ ПРО ВИЗУАЛЬНЫЙ РЕДАКТОР: только для сайтов (visual.type == "html" без noedit) ----------
+def project_kind(lv):
+    """Какой проект сейчас у пользователя (из last_visual): site / video / game / other / none.
+    none = проекта нет (или это просто SVG-иллюстрация): подсказки про редактор не добавляем.
+    other = проект без редактора, но игра это или ролик, неизвестно (есть флаг noedit, а кода нет)."""
+    if not isinstance(lv, dict): return "none"
+    t = lv.get("type")
+    if t == "video-html": return "video"
+    if t != "html": return "none"
+    code = lv.get("code")
+    if isinstance(code, str) and code:
+        if motion_contract_ok(code): return "video"
+        if looks_like_game(code): return "game"
+        return "site"
+    if lv.get("noedit"): return "other"
+    return "site" if lv.get("pid") else "none"
+
+# Режимы подсказки: site (есть сайт: можно в редактор), nosite (бесплатник без сайта и с неиспользованной сборкой),
+# media (видео/игра: редактора нет), none (Pro без проекта в чате: ничего не добавляем)
+def editor_mode(conn, uid, kind, pro_active):
+    if kind in ("video", "game", "other"): return "media"
+    if kind == "site": return "site"
+    if pro_active: return "none"
+    # у бесплатника одна сборка: если она уже потрачена, сайт у него есть; если нет, сайта ещё нет
+    return "nosite" if trial_available(conn, uid) else "site"
+
+H_FREE_LIMIT_SITE = "Ты уже сделал сайт. Ты можешь продолжать настраивать его бесплатно в «Редакторе»: менять цвета, добавлять блоки, править текст. Это не тратит лимиты."
+H_FREE_LIMIT_NOSITE = "Дневной лимит на чат закончился, но ты можешь потратить свою бесплатную сборку на создание сайта. После этого настраивай его в редакторе бесплатно."
+H_FREE_TRIAL_USED_SITE = "Бесплатная сборка у тебя уже использована. Но ты можешь продолжать настраивать свой текущий сайт в «Редакторе» бесплатно, или выбрать тариф для новой сборки."
+H_FREE_EDIT_SITE = "Если хочешь поправить сайт сам, без ИИ и без тарифа, нажми «Редактор» под проектом. Там доступны цвета, блоки и правка текста."
+H_MEDIA = "Ручного редактора для видео/игр нет, потому что это не блоки, а код и таймлайн. Правки только через чат."
+H_PRO_LIMIT_SITE = "Или настрой сайт сам в «Редакторе» без лимитов."
+H_PRO_LIMIT_MEDIA = "Правки видео/игр делаются через чат после пополнения лимита. Ручного редактора для них нет."
+PRO_LIMIT_TEXT = "Для этого нужно пополнить лимит тарифа. После пополнения напиши мне в чат, и я внесу правки."
+
+def with_editor_hint(text, mode, when, pro_active):
+    """when: limit (кончился дневной/Pro-лимит), edit (правка без Pro), trial_used (вторая сборка у бесплатника)."""
+    text = (text or "").rstrip()
+    if when == "trial_used":
+        return H_FREE_TRIAL_USED_SITE if mode == "site" else text   # заменяет текст целиком
+    if pro_active:
+        hint = H_PRO_LIMIT_SITE if mode == "site" else (H_PRO_LIMIT_MEDIA if mode == "media" else "")
+    elif mode == "media":
+        hint = H_MEDIA
+    elif when == "limit":
+        hint = H_FREE_LIMIT_SITE if mode == "site" else (H_FREE_LIMIT_NOSITE if mode == "nosite" else "")
+    else:
+        hint = H_FREE_EDIT_SITE if mode == "site" else ""
+    return (text + " " + hint).strip() if hint else text
+
+def editor_paywall(conn, uid, kind, text, pro, when, build=False, emotion="sleepy", **extra):
+    """Пейволл 402 + подсказка про редактор. Клиент показывает «Открыть редактор» только при open_editor (режим site)."""
+    active = bool(isinstance(pro, dict) and pro.get("active"))
+    mode = editor_mode(conn, uid, kind, active)
+    return JSONResponse({"text": with_editor_hint(text, mode, when, active), "emotion": emotion, "pro": pro, "limit_reached": True,
+                         "editor_hint": {"mode": mode, "when": when, "open_editor": mode == "site", "build": bool(build)}, **extra}, status_code=402)
+
+def editor_context_line(mode, pro_active):
+    """Контекст в системный промпт чата: что с проектом пользователя, чтобы модель не слала не туда."""
+    if mode == "site":
+        return "\n\nКОНТЕКСТ: у пользователя есть сохранённый сайт. Для правок цветов, блоков и текста предлагай «Редактор» под проектом (бесплатно, без ИИ и лимитов)."
+    if mode == "media":
+        return "\n\nКОНТЕКСТ: у пользователя сейчас видео или игра. Редактора для них нет, не отправляй в «Редактор». Правки только через чат" + (" после пополнения лимита." if pro_active else " на Pro.")
+    if mode == "nosite":
+        return "\n\nКОНТЕКСТ: сохранённого сайта у пользователя ещё нет, а бесплатная сборка не потрачена. Не отправляй его в редактор. На вопросы про редактор отвечай: у тебя ещё нет сохранённого сайта; сначала сгенерируй его (это твоя бесплатная сборка), а потом сможешь настроить в редакторе."
+    return "\n\nКОНТЕКСТ: сайта в чате не видно. Если спрашивают про редактор, скажи, что сначала нужно собрать сайт, а потом его можно настраивать в «Редакторе»."
 
 # ---------- ВОДЯНОЙ ЗНАК ОТКЛЮЧЁН: плашку «Сделано в Holo Friend» больше нигде не добавляем (strip_watermark чистит старые проекты) ----------
 WM_START, WM_END = "<!--HF-WM-->", "<!--/HF-WM-->"
@@ -2401,6 +2475,7 @@ async def ask(request: Request):
         if visual_mode:
             weight += VISUAL_EXTRA  # доплата за визуал берётся ДО генерации
         lv = data.get("last_visual")
+        proj_kind = project_kind(lv)   # site / video / game / other / none: от него зависят подсказки про редактор
         edit_req = bool(data.get("edit_project"))
         # «умная» правка: кнопку не нажимали, но в последних сообщениях есть проект и просят его изменить
         has_project = isinstance(lv, dict) and lv.get("type") == "html" and bool(lv.get("pid") or lv.get("code"))
@@ -2411,7 +2486,7 @@ async def ask(request: Request):
         motion_req = (not edit_req) and (not att) and _mstr > 0 and data.get("build_choice") != "advice" and (_mstr == 2 or not _looks_edit)
         auto_edit_cand = _looks_edit and not motion_req
         if auto_edit_cand and not pro_pre["active"]:
-            return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+            return editor_paywall(conn, uid, proj_kind, EDIT_PRO_ONLY_TEXT, pro_pre, "edit")
         if isinstance(lv, dict) and lv.get("pid") and not lv.get("code") and (edit_req or auto_edit_cand) and pro_pre["active"]:
             _pc = load_preview_code(conn, lv.get("pid"), uid)  # только свой проект и только для активного Pro
             if _pc: lv = {"type": "html", "code": strip_watermark(_pc)}
@@ -2423,7 +2498,7 @@ async def ask(request: Request):
         auto_edit = auto_edit_cand and bool(current_code)  # если код проекта не нашёлся, обычный поток без правки
         if edit_req and not pro_pre["active"]:
             # правки только на Pro: отказ ДО списаний и до вызова модели, токены не тратятся
-            return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+            return editor_paywall(conn, uid, proj_kind, EDIT_PRO_ONLY_TEXT, pro_pre, "edit")
         if edit_req and att:
             # правка + вложение: отказ ДО списаний и до вызова модели, токены не тратятся
             return {"text": EDIT_ATTACH_TEXT, "emotion": "thinking", "pro": pro_pre}
@@ -2493,20 +2568,20 @@ async def ask(request: Request):
                 
                 # ЗАЩИТА: правки недоступны на бесплатной пробной сборке
                 if is_edit:
-                    return JSONResponse({"text": EDIT_PRO_ONLY_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+                    return editor_paywall(conn, uid, proj_kind, EDIT_PRO_ONLY_TEXT, pro_pre, "edit")
 
                 if trial_available(conn, uid):
                     trial = True
                     weight = 0
                 else:
-                    return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Дальше студия сайтов и приложений доступна на тарифах — выбери подходящий!", "emotion": "happy", "pro": pro_pre, "limit_reached": True}, status_code=402)
+                    return editor_paywall(conn, uid, proj_kind, "Бесплатную пробную сборку ты уже использовал. Дальше студия сайтов и приложений доступна на тарифах — выбери подходящий!", pro_pre, "trial_used", emotion="happy")
             elif pro_pre["left"] < weight:
                 if is_edit:
                     msg = (f"Для этой правки нужно {weight} {units_word(weight)}, а у тебя осталось {pro_pre['left']}. "
                            f"Выбери тариф или пополни лимит, и я сразу применю правку.")
                 else:
                     msg = "Для этой задачи не хватает лимита. Пополни тариф."
-                return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True, "need": weight}, status_code=402)
+                return editor_paywall(conn, uid, proj_kind, (msg if is_edit else PRO_LIMIT_TEXT), pro_pre, "limit", build=build_mode, need=weight)
                 
         if build_mode:
             # кулдаун сборки: атомарный слот, повтор раньше чем через BUILD_COOLDOWN секунд в нейросеть не уходит
@@ -2556,7 +2631,7 @@ async def ask(request: Request):
                         msg = "Для этого запроса не хватает лимита. Пополни тариф."
                     else:
                         msg = "Лимит Pro закончился. Продли подписку."
-                    return JSONResponse({"text": msg, "emotion": "sleepy", "pro": pro_now, "limit_reached": True, "need": weight}, status_code=402)
+                    return editor_paywall(conn, uid, proj_kind, (PRO_LIMIT_TEXT if (not is_edit and pro_now.get("active") and pro_now.get("left", 0) > 0) else msg), pro_now, "limit", build=build_mode, need=weight)
                 pro = pro_info(conn, uid, now)
             elif not trial:
                 # проверка дневного лимита и прибавка — одним атомарным запросом
@@ -2571,7 +2646,7 @@ async def ask(request: Request):
                     used_bonus = allowed = cur.rowcount == 1
                 if not allowed:
                     conn.commit()
-                    return JSONResponse({"text": "Бесплатный лимит на сегодня закончился. Выбери тариф — и пиши без дневных ограничений. Или пригласи друга: +10 запросов за каждого.", "emotion": "sleepy", "pro": pro, "limit_reached": True}, status_code=402)
+                    return editor_paywall(conn, uid, proj_kind, "Бесплатный лимит на сегодня закончился. Выбери тариф — и пиши без дневных ограничений. Или пригласи друга: +10 запросов за каждого.", pro, "limit", build=build_mode)
             conn.commit()
         finally:
             pass
@@ -2585,7 +2660,7 @@ async def ask(request: Request):
                 cur = conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
                 conn.commit()
                 if cur.rowcount != 1:
-                    return JSONResponse({"text": "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", "emotion": "happy", "pro": pro, "limit_reached": True}, status_code=402)
+                    return editor_paywall(conn, uid, proj_kind, "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", pro, "trial_used", emotion="happy")
             if data.get("stream") is True:
                 return StreamingResponse(
                     run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req),
@@ -2609,6 +2684,7 @@ async def ask(request: Request):
             system_prompt = ASTRO_PLAIN if persona == "astronaut" else BASE_PLAIN
         
         system_prompt += user_name_line(first_name)   # обычный чат: имя пользователя в системный промпт
+        system_prompt += editor_context_line(editor_mode(conn, uid, proj_kind, bool(pro_pre["active"])), bool(pro_pre["active"]))   # сайт: предлагай «Редактор»; нет сайта или видео/игра: не предлагай
         if re.search(r"https?://", raw_text):
             system_prompt += "\n\nВ сообщении есть ссылка. Открывать ссылки ты не умеешь: не выдумывай, что по ней находится (адрес, телефон, часы, содержимое страницы). Скажи об этом и попроси описать своими словами."
 
