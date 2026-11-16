@@ -2756,6 +2756,19 @@ function hfOps(){
         im.setAttribute('data-hf-photo', '1'); im.setAttribute('src', src); im.style.objectFit = 'cover';
         return true;
     }
+    // Плитку фото из блока «Галерея» (.hfb-img) можно убрать отдельно от всего блока
+    function slotBox(el){
+        if (!el) return null;
+        if (el.classList && el.classList.contains('hfb-img')) return el;
+        var p = el.parentElement;
+        return (el.tagName === 'IMG' && p && p.classList.contains('hfb-img')) ? p : null;
+    }
+    function delPhoto(doc, pid){
+        var el = doc.querySelector('[data-hf-p="' + clean(pid) + '"]'), b = slotBox(el);
+        if (!b || !b.parentNode) return false;
+        b.parentNode.removeChild(b);
+        return true;
+    }
     function find(doc, id){ var k = clean(id); return doc.querySelector('[data-section="' + k + '"]') || doc.querySelector('[data-hf-b="' + k + '"]'); }
     function footerOf(rt){
         var s = [].filter.call(rt.children, function(e){ return e.hasAttribute('data-section'); });
@@ -2801,7 +2814,7 @@ function hfOps(){
         return true;
     }
     function label(el){ var h = el.querySelector('h1,h2,h3'); return h ? (h.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 28) : ''; }
-    return { tag: tag, tagText: tagText, tagBox: tagBox, tagPhoto: tagPhoto, setPhoto: setPhoto, getText: getText, setText: setText, add: add, del: del, move: move, color: color, label: label };
+    return { tag: tag, tagText: tagText, tagBox: tagBox, tagPhoto: tagPhoto, setPhoto: setPhoto, slotBox: slotBox, delPhoto: delPhoto, getText: getText, setText: setText, add: add, del: del, move: move, color: color, label: label };
 }
 
 // Скрипт внутри iframe: тап по блоку или тексту, команды add / del / move / setColor / setText, сообщения наверх через postMessage
@@ -2812,7 +2825,8 @@ function hfFrame(OPS){
     st.textContent = '[data-hf-sel]{outline:3px solid #6366f1!important;outline-offset:-3px!important}' +
         '[data-hf-selt]{outline:2px solid #6366f1!important;outline-offset:2px!important}' +
         'html[data-hf-mode=text] [data-hf-t]{outline:1px dashed rgba(99,102,241,.7);outline-offset:2px}' +
-        '[data-hf-plus]{position:absolute;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;background:#6366f1;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}';
+        '[data-hf-plus]{position:absolute;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;background:#6366f1;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}' +
+        '[data-hf-del]{position:absolute;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;background:#e5484d;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}';
     document.head.appendChild(st);
     document.documentElement.setAttribute('data-hf-mode', mode);
     function hex(c){
@@ -2873,6 +2887,16 @@ function hfFrame(OPS){
         var tg = e.target && e.target.closest ? e.target : null;
         var pb = tg ? tg.closest('[data-hf-plus]') : null;
         if (pb){ post({ type: 'photo', slot: pb.getAttribute('data-hf-plus') }); return; }
+        var xb = tg ? tg.closest('[data-hf-del]') : null;
+        if (xb){
+            var xid = xb.getAttribute('data-hf-del');
+            if (OPS.delPhoto(document, xid)){
+                post({ type: 'photoDel', slot: xid });
+                [btns, dbtns].forEach(function(m){ if (m[xid]){ m[xid].parentNode.removeChild(m[xid]); delete m[xid]; } });
+                setTimeout(layout, 60);
+            }
+            return;
+        }
         if (mode === 'text'){
             var t = tg ? tg.closest('[data-hf-t]') : null;
             if (t){ clearT(); t.setAttribute('data-hf-selt', '1'); post({ type: 'text', tid: t.getAttribute('data-hf-t'), value: OPS.getText(t) }); }
@@ -2923,10 +2947,11 @@ function hfFrame(OPS){
     var layer = document.createElement('div'); layer.setAttribute('data-hf-ed', '');
     layer.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;overflow:visible;z-index:2147483000';
     document.body.appendChild(layer);
-    var btns = {};
+    var btns = {}, dbtns = {};
     var PLUS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none"><path d="M12 5v14M5 12h14"/></svg>';
+    var XIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="display:block;pointer-events:none"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     function layout(){
-        var sx = window.pageXOffset || 0, sy = window.pageYOffset || 0, vw = document.documentElement.clientWidth || window.innerWidth, seen = {};
+        var sx = window.pageXOffset || 0, sy = window.pageYOffset || 0, vw = document.documentElement.clientWidth || window.innerWidth, seen = {}, seenX = {};
         [].forEach.call(document.querySelectorAll('[data-hf-p]'), function(el){
             var id = el.getAttribute('data-hf-p'), r = el.getBoundingClientRect(), cs = getComputedStyle(el), b = btns[id];
             if (!(r.width >= 80 && r.height >= 60 && cs.display !== 'none' && cs.visibility !== 'hidden')){ if (b) b.style.display = 'none'; return; }
@@ -2936,8 +2961,16 @@ function hfFrame(OPS){
             if (done){ x = Math.min(r.right, vw) - s - 8; y = r.top + 8; }
             else { x = (Math.max(r.left, 0) + Math.min(r.right, vw)) / 2 - s / 2; y = r.top + r.height / 2 - s / 2; }
             b.style.cssText = 'width:' + s + 'px;height:' + s + 'px;left:' + Math.round(x + sx) + 'px;top:' + Math.round(y + sy) + 'px;display:flex';
+            // «×» на плитках галереи: убрать ненужное фото, остальные остаются
+            if (OPS.slotBox(el)){
+                var xd = dbtns[id];
+                if (!xd){ xd = document.createElement('button'); xd.type = 'button'; xd.setAttribute('data-hf-del', id); xd.setAttribute('aria-label', 'Убрать фото'); xd.innerHTML = XIC; layer.appendChild(xd); dbtns[id] = xd; }
+                xd.style.cssText = 'width:30px;height:30px;left:' + Math.round(Math.max(r.left, 0) + sx + 8) + 'px;top:' + Math.round(r.top + sy + 8) + 'px;display:flex';
+                seenX[id] = 1;
+            }
         });
         Object.keys(btns).forEach(function(id){ if (!seen[id]) btns[id].style.display = 'none'; });
+        Object.keys(dbtns).forEach(function(id){ if (!seenX[id]) dbtns[id].style.display = 'none'; });
     }
     window.addEventListener('resize', layout);
     window.addEventListener('load', layout);
@@ -3038,6 +3071,10 @@ addEventListener('message', e => {
         edRender();
     } else if (d.type === 'photo' && typeof d.slot === 'string' && /^[\w-]{1,60}$/.test(d.slot)){
         edPickPhoto(d.slot);
+    } else if (d.type === 'photoDel' && typeof d.slot === 'string' && /^[\w-]{1,60}$/.test(d.slot)){
+        ED.ops = ED.ops.filter(o => !(o.k === 'photo' && o.slot === d.slot));   // фото убранной плитки в код не попадёт
+        ED.ops.push({ k: 'delphoto', slot: d.slot });
+        tap(); toast('Фото убрано');
     } else if (d.type === 'text' && typeof d.tid === 'string' && /^[\w-]{1,60}$/.test(d.tid)){
         edSaveText(true);   // тап по другому тексту = «увёл фокус»: сохраняем введённое
         ED.text = { tid: d.tid, value: String(d.value || '').slice(0, 1000) };
@@ -3073,6 +3110,7 @@ function edReplay(){
         else if (o.k === 'color') ED_OPS.color(doc, o.id, o.bg, o.text);
         else if (o.k === 'text') ED_OPS.setText(doc, o.tid, o.text);
         else if (o.k === 'photo') ED_OPS.setPhoto(doc, o.slot, o.src);
+        else if (o.k === 'delphoto') ED_OPS.delPhoto(doc, o.slot);
     });
     doc.querySelectorAll('[data-hf-t],[data-hf-b],[data-hf-p],[data-hf-photo]').forEach(n => { ['data-hf-t', 'data-hf-b', 'data-hf-p', 'data-hf-photo'].forEach(a => n.removeAttribute(a)); });
     return edSer(doc, ED.src);
@@ -3156,19 +3194,20 @@ addEventListener('resize', edLayout);
 const ED_MAX_CODE = 650000;
 let edPhotoSlot = null;
 const edSize = () => ED.src.length + ED.ops.reduce((n, o) => n + (o.src ? o.src.length : 0) + (o.html ? o.html.length : 0), 0);
-function edReadPhoto(file){
+function edReadPhoto(file, side0, maxLen){
+    side0 = side0 || 1000; maxLen = maxLen || 130000;
     return new Promise((res, rej) => {
         const url = URL.createObjectURL(file), im = new Image();
         im.onload = () => {
             try {
-                let side = 1000, out = '';
+                let side = side0, out = '';
                 for (let t = 0; t < 4; t++){
                     const k = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight));
                     const w = Math.max(1, Math.round(im.naturalWidth * k)), h = Math.max(1, Math.round(im.naturalHeight * k));
                     const c = document.createElement('canvas'); c.width = w; c.height = h;
                     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(im, 0, 0, w, h);
-                    for (let q = 0.8; q >= 0.45; q -= 0.1){ out = c.toDataURL('image/jpeg', q); if (out.length <= 130000) break; }
-                    if (out.length <= 130000) break;
+                    for (let q = 0.8; q >= 0.45; q -= 0.1){ out = c.toDataURL('image/jpeg', q); if (out.length <= maxLen) break; }
+                    if (out.length <= maxLen) break;
                     side = Math.round(side * 0.75);
                 }
                 URL.revokeObjectURL(url);
@@ -3179,10 +3218,16 @@ function edReadPhoto(file){
         im.src = url;
     });
 }
+async function edUploadPhoto(dataUrl){
+    const r = await fetch(`${BACKEND_URL}/photo/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ init_data: (tg && tg.initData) || '', image: dataUrl }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j && j.status === 'ok' && /^\/img\/[A-Za-z0-9_-]+\.jpg$/.test(j.path || '')) ? BACKEND_URL + j.path : null;
+}
 function edPickPhoto(slot){
     if (!ED.on) return;
     if (tg && tg.showPopup){
-        tg.showPopup({ title: 'Фото', message: 'Ссылка не утяжеляет сайт. Фото из галереи вшивается в код.', buttons: [{ id: 'link', type: 'default', text: 'Вставить ссылку' }, { id: 'gal', type: 'default', text: 'Из галереи' }, { type: 'cancel' }] }, id => {
+        tg.showPopup({ title: 'Фото', message: 'Фото из галереи загружается на сервер, в код попадает только короткая ссылка.', buttons: [{ id: 'link', type: 'default', text: 'Вставить ссылку' }, { id: 'gal', type: 'default', text: 'Из галереи' }, { type: 'cancel' }] }, id => {
             if (id === 'link'){ ED.link = slot; edRender(); setTimeout(() => { const u = $('ed-url'); if (u) u.focus(); }, 50); }
             else if (id === 'gal') edGallery(slot);
         });
@@ -3199,7 +3244,13 @@ function edGallery(slot){
             const f = inp.files && inp.files[0], sl = edPhotoSlot; edPhotoSlot = null; inp.value = '';
             if (!f || !sl || !ED.on) return;
             if (!/^image\//.test(f.type || 'image/')){ toast('Выбери фото'); return; }
-            try { edSetPhoto(sl, await edReadPhoto(f)); } catch (e) { toast('Не удалось открыть фото'); }
+            try {
+                // Основной путь: фото уходит на сервер, в код сайта попадает короткая ссылка
+                let url = null;
+                try { url = await edUploadPhoto(await edReadPhoto(f, 1600, 450000)); } catch (e) { url = null; }
+                if (url) edSetPhoto(sl, url);
+                else edSetPhoto(sl, await edReadPhoto(f));   // запасной путь: сервер недоступен -> вшиваем сжатое фото
+            } catch (e) { toast('Не удалось открыть фото'); }
         });
         document.body.appendChild(inp);
     }
