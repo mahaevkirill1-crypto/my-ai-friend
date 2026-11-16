@@ -555,6 +555,18 @@
     #vv-code-i { display: flex; flex: none; }
     #vv-edit { display: none; position: absolute; left: 0; right: 0; bottom: 0; top: calc(60px + env(safe-area-inset-top)); width: 100%; height: calc(100% - 60px - env(safe-area-inset-top)); box-sizing: border-box; padding: 12px; border: 0; outline: none; resize: none; background: #2A2B2F; color: #EAF0FA; font: 12px/1.5 ui-monospace, Menlo, monospace; tab-size: 2; -webkit-text-fill-color: #EAF0FA; caret-color: var(--ui-cyan); }
 /* ВИЗУАЛЬНЫЙ РЕДАКТОР */
+#vv-dev { display: none; flex: none; align-items: center; gap: 2px; height: 36px; padding: 3px; box-sizing: border-box; border-radius: 18px; background: rgba(255,255,255,.18); }
+#visview.ed-on #vv-dev { display: flex; }
+#vv-dev button { width: 34px; height: 30px; padding: 0; border: 0; border-radius: 15px; background: transparent; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
+#vv-dev button.on { background: rgba(255,255,255,.92); color: #111214; }
+#vv-dev #vv-dev-full { display: none; }
+#visview.dev-d #vv-dev #vv-dev-full { display: flex; }
+#vv-full { display: none; position: fixed; inset: 0; z-index: 1300; background: #000; overflow: hidden; }
+#vv-full.open { display: block; }
+#vv-full-box { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; }
+@media (orientation: portrait) { #vv-full-box { width: 100vh; height: 100vw; transform-origin: 0 0; transform: translateX(100vw) rotate(90deg); } }
+#vv-full-fr { position: absolute; top: 0; left: 0; border: 0; background: #fff; transform-origin: 0 0; }
+#vv-full-x { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; font-size: 18px; cursor: pointer; z-index: 2; }
 #ed-panel { display: none; position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; max-height: 55%; overflow-y: auto; box-sizing: border-box; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); background: var(--ui-bg-1, #2A2B2F); border-top: .5px solid rgba(255,255,255,.14); color: var(--ui-tx-hi, #EAF0FA); font: 600 14px 'Manrope', system-ui, sans-serif; }
 #visview.ed-on #ed-panel { display: block; }
 #ed-mv { display: none; margin-bottom: 10px; }
@@ -1003,6 +1015,9 @@
     :root:root body #vv-bar { color: var(--ui-tx-hi); background: rgba(var(--cl-rgb),.92); }
     :root:root body #vv-bar .pill, :root:root body #vv-close, :root:root body #vv-menu-btn { background: var(--cl-btn); color: var(--ui-tx-hi); }
     :root:root body #vv-bar #vv-apply { background: var(--cl-acc); color: var(--cl-acc-fg); }
+    :root:root body #vv-dev { background: var(--cl-btn); }
+    :root:root body #vv-dev button { background: transparent; color: var(--ui-tx-hi); }
+    :root:root body #vv-dev button.on { background: var(--cl-acc); color: var(--cl-acc-fg); }
     :root:root body .vis-frame { border-color: var(--ui-line); border-radius: 12px; }
     :root:root body .vis-bar .vis-open { background: var(--cl-acc); color: var(--cl-acc-fg); border-color: transparent; }
 
@@ -1638,7 +1653,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
-<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><button class="pill" id="vv-ed" type="button" style="display:none">Редактор</button><button id="vv-menu-btn" type="button" aria-label="Меню" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><div id="vv-menu" role="menu"><button id="vv-dl" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button><button id="vv-copy" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать</span></button><button id="vv-code" type="button" role="menuitem"><span id="vv-code-i"></span><span id="vv-code-t">Показать код</span></button></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><div id="ed-panel"><div id="ed-mv"></div><div id="ed-tabs"></div><div id="ed-body"></div></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
+<div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><div id="vv-dev" role="group" aria-label="Устройство"><button type="button" id="vv-dev-m" class="on" aria-pressed="true" aria-label="Мобильный вид" title="Мобильный"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/></svg></button><button type="button" id="vv-dev-d" aria-pressed="false" aria-label="Вид на компьютере" title="Компьютер"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button type="button" id="vv-dev-full" aria-label="Во весь экран" title="Во весь экран"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button></div><button class="pill" id="vv-ed" type="button" style="display:none">Редактор</button><button id="vv-menu-btn" type="button" aria-label="Меню" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><div id="vv-menu" role="menu"><button id="vv-dl" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button><button id="vv-copy" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать</span></button><button id="vv-code" type="button" role="menuitem"><span id="vv-code-i"></span><span id="vv-code-t">Показать код</span></button></div><div id="vv-full"><div id="vv-full-box"><iframe id="vv-full-fr" sandbox="allow-scripts" title="Полный экран"></iframe><button id="vv-full-x" type="button" aria-label="Закрыть">✕</button></div></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><div id="ed-panel"><div id="ed-mv"></div><div id="ed-tabs"></div><div id="ed-body"></div></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
 <div id="lightbox"><button id="lb-close" type="button" aria-label="Закрыть">✕</button><div id="lb-box"><img id="lb-img" alt=""></div></div>
 <div id="fileview"><div id="fv-bar"><span id="fv-title"></span><button id="fv-copy" type="button" aria-label="Копировать" style="display:none"></button><button id="fv-close" type="button" aria-label="Закрыть">✕</button></div><div id="fv-body"></div></div>
 <div id="toast"></div>
@@ -2830,11 +2845,12 @@ function hfFrame(OPS){
     var mode = 'blocks', cur = null;
     function post(m){ m.hf = 1; try { parent.postMessage(m, '*'); } catch (e) {} }
     var st = document.createElement('style'); st.setAttribute('data-hf-ed', '');
-    st.textContent = '[data-hf-sel]{outline:3px solid #6366f1!important;outline-offset:-3px!important}' +
-        '[data-hf-selt]{outline:2px solid #6366f1!important;outline-offset:2px!important}' +
+    st.textContent = '[data-hf-sel]{outline:calc(3px * var(--hf-k,1)) solid #6366f1!important;outline-offset:calc(-3px * var(--hf-k,1))!important}' +
+        '[data-hf-selt]{outline:calc(2px * var(--hf-k,1)) solid #6366f1!important;outline-offset:calc(2px * var(--hf-k,1))!important}' +
+        '[data-hf-plus] svg,[data-hf-del] svg{width:55%!important;height:55%!important}' +
         'html[data-hf-mode=text] [data-hf-t]{outline:1px dashed rgba(99,102,241,.7);outline-offset:2px}' +
-        '[data-hf-plus]{position:absolute;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;background:#6366f1;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}' +
-        '[data-hf-del]{position:absolute;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;background:#e5484d;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}';
+        '[data-hf-plus]{position:absolute;align-items:center;justify-content:center;border:calc(2px * var(--hf-k,1)) solid #fff;border-radius:50%;background:#6366f1;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}' +
+        '[data-hf-del]{position:absolute;align-items:center;justify-content:center;border:calc(2px * var(--hf-k,1)) solid #fff;border-radius:50%;background:#e5484d;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}';
     document.head.appendChild(st);
     document.documentElement.setAttribute('data-hf-mode', mode);
     function hex(c){
@@ -2930,6 +2946,9 @@ function hfFrame(OPS){
                 if (el && mode === 'blocks' && !el.hasAttribute('data-section')){ el = el.closest('[data-section]'); cur = el ? el.getAttribute('data-section') : null; }
                 if (el){ el.setAttribute('data-hf-sel', '1'); post(info(el)); } else cur = null;
             }
+        } else if (d.type === 'scale'){
+            K = Math.max(1, Math.min(6, 1 / (Number(d.k) || 1)));
+            document.documentElement.style.setProperty('--hf-k', String(K)); layout();
         } else if (d.type === 'add'){
             el = OPS.add(document, d.id, d.html);
             if (el){ pick(d.id); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -2955,7 +2974,7 @@ function hfFrame(OPS){
     var layer = document.createElement('div'); layer.setAttribute('data-hf-ed', '');
     layer.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;overflow:visible;z-index:2147483000';
     document.body.appendChild(layer);
-    var btns = {}, dbtns = {};
+    var btns = {}, dbtns = {}, K = 1;   // K = 1 / масштаб превью: в режиме «Компьютер» кнопки укрупняются, чтобы на экране телефона оставались обычного размера
     var PLUS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none"><path d="M12 5v14M5 12h14"/></svg>';
     var XIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="display:block;pointer-events:none"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     function layout(){
@@ -2965,15 +2984,18 @@ function hfFrame(OPS){
             if (!(r.width >= 80 && r.height >= 60 && cs.display !== 'none' && cs.visibility !== 'hidden')){ if (b) b.style.display = 'none'; return; }
             seen[id] = 1;
             if (!b){ b = document.createElement('button'); b.type = 'button'; b.setAttribute('data-hf-plus', id); b.setAttribute('aria-label', 'Добавить фото'); b.innerHTML = PLUS; layer.appendChild(b); btns[id] = b; }
-            var done = el.tagName === 'IMG' || !!el.querySelector('[data-hf-photo]'), s = done ? 34 : 52, x, y;
-            if (done){ x = Math.min(r.right, vw) - s - 8; y = r.top + 8; }
+            var done = el.tagName === 'IMG' || !!el.querySelector('[data-hf-photo]'), cap = Math.floor(Math.min(r.width, r.height) * 0.45), fl = K > 1 ? Math.round(18 * K) : 0,   // в режиме «Компьютер» кнопка не меньше ~18px на экране
+                s = Math.max(Math.min(Math.round((done ? 34 : 52) * K), cap), fl), pad = K > 1 ? 3 : 8, x, y;
+            if (done){ x = Math.min(r.right, vw) - s - pad; y = r.top + pad; }
+            else if (K > 1 && OPS.slotBox(el)){ x = Math.min(r.right, vw) - s - pad; y = r.bottom - s - pad; }   // мелкая плитка: «+» в нижнем углу, «×» в верхнем, чтобы не мешали друг другу
             else { x = (Math.max(r.left, 0) + Math.min(r.right, vw)) / 2 - s / 2; y = r.top + r.height / 2 - s / 2; }
             b.style.cssText = 'width:' + s + 'px;height:' + s + 'px;left:' + Math.round(x + sx) + 'px;top:' + Math.round(y + sy) + 'px;display:flex';
             // «×» на плитках галереи: убрать ненужное фото, остальные остаются
             if (OPS.slotBox(el)){
                 var xd = dbtns[id];
                 if (!xd){ xd = document.createElement('button'); xd.type = 'button'; xd.setAttribute('data-hf-del', id); xd.setAttribute('aria-label', 'Убрать фото'); xd.innerHTML = XIC; layer.appendChild(xd); dbtns[id] = xd; }
-                xd.style.cssText = 'width:30px;height:30px;left:' + Math.round(Math.max(r.left, 0) + sx + 8) + 'px;top:' + Math.round(r.top + sy + 8) + 'px;display:flex';
+                var xs = Math.max(Math.min(Math.round(30 * K), cap), fl);
+                xd.style.cssText = 'width:' + xs + 'px;height:' + xs + 'px;left:' + Math.round(Math.max(r.left, 0) + sx + pad) + 'px;top:' + Math.round(r.top + sy + pad) + 'px;display:flex';
                 seenX[id] = 1;
             }
         });
@@ -3073,7 +3095,7 @@ function edPost(m){ m.hf = 1; try { edWin().postMessage(m, '*'); } catch (e) {} 
 addEventListener('message', e => {
     const d = e.data;
     if (!ED.on || !d || d.hf !== 1 || e.source !== edWin()) return;
-    if (d.type === 'ready'){ ED.theme = String(d.theme || '').replace(/[^\w:;#%.,()\- ]/g, '').slice(0, 400); ED.ready = true; edPost({ type: 'mode', mode: ED.tab }); }
+    if (d.type === 'ready'){ edLayout(); ED.theme = String(d.theme || '').replace(/[^\w:;#%.,()\- ]/g, '').slice(0, 400); ED.ready = true; edPost({ type: 'mode', mode: ED.tab }); }
     else if (d.type === 'selected' && typeof d.section === 'string'){
         ED.sel = { id: d.section, name: String(d.name || ''), bg: d.bg, text: d.text, hasBg: !!d.hasBg, hasTx: !!d.hasTx, added: !!d.added, box: !!d.box, parent: String(d.parent || '') };
         edRender();
@@ -3142,7 +3164,8 @@ function edReset(){
     ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false; ED.link = null;
     const v = $('visview'); if (v) v.classList.remove('ed-on');
     const b = $('vv-ed'); if (b) b.textContent = 'Редактор';
-    const f = $('vv-frame'); if (f) f.style.height = '';
+    const f = $('vv-frame'); if (f) f.style.height = f.style.width = f.style.transform = f.style.transformOrigin = '';
+    if (typeof edSetDev === 'function'){ edDev = 'm'; $('vv-dev-m').classList.add('on'); $('vv-dev-d').classList.remove('on'); $('visview').classList.remove('dev-d'); edFullClose(); }
 }
 function edFinish(){
     if (!ED.on || !curVis) return;
@@ -3193,11 +3216,53 @@ function edResetAll(){
         toast('Правки сброшены');
     });
 }
+// Устройство превью: 'm' — телефон (iframe во всю ширину), 'd' — компьютер (iframe шириной 1280px, уменьшенный через scale; это тот же iframe, без перезагрузки,
+// поэтому правки не теряются, а @media внутри сайта срабатывают по ширине 1280)
+const ED_DESK_W = 1280;
+let edDev = 'm';
 function edLayout(){
     const f = $('vv-frame'); if (!f) return;
-    if (!ED.on){ f.style.height = ''; return; }
-    f.style.height = 'calc(100% - 60px - env(safe-area-inset-top) - ' + $('ed-panel').offsetHeight + 'px)';
+    if (!ED.on){ f.style.height = f.style.width = f.style.transform = f.style.transformOrigin = ''; return; }
+    if (edDev === 'd'){
+        const vv = $('visview'), W = vv.clientWidth || window.innerWidth, k = Math.min(1, W / ED_DESK_W);
+        const H = Math.max(120, vv.clientHeight - f.offsetTop - $('ed-panel').offsetHeight);
+        f.style.width = Math.round(W / k) + 'px'; f.style.height = Math.round(H / k) + 'px';
+        f.style.transformOrigin = '0 0'; f.style.transform = 'scale(' + k + ')';
+        edPost({ type: 'scale', k });
+    } else {
+        f.style.width = f.style.transform = f.style.transformOrigin = '';
+        f.style.height = 'calc(100% - 60px - env(safe-area-inset-top) - ' + $('ed-panel').offsetHeight + 'px)';
+        edPost({ type: 'scale', k: 1 });
+    }
 }
+function edSetDev(d){
+    edDev = d === 'd' ? 'd' : 'm';
+    $('vv-dev-m').classList.toggle('on', edDev === 'm'); $('vv-dev-m').setAttribute('aria-pressed', edDev === 'm' ? 'true' : 'false');
+    $('vv-dev-d').classList.toggle('on', edDev === 'd'); $('vv-dev-d').setAttribute('aria-pressed', edDev === 'd' ? 'true' : 'false');
+    $('visview').classList.toggle('dev-d', edDev === 'd');
+    edLayout();
+}
+// Во весь экран (только просмотр): страница шириной 1280 в горизонтальной ориентации, даже если телефон держат вертикально
+function edFullOpen(){
+    if (!ED.on || !ED.ready) return;
+    edSaveText(true);
+    let code; try { code = edReplay(); } catch (e) { toast('Не удалось открыть просмотр'); return; }
+    const fr = $('vv-full-fr'), box = $('vv-full-box'), o = $('vv-full');
+    fr.srcdoc = visDoc({ type: 'html', code });
+    o.classList.add('open');
+    requestAnimationFrame(edFullFit);
+}
+function edFullFit(){
+    const box = $('vv-full-box'), fr = $('vv-full-fr'); if (!box || !$('vv-full').classList.contains('open')) return;
+    const W = box.clientWidth, H = box.clientHeight, k = Math.min(1, W / ED_DESK_W);
+    fr.style.width = Math.round(W / k) + 'px'; fr.style.height = Math.round(H / k) + 'px'; fr.style.transform = 'scale(' + k + ')';
+}
+function edFullClose(){ $('vv-full').classList.remove('open'); $('vv-full-fr').srcdoc = ''; }
+$('vv-dev-m').addEventListener('click', () => { tap(); edSetDev('m'); });
+$('vv-dev-d').addEventListener('click', () => { tap(); edSetDev('d'); });
+$('vv-dev-full').addEventListener('click', () => { tap(); edFullOpen(); });
+$('vv-full-x').addEventListener('click', () => { tap(); edFullClose(); });
+addEventListener('resize', () => { edFullFit(); });
 addEventListener('resize', edLayout);
 
 // ---- Фото из галереи: «+» на месте для фото -> выбор файла -> сжатие -> вставка ----
