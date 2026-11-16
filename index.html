@@ -4165,6 +4165,28 @@ function addChoices(choices, origText){
     msg.appendChild(bar);
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
+// кнопка «Открыть редактор» под пейволлом: только если в чате есть сайт (type html, не игра и не ролик)
+function lastSiteVis(){
+    const all = chatHistory.querySelectorAll('.vis');
+    for (let i = all.length - 1; i >= 0; i--){ const v = all[i]._v; if (v && canEditVis(v)) return all[i]; }
+    return null;
+}
+function addEditorBtn(){
+    if (!lastSiteVis()) return;
+    const last = chatHistory.lastElementChild;
+    const msg = last && last.querySelector('.message');
+    if (!msg) return;
+    const bar = document.createElement('div'); bar.className = 'vis-bar';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'txtbtn'; b.textContent = 'Открыть редактор';
+    b.addEventListener('click', () => {
+        if (isSending) return;
+        const el = lastSiteVis(); if (!el) return;
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        openVis(el._v, el); edEnter();
+    });
+    bar.appendChild(b); msg.appendChild(bar);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
 const SEND_ICON = sendBtn.innerHTML;
 const STOP_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
 let sendAbort = null;
@@ -4462,7 +4484,9 @@ async function sendMessage(text, opts) {
             hideTyping();
             if (char === 'astro') hideBubble(); else Hologram.react('sleepy', 'idle', 3000);
             if (editing) setEditTarget(null);
+            const eh = data.editor_hint || null;   // подсказку про редактор собирает сервер (учитывает тариф и есть ли сайт)
             addToHistory(data.text || 'Лимит запросов исчерпан.', 'bot');
+            if (eh && eh.open_editor) addEditorBtn();   // сайт есть: кнопка «Открыть редактор» прямо в чате; без сайта, у видео и игр её нет
             if (data.pro) Object.assign(PRO, data.pro);
             renderPro();
             openPro();
