@@ -2564,7 +2564,15 @@ function vvMode(edit){
     $('vv-code-i').innerHTML = edit ? VV_EYE : VV_CODE;
     $('vv-title').textContent = edit ? 'Код' : 'Просмотр';
 }
-function openVis(v, el){ tap(); edReset(); curVis = { v, el }; $('vv-ed').style.display = v.type === 'html' ? '' : 'none'; const lk = isLocked(v); const vid = v.type === 'video-html'; $('vv-code').style.display = (lk || vid) ? 'none' : ''; $('vv-copy').style.display = (lk || vid) ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
+// Визуальный редактор — только для сайтов: у игр и видео (в том числе видео-код, пришедший как html) его нет. Признак noedit ставит сервер; запасной вариант — по коду (то же правило, что на сервере)
+function looksGame(code){
+    if (typeof code !== 'string' || !code || code.indexOf('data-section=') !== -1) return false;
+    if (!/score|сч[её]т|очк[иао]|game ?over|игра окончена|lives|жизни|restart|заново|начать игру/i.test(code)) return false;
+    return [/requestAnimationFrame|setInterval\s*\(/i, /keydown|keyup|ArrowLeft|ArrowUp|touchstart|touchmove|pointerdown|mousemove/i, /<canvas/i].filter(r => r.test(code)).length >= 2;
+}
+const looksVideo = code => typeof code === 'string' && /window\s*\.\s*renderAt\s*=|window\s*\[\s*['"]renderAt['"]\s*\]\s*=|function\s+renderAt\s*\(/.test(code);
+const canEditVis = v => !!v && v.type === 'html' && !v.noedit && !looksGame(v.code) && !looksVideo(v.code);
+function openVis(v, el){ tap(); edReset(); curVis = { v, el }; $('vv-ed').style.display = canEditVis(v) ? '' : 'none'; const lk = isLocked(v); const vid = v.type === 'video-html'; $('vv-code').style.display = (lk || vid) ? 'none' : ''; $('vv-copy').style.display = (lk || vid) ? 'none' : ''; vvMenuToggle(false); vvMode(false); $('vv-frame').srcdoc = visDoc(v); $('visview').classList.add('open'); }
 function closeVis(force){ if (force !== true && edGuard(() => closeVis(true))) return; edReset(); vvMenuToggle(false); $('visview').classList.remove('open'); $('vv-frame').srcdoc = ''; curVis = null; vvMode(false); if (typeof exAfterVis === 'function') exAfterVis(); }
 $('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!curVis) return; if (ED.on){ toast('Сначала нажми «Готово»'); return; } if (vvEditing){ vvMode(false); return; } if (isLocked(curVis.v)){ lockedToast(); return; } const c = await fetchCode(curVis.v); if (c === null || !curVis) return; $('vv-edit').value = c; vvMode(true); });
 $('vv-apply').addEventListener('click', () => {
@@ -3118,7 +3126,9 @@ function edReplay(){
 async function edEnter(){
     if (!curVis || ED.on || curVis.v.type !== 'html') return;
     if (vvEditing) vvMode(false);
+    if (curVis.v.noedit){ toast('Редактор работает только для сайтов'); return; }
     const code = await fetchCode(curVis.v); if (code === null || !curVis) return;
+    if (looksGame(code) || looksVideo(code)){ curVis.v.noedit = true; $('vv-ed').style.display = 'none'; toast('Редактор работает только для сайтов'); return; }
     const src0 = stripMark(stripWm(code));
     const doc = edPrepare(src0);
     ED.orig = curVis.v.orig || src0;   // исходник, каким его сгенерировали: к нему возвращает «Сбросить всё»
@@ -3439,7 +3449,7 @@ function visPopOpen(vis, btn){
     { const cp = visPop.querySelector('[data-a="copy"]'); if (cp) cp.style.display = (isLocked(vis._v) || (vis._v && vis._v.type === 'video-html')) ? 'none' : ''; }
     { const hp = visPop.querySelector('[data-a="help"]'); if (hp) hp.style.display = (vis._v && vis._v.type === 'video-html') ? 'none' : ''; }
     { const pb = visPop.querySelector('[data-a="publish"]'); if (pb) pb.style.display = (vis._v && vis._v.type === 'html') ? '' : 'none'; }
-    { const eb = visPop.querySelector('[data-a="editor"]'); if (eb) eb.style.display = (vis._v && vis._v.type === 'html') ? '' : 'none'; }
+    { const eb = visPop.querySelector('[data-a="editor"]'); if (eb) eb.style.display = canEditVis(vis._v) ? '' : 'none'; }
     const r = btn.getBoundingClientRect(), w = visPop.offsetWidth, hh = visPop.offsetHeight;  // меню скрыто, но размеры известны
     const below = r.bottom + 6 + hh <= innerHeight - 8;
     const top = Math.max(8, below ? r.bottom + 6 : r.top - hh - 6);
@@ -4325,7 +4335,7 @@ async function sendMessage(text, opts) {
             }
 
             const vis0 = data.visual; if (vis0 && vis0.type === 'html' && (String(vis0.code).length > 3000 || vis0.pid) && !PRO.active && PRO.trial){ PRO.trial = false; }
-            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg' || data.visual.type === 'video-html') ? { type: data.visual.type, code: data.visual.code, pid: data.visual.pid || undefined } : null;
+            let vis = data.visual && typeof data.visual.code === 'string' && (data.visual.type === 'html' || data.visual.type === 'svg' || data.visual.type === 'video-html') ? { type: data.visual.type, code: data.visual.code, pid: data.visual.pid || undefined, noedit: data.visual.noedit ? true : undefined } : null;
             let outText = data.text;
             if (!vis){ const ex = extractVis(data.text); if (ex){ vis = ex.vis; vis.x = 1; outText = ex.rest; } }
             // режим правки (diff): живого iframe не было, итог приходит целиком, поэтому заменяем черновой пузырь готовым
