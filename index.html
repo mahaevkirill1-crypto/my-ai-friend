@@ -2935,10 +2935,25 @@ function hfFrame(OPS){
         if (el) pick(el.getAttribute('data-section'));
     }, true);
     document.addEventListener('submit', function(e){ e.preventDefault(); }, true);
+    // Позиция прокрутки: отдаём родителю (после паузы в прокрутке), чтобы после отката/возврата вернуться на то же место
+    var scT = 0, wantY = null;
+    function curY(){ return Math.round(window.scrollY || document.documentElement.scrollTop || 0); }
+    window.addEventListener('scroll', function(){ clearTimeout(scT); scT = setTimeout(function(){ post({ type: 'scroll', y: curY() }); }, 80); }, { passive: true });
+    function applyY(){
+        if (wantY === null) return;
+        try { window.scrollTo({ top: wantY, left: 0, behavior: 'instant' }); } catch (e) { window.scrollTo(0, wantY); }
+    }
+    ['touchstart', 'wheel', 'pointerdown'].forEach(function(t){ document.addEventListener(t, function(){ wantY = null; }, { passive: true, capture: true }); });   // человек сам листает: больше не возвращаем
     window.addEventListener('message', function(e){
         if (e.source !== parent) return;
         var d = e.data; if (!d || d.hf !== 1) return;
         var el;
+        if (d.type === 'scrollTo'){
+            wantY = Math.max(0, Number(d.y) || 0); applyY();
+            [150, 400, 900].forEach(function(t){ setTimeout(applyY, t); });   // страница ещё догружает картинки и шрифты: повторяем, пока высота не дорастёт
+            setTimeout(function(){ wantY = null; }, 1000);
+            return;
+        }
         if (d.type === 'mode'){
             mode = d.mode === 'colors' ? 'colors' : (d.mode === 'text' ? 'text' : 'blocks');
             document.documentElement.setAttribute('data-hf-mode', mode);
@@ -3012,7 +3027,7 @@ function hfFrame(OPS){
     setTimeout(function(){ post({ type: 'ready', theme: theme(), n: document.querySelectorAll('[data-section]').length }); }, 60);
 }
 
-const ED = { on: false, tab: 'blocks', src: '', orig: '', ops: [], sel: null, text: null, reset: false, theme: '', ready: false, form: false, ft: '', fx: '', used: {}, busy: false, site: '', hist: [], hi: -1, hk: '', ht: 0 };
+const ED = { on: false, tab: 'blocks', src: '', orig: '', ops: [], sel: null, text: null, reset: false, theme: '', ready: false, form: false, ft: '', fx: '', used: {}, busy: false, site: '', hist: [], hi: -1, hk: '', ht: 0, h0: null, raw: '', sy: 0, keepY: null };
 const ED_OPS = hfOps();
 const edEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ED_NAMES = { hero: 'Главный экран', header: 'Шапка', nav: 'Меню', footer: 'Подвал', reviews: 'Отзывы', faq: 'FAQ', pricing: 'Цены', gallery: 'Галерея', contacts: 'Контакты', team: 'Команда', custom: 'Свой блок' };
@@ -3099,7 +3114,8 @@ function edPost(m){ m.hf = 1; try { edWin().postMessage(m, '*'); } catch (e) {} 
 addEventListener('message', e => {
     const d = e.data;
     if (!ED.on || !d || d.hf !== 1 || e.source !== edWin()) return;
-    if (d.type === 'ready'){ edLayout(); ED.theme = String(d.theme || '').replace(/[^\w:;#%.,()\- ]/g, '').slice(0, 400); ED.ready = true; edPost({ type: 'mode', mode: ED.tab }); }
+    if (d.type === 'ready'){ edLayout(); ED.theme = String(d.theme || '').replace(/[^\w:;#%.,()\- ]/g, '').slice(0, 400); ED.ready = true; edPost({ type: 'mode', mode: ED.tab }); if (ED.keepY !== null){ edPost({ type: 'scrollTo', y: ED.keepY }); ED.keepY = null; } }
+    else if (d.type === 'scroll' && typeof d.y === 'number' && ED.ready){ ED.sy = Math.max(0, Math.min(10000000, d.y)); }
     else if (d.type === 'selected' && typeof d.section === 'string'){
         ED.sel = { id: d.section, name: String(d.name || ''), bg: d.bg, text: d.text, hasBg: !!d.hasBg, hasTx: !!d.hasTx, added: !!d.added, box: !!d.box, parent: String(d.parent || '') };
         edRender();
@@ -3129,7 +3145,7 @@ function edDoc(src){
 function edPrepare(code){
     const doc = new DOMParser().parseFromString(code, 'text/html');
     ED_OPS.tag(doc); ED_OPS.tagText(doc.body, 't'); ED_OPS.tagBox(doc.body, 'bx'); ED_OPS.tagPhoto(doc.body, 'p');
-    ED.src = edSer(doc, code);
+    ED.src = edSer(doc, code); ED.raw = code;
     ED.used = {};
     doc.querySelectorAll('[data-section]').forEach(n => { ED.used[n.getAttribute('data-section')] = 1; });
     return doc;
@@ -3149,11 +3165,23 @@ function edReplay(keepTags){
     if (!keepTags) doc.querySelectorAll('[data-hf-t],[data-hf-b],[data-hf-p],[data-hf-photo]').forEach(n => { ['data-hf-t', 'data-hf-b', 'data-hf-p', 'data-hf-photo'].forEach(a => n.removeAttribute(a)); });
     return edSer(doc, ED.src);
 }
-// ---- Откат и возврат (↶ ↷): снимок = операции + исходник + флаг сброса. Строки в снимках общие, память почти не растёт ----
-const ED_HIST_MAX = 60;
-function edSnap(){ return { ops: ED.ops.map(o => Object.assign({}, o)), reset: ED.reset, src: ED.src }; }
+// ---- Откат и возврат (↶ ↷). Снимок = исходник (raw) + операции + флаг сброса. Строки в снимках общие, память почти не растёт.
+// История хранится на устройстве (IndexedDB) отдельно для каждого проекта: после «Готово» и даже после перезапуска можно откатить прошлые правки ----
+const ED_HIST_MAX = 60, ED_HIST_BYTES = 8000000;
+const EDH = (() => {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise((res, rej) => { try { const r = indexedDB.open('holo_edhist', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }));
+    const run = (mode, fn) => open().then(db => new Promise((res, rej) => { const t = db.transaction('h', mode); let out; try { out = fn(t.objectStore('h')); } catch (e) { rej(e); return; } t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }));
+    return {
+        put: (k, v) => run('readwrite', s => s.put(v, k)).catch(() => {}),
+        get: k => run('readonly', s => s.get(k)).catch(() => null),
+        prune: keep => run('readwrite', s => { const c = s.openKeyCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return; if (!keep.has(cur.key)) s.delete(cur.key); cur.continue(); }; return c; }).catch(() => {})
+    };
+})();
+function edSnap(){ return { ops: ED.ops.map(o => Object.assign({}, o)), reset: ED.reset, src: ED.src, raw: ED.raw }; }
 function edSnapSame(a, b){
-    if (a.reset !== b.reset || a.src !== b.src || a.ops.length !== b.ops.length) return false;
+    if (a === b) return true;
+    if (a.reset !== b.reset || a.raw !== b.raw || a.ops.length !== b.ops.length) return false;
     for (let i = 0; i < a.ops.length; i++){
         const x = a.ops[i], y = b.ops[i], kx = Object.keys(x);
         if (kx.length !== Object.keys(y).length) return false;
@@ -3161,26 +3189,60 @@ function edSnapSame(a, b){
     }
     return true;
 }
+// Есть ли несохранённые изменения: текущий шаг истории отличается от того, с чего начался сеанс
+function edDirty(){ const s = ED.hist[ED.hi]; return !!s && !!ED.h0 && !edSnapSame(s, ED.h0); }
 function edHistUi(){
     const u = $('ed-undo'), r = $('ed-redo'); if (!u || !r) return;
     u.disabled = ED.hi <= 0; r.disabled = ED.hi >= ED.hist.length - 1;
 }
-function edHistInit(){ ED.hist = [edSnap()]; ED.hi = 0; ED.hk = ''; ED.ht = 0; edHistUi(); }
+function edHistInit(){ ED.h0 = edSnap(); ED.hist = [ED.h0]; ED.hi = 0; ED.hk = ''; ED.ht = 0; edHistUi(); }
+// Подхватываем историю прошлых сеансов, если сайт с тех пор не менялся (код совпадает с сохранённым)
+function edHistApply(d, key){
+    try {
+        if (!d || d.v !== 1 || d.code !== key || !Array.isArray(d.big) || !Array.isArray(d.snaps) || !d.snaps.length || !(d.hi >= 0 && d.hi < d.snaps.length)) return;
+        const un = x => (x && typeof x === 'object' && typeof x.$ === 'number') ? d.big[x.$] : x;
+        const hist = d.snaps.map(s => {
+            const raw = d.big[s.b]; if (typeof raw !== 'string' || !Array.isArray(s.o)) throw 0;
+            return { ops: s.o.map(o => { const q = {}; for (const k in o) q[k] = un(o[k]); return q; }), reset: !!s.r, src: null, raw };
+        });
+        hist[d.hi] = ED.h0;   // текущее состояние сайта = начало этого сеанса
+        ED.hist = hist; ED.hi = d.hi; edHistUi();
+    } catch (e) {}
+}
+function edPack(hs, hi, key){
+    const big = [], idx = new Map(); let size = 0;
+    const intern = s => { let i = idx.get(s); if (i === undefined){ i = big.length; big.push(s); idx.set(s, i); size += s.length; } return i; };
+    const snaps = hs.map(s => ({ b: intern(s.raw), r: s.reset, o: s.ops.map(o => { const q = {}; for (const k in o){ const x = o[k]; q[k] = (typeof x === 'string' && x.length > 400) ? { $: intern(x) } : x; } return q; }) }));
+    return { size, data: { v: 1, code: key, big, snaps, hi, ts: Date.now() } };
+}
+function edPersist(){
+    const v = curVis && curVis.v; if (!v || !v.eid) return;
+    try {
+        const key = stripMark(stripWm(stripMark(v.code)));   // ровно то, что edEnter получит при следующем открытии
+        let hs = ED.hist.slice(), hi = ED.hi, pk = edPack(hs, hi, key);
+        while (pk.size > ED_HIST_BYTES && hi > 0){ hs.shift(); hi--; pk = edPack(hs, hi, key); }
+        if (pk.size <= ED_HIST_BYTES) EDH.put(v.eid, pk.data);
+    } catch (e) {}
+}
 // Записать шаг. key: подряд идущие изменения одного и того же (тянешь цвет, правишь один текст) склеиваются в один шаг
 function edCommit(key){
     const s = edSnap();
     if (ED.hist[ED.hi] && edSnapSame(ED.hist[ED.hi], s)) return;
     const now = Date.now();
-    if (key && key === ED.hk && now - ED.ht < 1500 && ED.hi > 0 && ED.hi === ED.hist.length - 1) ED.hist[ED.hi] = s;
+    if (key && key === ED.hk && now - ED.ht < 1500 && ED.hi > 0 && ED.hi === ED.hist.length - 1 && ED.hist[ED.hi] !== ED.h0) ED.hist[ED.hi] = s;
     else { ED.hist.length = ED.hi + 1; ED.hist.push(s); if (ED.hist.length > ED_HIST_MAX) ED.hist.shift(); ED.hi = ED.hist.length - 1; }
     ED.hk = key || ''; ED.ht = now;
     edHistUi();
 }
 function edRestore(){
     const s = ED.hist[ED.hi]; if (!s) return;
-    ED.ops = s.ops.map(o => Object.assign({}, o)); ED.reset = s.reset; ED.src = s.src;
+    ED.keepY = ED.sy;   // превью перезагружается: запоминаем, где листали, и вернёмся туда, когда оно загрузится
+    if (typeof s.src !== 'string'){ edPrepare(s.raw); s.src = ED.src; }   // снимок из прошлого сеанса: исходник размечаем только сейчас
+    ED.src = s.src; ED.raw = s.raw;
+    ED.ops = s.ops.map(o => Object.assign({}, o)); ED.reset = s.reset;
     ED.sel = null; ED.text = null; ED.link = null; ED.form = false; ED.ready = false; ED.hk = '';
     new DOMParser().parseFromString(ED.src, 'text/html').querySelectorAll('[data-section]').forEach(n => { ED.used[n.getAttribute('data-section')] = 1; });
+    ED.ops.forEach(o => { if (o.k === 'add') ED.used[o.id] = 1; });
     $('vv-frame').srcdoc = edDoc(edReplay(true));   // превью = исходник + операции этого шага (метки блоков и текстов остаются)
     edRender(); edHistUi();
 }
@@ -3201,17 +3263,19 @@ async function edEnter(){
     const code = await fetchCode(curVis.v); if (code === null || !curVis) return;
     if (looksGame(code) || looksVideo(code)){ curVis.v.noedit = true; $('vv-ed').style.display = 'none'; toast('Редактор работает только для сайтов'); return; }
     const src0 = stripMark(stripWm(code));
+    if (!curVis.v.eid) curVis.v.eid = 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);   // ключ истории откатов этого проекта
+    const savedHist = await EDH.get(curVis.v.eid); if (!curVis || ED.on) return;
     const doc = edPrepare(src0);
     ED.orig = curVis.v.orig || src0;   // исходник, каким его сгенерировали: к нему возвращает «Сбросить всё»
-    ED.ops = []; ED.sel = null; ED.text = null; ED.reset = false; ED.theme = ''; ED.ready = false; ED.tab = 'blocks'; ED.form = false; ED.ft = ''; ED.fx = ''; ED.busy = false; ED.link = null;
+    ED.ops = []; ED.sel = null; ED.text = null; ED.reset = false; ED.theme = ''; ED.ready = false; ED.sy = 0; ED.keepY = null; ED.tab = 'blocks'; ED.form = false; ED.ft = ''; ED.fx = ''; ED.busy = false; ED.link = null;
     ED.site = ((doc.title || (doc.querySelector('h1') || {}).textContent || '') + '').replace(/\s+/g, ' ').trim().slice(0, 120);
-    edHistInit();
+    edHistInit(); edHistApply(savedHist, src0);
     ED.on = true; $('visview').classList.add('ed-on'); $('vv-ed').textContent = 'Готово';
     $('vv-frame').srcdoc = edDoc(ED.src);
     edRender();
 }
 function edReset(){
-    ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false; ED.link = null; ED.hist = []; ED.hi = -1;
+    ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false; ED.link = null; ED.hist = []; ED.hi = -1; ED.h0 = null;
     const v = $('visview'); if (v) v.classList.remove('ed-on');
     const b = $('vv-ed'); if (b) b.textContent = 'Редактор';
     const f = $('vv-frame'); if (f) f.style.height = f.style.width = f.style.transform = f.style.transformOrigin = '';
@@ -3220,14 +3284,14 @@ function edReset(){
 function edFinish(){
     if (!ED.on || !curVis) return;
     edSaveText(true);
-    if (ED.ops.length || ED.reset){
-        const code = ED.ops.length ? edReplay() : ED.orig;   // после сброса без новых правок возвращаем исходник как есть
+    if (edDirty()){
+        const code = (ED.reset && !ED.ops.length) ? ED.orig : edReplay();   // после сброса без новых правок возвращаем исходник как есть
         if (code.length > ED_MAX_CODE + 50000){ toast('Страница получилась слишком большой'); return; }
         const v = curVis.v;
         if (!v.orig) v.orig = ED.orig;
         v.code = EDMARK + code; delete v.pid; v.edited = true;   // метка остаётся навсегда: сброс не снимает пейволл
         if (curVis.el && curVis.el._ifr) curVis.el._ifr.srcdoc = visDoc(v);
-        saveHistory();
+        saveHistory(); edPersist();
         toast(ED.reset && !ED.ops.length ? 'Сайт возвращён к исходному виду' : 'Изменения сохранены');
     }
     edReset();
@@ -3235,7 +3299,7 @@ function edFinish(){
 }
 function edGuard(cb){
     if (!ED.on) return false;
-    if (!ED.ops.length && !ED.reset){ edReset(); return false; }
+    if (!edDirty()){ edReset(); return false; }
     const msg = 'Выйти без сохранения изменений?';
     if (tg && tg.showConfirm) tg.showConfirm(msg, ok => { if (ok){ edReset(); cb(); } });
     else if (confirm(msg)){ edReset(); cb(); }
@@ -3262,6 +3326,7 @@ function edResetAll(){
         ED.ops = []; ED.sel = null; ED.text = null; ED.form = false; ED.ft = ''; ED.fx = ''; ED.ready = false;
         ED.reset = !!curVis.v.orig;
         edCommit();
+        ED.keepY = ED.sy;
         $('vv-frame').srcdoc = edDoc(ED.src);
         edRender();
         toast('Правки сброшены');
@@ -4035,6 +4100,7 @@ async function loadProgress() {
 
 let chatHistoryForServer = JSON.parse(localStorage.getItem('holo_history') || '[]');
 if (chatHistoryForServer.length > 0) { bulkLoad = true; chatHistoryForServer.forEach(m => addToHistory(m.text, m.sender, '', m.img, m.vis, false, m.file)); bulkLoad = false; }
+try { EDH.prune(new Set(chatHistoryForServer.filter(m => m.vis && m.vis.eid).map(m => m.vis.eid))); } catch (e) {}   // история откатов хранится только для проектов, которые ещё есть в чате
 function saveHistory(){
     if (chatHistoryForServer.length > 200) chatHistoryForServer = chatHistoryForServer.slice(-200);
     let nv = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && ++nv > 5) delete chatHistoryForServer[i].vis; }
