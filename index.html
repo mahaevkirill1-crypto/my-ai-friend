@@ -587,6 +587,8 @@
 .ed-b svg, .ed-card svg { flex: none; }
 .ed-b.dng { color: #f87171; padding: 0 11px; }
 #ed-tabs button#ed-reset { flex: none; width: 42px; padding: 0; }
+    #ed-tabs button#ed-undo, #ed-tabs button#ed-redo { flex: none; width: 38px; padding: 0; }
+    #ed-tabs button[data-tab] { padding: 0 8px; }
 .ed-card:active { transform: scale(.98); }
 .ed-hint { margin: 0 0 8px; color: var(--ui-tx-mid, #A7B4CC); font-weight: 500; font-size: 13px; line-height: 1.4; }
 .ed-lbl { display: block; margin: 10px 0 6px; font-size: 12px; color: var(--ui-tx-mid, #A7B4CC); }
@@ -3010,7 +3012,7 @@ function hfFrame(OPS){
     setTimeout(function(){ post({ type: 'ready', theme: theme(), n: document.querySelectorAll('[data-section]').length }); }, 60);
 }
 
-const ED = { on: false, tab: 'blocks', src: '', orig: '', ops: [], sel: null, text: null, reset: false, theme: '', ready: false, form: false, ft: '', fx: '', used: {}, busy: false, site: '' };
+const ED = { on: false, tab: 'blocks', src: '', orig: '', ops: [], sel: null, text: null, reset: false, theme: '', ready: false, form: false, ft: '', fx: '', used: {}, busy: false, site: '', hist: [], hi: -1, hk: '', ht: 0 };
 const ED_OPS = hfOps();
 const edEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ED_NAMES = { hero: 'Главный экран', header: 'Шапка', nav: 'Меню', footer: 'Подвал', reviews: 'Отзывы', faq: 'FAQ', pricing: 'Цены', gallery: 'Галерея', contacts: 'Контакты', team: 'Команда', custom: 'Свой блок' };
@@ -3029,7 +3031,9 @@ const ED_IC = {
     up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
     down: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
     trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
-    reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'
+    reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'
 };
 const edIc = (n, s) => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="' + (s || 20) + '" height="' + (s || 20) + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ED_IC[n] + '</svg>';
 const ED_LIST = [['reviews', 'Отзывы', 'star'], ['faq', 'FAQ', 'help'], ['pricing', 'Цены', 'card'], ['gallery', 'Галерея', 'image'], ['contacts', 'Контакты', 'phone'], ['team', 'Команда', 'users']];
@@ -3104,7 +3108,7 @@ addEventListener('message', e => {
     } else if (d.type === 'photoDel' && typeof d.slot === 'string' && /^[\w-]{1,60}$/.test(d.slot)){
         ED.ops = ED.ops.filter(o => !(o.k === 'photo' && o.slot === d.slot));   // фото убранной плитки в код не попадёт
         ED.ops.push({ k: 'delphoto', slot: d.slot });
-        tap(); toast('Фото убрано');
+        edCommit(); tap(); toast('Фото убрано');
     } else if (d.type === 'text' && typeof d.tid === 'string' && /^[\w-]{1,60}$/.test(d.tid)){
         edSaveText(true);   // тап по другому тексту = «увёл фокус»: сохраняем введённое
         ED.text = { tid: d.tid, value: String(d.value || '').slice(0, 1000) };
@@ -3131,7 +3135,7 @@ function edPrepare(code){
     return doc;
 }
 // Итог = исходный код + записанные операции (скрипты сайта в этот момент не запускаются, поэтому дублей не будет)
-function edReplay(){
+function edReplay(keepTags){
     const doc = new DOMParser().parseFromString(ED.src, 'text/html');
     ED.ops.forEach(o => {
         if (o.k === 'add') ED_OPS.add(doc, o.id, o.html);
@@ -3142,8 +3146,53 @@ function edReplay(){
         else if (o.k === 'photo') ED_OPS.setPhoto(doc, o.slot, o.src);
         else if (o.k === 'delphoto') ED_OPS.delPhoto(doc, o.slot);
     });
-    doc.querySelectorAll('[data-hf-t],[data-hf-b],[data-hf-p],[data-hf-photo]').forEach(n => { ['data-hf-t', 'data-hf-b', 'data-hf-p', 'data-hf-photo'].forEach(a => n.removeAttribute(a)); });
+    if (!keepTags) doc.querySelectorAll('[data-hf-t],[data-hf-b],[data-hf-p],[data-hf-photo]').forEach(n => { ['data-hf-t', 'data-hf-b', 'data-hf-p', 'data-hf-photo'].forEach(a => n.removeAttribute(a)); });
     return edSer(doc, ED.src);
+}
+// ---- Откат и возврат (↶ ↷): снимок = операции + исходник + флаг сброса. Строки в снимках общие, память почти не растёт ----
+const ED_HIST_MAX = 60;
+function edSnap(){ return { ops: ED.ops.map(o => Object.assign({}, o)), reset: ED.reset, src: ED.src }; }
+function edSnapSame(a, b){
+    if (a.reset !== b.reset || a.src !== b.src || a.ops.length !== b.ops.length) return false;
+    for (let i = 0; i < a.ops.length; i++){
+        const x = a.ops[i], y = b.ops[i], kx = Object.keys(x);
+        if (kx.length !== Object.keys(y).length) return false;
+        for (let j = 0; j < kx.length; j++) if (x[kx[j]] !== y[kx[j]]) return false;
+    }
+    return true;
+}
+function edHistUi(){
+    const u = $('ed-undo'), r = $('ed-redo'); if (!u || !r) return;
+    u.disabled = ED.hi <= 0; r.disabled = ED.hi >= ED.hist.length - 1;
+}
+function edHistInit(){ ED.hist = [edSnap()]; ED.hi = 0; ED.hk = ''; ED.ht = 0; edHistUi(); }
+// Записать шаг. key: подряд идущие изменения одного и того же (тянешь цвет, правишь один текст) склеиваются в один шаг
+function edCommit(key){
+    const s = edSnap();
+    if (ED.hist[ED.hi] && edSnapSame(ED.hist[ED.hi], s)) return;
+    const now = Date.now();
+    if (key && key === ED.hk && now - ED.ht < 1500 && ED.hi > 0 && ED.hi === ED.hist.length - 1) ED.hist[ED.hi] = s;
+    else { ED.hist.length = ED.hi + 1; ED.hist.push(s); if (ED.hist.length > ED_HIST_MAX) ED.hist.shift(); ED.hi = ED.hist.length - 1; }
+    ED.hk = key || ''; ED.ht = now;
+    edHistUi();
+}
+function edRestore(){
+    const s = ED.hist[ED.hi]; if (!s) return;
+    ED.ops = s.ops.map(o => Object.assign({}, o)); ED.reset = s.reset; ED.src = s.src;
+    ED.sel = null; ED.text = null; ED.link = null; ED.form = false; ED.ready = false; ED.hk = '';
+    new DOMParser().parseFromString(ED.src, 'text/html').querySelectorAll('[data-section]').forEach(n => { ED.used[n.getAttribute('data-section')] = 1; });
+    $('vv-frame').srcdoc = edDoc(edReplay(true));   // превью = исходник + операции этого шага (метки блоков и текстов остаются)
+    edRender(); edHistUi();
+}
+function edUndo(){
+    if (!ED.on) return;
+    edSaveText(true);   // введённый, но не сохранённый текст сначала фиксируем, чтобы откат шёл по порядку
+    if (ED.hi <= 0) return;
+    ED.hi--; edRestore(); toast('Отменено');
+}
+function edRedo(){
+    if (!ED.on || ED.hi >= ED.hist.length - 1) return;
+    ED.hi++; edRestore(); toast('Возвращено');
 }
 async function edEnter(){
     if (!curVis || ED.on || curVis.v.type !== 'html') return;
@@ -3156,12 +3205,13 @@ async function edEnter(){
     ED.orig = curVis.v.orig || src0;   // исходник, каким его сгенерировали: к нему возвращает «Сбросить всё»
     ED.ops = []; ED.sel = null; ED.text = null; ED.reset = false; ED.theme = ''; ED.ready = false; ED.tab = 'blocks'; ED.form = false; ED.ft = ''; ED.fx = ''; ED.busy = false; ED.link = null;
     ED.site = ((doc.title || (doc.querySelector('h1') || {}).textContent || '') + '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    edHistInit();
     ED.on = true; $('visview').classList.add('ed-on'); $('vv-ed').textContent = 'Готово';
     $('vv-frame').srcdoc = edDoc(ED.src);
     edRender();
 }
 function edReset(){
-    ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false; ED.link = null;
+    ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false; ED.link = null; ED.hist = []; ED.hi = -1;
     const v = $('visview'); if (v) v.classList.remove('ed-on');
     const b = $('vv-ed'); if (b) b.textContent = 'Редактор';
     const f = $('vv-frame'); if (f) f.style.height = f.style.width = f.style.transform = f.style.transformOrigin = '';
@@ -3211,6 +3261,7 @@ function edResetAll(){
         edPrepare(ED.orig);
         ED.ops = []; ED.sel = null; ED.text = null; ED.form = false; ED.ft = ''; ED.fx = ''; ED.ready = false;
         ED.reset = !!curVis.v.orig;
+        edCommit();
         $('vv-frame').srcdoc = edDoc(ED.src);
         edRender();
         toast('Правки сброшены');
@@ -3342,7 +3393,7 @@ function edSetPhoto(slot, src){
     if (!o){ o = { k: 'photo', slot }; ED.ops.push(o); }
     o.src = src;
     edPost({ type: 'setPhoto', slot, src });
-    tap(); toast('Фото добавлено');
+    edCommit(); tap(); toast('Фото добавлено');
     return true;
 }
 function edAdd(kind, html){
@@ -3351,13 +3402,14 @@ function edAdd(kind, html){
     ED.used[id] = 1;
     ED.ops.push({ k: 'add', id, html });
     edPost({ type: 'add', id, html });
-    tap();
+    edCommit(); tap();
     return true;
 }
 function edDel(){
     if (!ED.sel || !ED.sel.added) return;
     ED.ops.push({ k: 'del', id: ED.sel.id });
     edPost({ type: 'del', section: ED.sel.id });
+    edCommit();
     ED.sel = null;   // блока больше нет: строка «Вверх / Вниз» исчезает
     tap(); edRender();
 }
@@ -3365,6 +3417,7 @@ function edMove(dir){
     if (!ED.sel) return;
     ED.ops.push({ k: 'move', id: ED.sel.id, dir });
     edPost({ type: 'move', section: ED.sel.id, dir });
+    edCommit();
     tap();
 }
 function edColor(which, val){
@@ -3376,6 +3429,7 @@ function edColor(which, val){
     if (which === 'bg'){ o.bg = val; ED.sel.hasBg = val !== ''; if (val) ED.sel.bg = val; }
     else { o.text = val; ED.sel.hasTx = val !== ''; if (val) ED.sel.text = val; }
     edPost({ type: 'setColor', section: id, bg: which === 'bg' ? val : undefined, text: which === 'text' ? val : undefined });
+    edCommit('c:' + id + ':' + which);
 }
 // Правка текста: ввод применяется как обычный текст (без HTML)
 function edSaveText(quiet){
@@ -3387,6 +3441,7 @@ function edSaveText(quiet){
     if (!o){ o = { k: 'text', tid: ED.text.tid }; ED.ops.push(o); }
     o.text = val; ED.text.value = val;
     edPost({ type: 'setText', tid: ED.text.tid, text: val });
+    edCommit('t:' + ED.text.tid);
     return true;
 }
 async function edGen(){
@@ -3453,6 +3508,7 @@ $('ed-mv').innerHTML = '<div class="ed-mv-r"><span id="ed-mv-n"></span>' +
     '<button class="ed-b dng" type="button" id="ed-mv-d" data-del="1" aria-label="Удалить блок" title="Удалить блок" hidden>' + edIc('trash', 18) + '</button></div>' +
     '<p class="ed-hint" id="ed-mv-h" hidden>Этот блок нельзя удалить, он часть исходного дизайна.</p>';
 $('ed-tabs').innerHTML = '<button class="ed-b on" type="button" data-tab="blocks">Блоки</button><button class="ed-b" type="button" data-tab="colors">Цвета</button><button class="ed-b" type="button" data-tab="text">Текст</button>' +
+    '<button class="ed-b" type="button" id="ed-undo" aria-label="Отменить" title="Отменить" disabled>' + edIc('undo', 18) + '</button><button class="ed-b" type="button" id="ed-redo" aria-label="Вернуть" title="Вернуть" disabled>' + edIc('redo', 18) + '</button>' +
     '<button class="ed-b" type="button" id="ed-reset" aria-label="Сбросить всё" title="Сбросить всё">' + edIc('reset', 18) + '</button>';
 $('ed-body').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -3479,6 +3535,8 @@ $('ed-body').addEventListener('input', e => {
     else if (t.type === 'color'){ const w = t.closest('[data-w]'); if (w) edColor(w.dataset.w, t.value); }
 });
 $('ed-tabs').addEventListener('click', e => {
+    if (e.target.closest('#ed-undo')){ tap(); edUndo(); return; }
+    if (e.target.closest('#ed-redo')){ tap(); edRedo(); return; }
     if (e.target.closest('#ed-reset')){ tap(); edResetAll(); return; }
     const b = e.target.closest('button[data-tab]'); if (!b || b.dataset.tab === ED.tab) return;
     tap(); edSaveText(true); ED.link = null;
