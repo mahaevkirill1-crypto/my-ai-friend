@@ -270,7 +270,7 @@
     .qr { font-size: 11px; color: var(--ui-tx-lo); font-variant-numeric: tabular-nums; }
     .q button { width: 80px; flex-shrink: 0; }
     .res { font-size: 13px; color: var(--ui-gold-hi); text-align: center; font-weight: 500; }
-    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: rgba(13,20,38,.94); backdrop-filter: blur(20px); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); font: 500 13px 'Manrope', system-ui, sans-serif; padding: 11px 18px; border-radius: 14px; z-index: 1000; opacity: 0; transition: all .3s cubic-bezier(.2,.8,.2,1); pointer-events: none; box-shadow: 0 20px 40px -12px rgba(0,0,0,.8); max-width: 90vw; }
+    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: rgba(13,20,38,.94); backdrop-filter: blur(20px); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); font: 500 13px 'Manrope', system-ui, sans-serif; padding: 11px 18px; border-radius: 14px; z-index: 1300; opacity: 0; transition: all .3s cubic-bezier(.2,.8,.2,1); pointer-events: none; box-shadow: 0 20px 40px -12px rgba(0,0,0,.8); max-width: 90vw; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
     #confirm, #invite { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
     #pro { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); z-index: 90; }
@@ -2570,7 +2570,7 @@ $('vv-code').addEventListener('click', async () => { vvMenuToggle(false); if (!c
 $('vv-apply').addEventListener('click', () => {
     if (!curVis) return;
     if (isLocked(curVis.v)){ lockedToast(); return; }
-    const code = $('vv-edit').value.slice(0, 120000);  // импортированный проект до 100 000 + запас на правки (было 70000: обрезало бы код)
+    const code = $('vv-edit').value.slice(0, 720000);  // импортированный проект до 100 000 + запас на правки (было 70000: обрезало бы код)
     if (!code.trim()){ toast('Код пустой'); return; }
     curVis.v.code = code; delete curVis.v.pid;  // Pro правит код вручную: дальше показываем сам код, а не серверное превью
     $('vv-frame').srcdoc = visDoc(curVis.v);
@@ -2687,7 +2687,76 @@ function hfOps(){
         String(text).split(/\r?\n/).forEach(function(ln, i){ if (i) el.appendChild(doc.createElement('br')); el.appendChild(doc.createTextNode(ln)); });
         return true;
     }
-    function find(doc, id){ return doc.querySelector('[data-section="' + clean(id) + '"]'); }
+    // Рамки и карточки внутри блока: у каждого элемента внутри секции свой номер (какие из них видимые «прямоугольники», решает iframe по стилям)
+    var BOXNO = /^(SCRIPT|STYLE|LINK|META|NOSCRIPT|TEMPLATE|BR|WBR|IMG|INPUT|SELECT|TEXTAREA|OPTION|HR|IFRAME|CANVAS|VIDEO|AUDIO|PICTURE|SOURCE)$/;
+    function tagBox(scope, prefix){
+        var n = 0;
+        if (prefix === 'bx') [].forEach.call(scope.querySelectorAll('[data-hf-b]'), function(e){ e.removeAttribute('data-hf-b'); });
+        [].forEach.call(scope.querySelectorAll('*'), function(e){
+            if (e.hasAttribute('data-hf-b') || e.hasAttribute('data-section') || BOXNO.test(e.tagName)) return;
+            if (e.closest('svg,script,style,noscript,template,[data-hf-ed]') || !e.closest('[data-section]')) return;
+            e.setAttribute('data-hf-b', prefix + (++n));
+        });
+        return n;
+    }
+    // Места под фото: готовые <img>, заглушки .hfb-img, [data-photo] и «пустые» рамки с одной svg-иллюстрацией (без текста)
+    function tagPhoto(scope, prefix){
+        var n = 0, INT = 'button,a,input,textarea,select,video,iframe,canvas,audio,form,img';
+        if (prefix === 'p') [].forEach.call(scope.querySelectorAll('[data-hf-p]'), function(e){ e.removeAttribute('data-hf-p'); });
+        function live(e){ return !!e.closest('[data-section]') && !e.closest('script,style,noscript,template,[data-hf-ed]'); }
+        function put(e){ if (!e.hasAttribute('data-hf-p')) e.setAttribute('data-hf-p', prefix + (++n)); }
+        [].forEach.call(scope.querySelectorAll('img,[data-photo],.hfb-img'), function(e){
+            if (!live(e) || e.closest('svg')) return;
+            if (e.tagName !== 'IMG' && e.querySelector('img')) return;
+            put(e);
+        });
+        [].forEach.call(scope.querySelectorAll('svg'), function(sv){
+            if (!live(sv) || (sv.parentNode && sv.parentNode.closest && sv.parentNode.closest('svg,[data-hf-p]'))) return;
+            var w = parseFloat(sv.getAttribute('width')), h = parseFloat(sv.getAttribute('height'));
+            if (w && h && (w < 56 || h < 56)) return;   // явная иконка
+            var cur = sv, best = null;
+            while (cur.parentElement){
+                var p = cur.parentElement;
+                if (p === scope || p.hasAttribute('data-section') || p.hasAttribute('data-hf-box') || p.tagName === 'BODY' || /^(A|BUTTON|LABEL|SUMMARY)$/.test(p.tagName)) break;
+                if ((p.textContent || '').replace(/\s+/g, '') || p.querySelector(INT) || p.querySelectorAll('svg').length !== 1 || p.querySelector('[data-hf-p]')) break;
+                cur = p; best = p;
+            }
+            put(best || sv);
+        });
+        return n;
+    }
+    // Подставляет фото (data:image) в место: <img> меняет src, рамку/svg заменяет на <img>
+    function setPhoto(doc, pid, src){
+        var el = doc.querySelector('[data-hf-p="' + clean(pid) + '"]'); if (!el) return false;
+        src = String(src);
+        if (!/^(?:data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+\/=]+|https:\/\/[^\s"'<>]{4,1500})$/.test(src)) return false;
+        var im;
+        if (el.tagName === 'IMG'){
+            im = el; im.removeAttribute('srcset'); im.removeAttribute('sizes');
+            if (im.parentNode && im.parentNode.tagName === 'PICTURE') [].slice.call(im.parentNode.querySelectorAll('source')).forEach(function(x){ x.parentNode.removeChild(x); });
+        } else {
+            im = el.querySelector('img[data-hf-photo]');
+            if (!im){
+                im = doc.createElement('img'); im.setAttribute('alt', '');
+                if (el.tagName.toLowerCase() === 'svg'){
+                    ['class', 'width', 'height'].forEach(function(a){ var v = el.getAttribute(a); if (v) im.setAttribute(a, v); });
+                    im.style.cssText = (el.getAttribute('style') || '') + ';display:block;max-width:100%;height:auto';
+                    if (!im.getAttribute('width') && !im.getAttribute('class') && !im.style.width) im.style.width = '100%';
+                    im.setAttribute('data-hf-p', pid);
+                    el.parentNode.replaceChild(im, el);
+                } else {
+                    while (el.firstChild) el.removeChild(el.firstChild);
+                    el.style.overflow = 'hidden';
+                    if (/(^|\s)hfb-img(\s|$)/.test(el.getAttribute('class') || '')) el.style.border = '0';
+                    im.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit';
+                    el.appendChild(im);
+                }
+            }
+        }
+        im.setAttribute('data-hf-photo', '1'); im.setAttribute('src', src); im.style.objectFit = 'cover';
+        return true;
+    }
+    function find(doc, id){ var k = clean(id); return doc.querySelector('[data-section="' + k + '"]') || doc.querySelector('[data-hf-b="' + k + '"]'); }
     function footerOf(rt){
         var s = [].filter.call(rt.children, function(e){ return e.hasAttribute('data-section'); });
         for (var i = s.length - 1; i >= 0; i--){ if (s[i].tagName === 'FOOTER' || /foot/i.test(s[i].getAttribute('data-section'))) return s[i]; }
@@ -2700,7 +2769,7 @@ function hfOps(){
         el.setAttribute('data-section', id); el.setAttribute('data-hf-added', '1');
         var f = footerOf(rt);
         if (f) rt.insertBefore(el, f); else rt.appendChild(el);
-        tagText(el, id + '-');
+        tagText(el, id + '-'); tagBox(el, id + '-bx'); tagPhoto(el, id + '-p');
         return el;
     }
     // Удалять можно только блоки, добавленные пользователем, и только целиком (секцию, а не её содержимое)
@@ -2732,7 +2801,7 @@ function hfOps(){
         return true;
     }
     function label(el){ var h = el.querySelector('h1,h2,h3'); return h ? (h.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 28) : ''; }
-    return { tag: tag, tagText: tagText, getText: getText, setText: setText, add: add, del: del, move: move, color: color, label: label };
+    return { tag: tag, tagText: tagText, tagBox: tagBox, tagPhoto: tagPhoto, setPhoto: setPhoto, getText: getText, setText: setText, add: add, del: del, move: move, color: color, label: label };
 }
 
 // Скрипт внутри iframe: тап по блоку или тексту, команды add / del / move / setColor / setText, сообщения наверх через postMessage
@@ -2742,7 +2811,8 @@ function hfFrame(OPS){
     var st = document.createElement('style'); st.setAttribute('data-hf-ed', '');
     st.textContent = '[data-hf-sel]{outline:3px solid #6366f1!important;outline-offset:-3px!important}' +
         '[data-hf-selt]{outline:2px solid #6366f1!important;outline-offset:2px!important}' +
-        'html[data-hf-mode=text] [data-hf-t]{outline:1px dashed rgba(99,102,241,.7);outline-offset:2px}';
+        'html[data-hf-mode=text] [data-hf-t]{outline:1px dashed rgba(99,102,241,.7);outline-offset:2px}' +
+        '[data-hf-plus]{position:absolute;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;background:#6366f1;color:#fff;padding:0;margin:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2147483000;-webkit-tap-highlight-color:transparent}';
     document.head.appendChild(st);
     document.documentElement.setAttribute('data-hf-mode', mode);
     function hex(c){
@@ -2770,12 +2840,27 @@ function hfFrame(OPS){
         if (!has('--r')) o.push('--r:14px');
         return o.join(';');
     }
-    function byId(id){ return document.querySelector('[data-section="' + String(id).replace(/[^A-Za-z0-9_-]/g, '') + '"]'); }
+    function byId(id){ var k = String(id).replace(/[^A-Za-z0-9_-]/g, ''); return document.querySelector('[data-section="' + k + '"]') || document.querySelector('[data-hf-b="' + k + '"]'); }
     function clearSel(){ var o = document.querySelector('[data-hf-sel]'); if (o) o.removeAttribute('data-hf-sel'); }
     function clearT(){ var o = document.querySelector('[data-hf-selt]'); if (o) o.removeAttribute('data-hf-selt'); }
     function info(el){
-        return { type: 'selected', section: el.getAttribute('data-section'), name: OPS.label(el), bg: bgOf(el), text: hex(getComputedStyle(el).color) || '#111111',
-                 hasBg: el.hasAttribute('data-sbg'), hasTx: el.hasAttribute('data-stx'), added: el.hasAttribute('data-hf-added') };
+        var box = !el.hasAttribute('data-section'), sec = box ? el.closest('[data-section]') : null;
+        return { type: 'selected', section: el.getAttribute(box ? 'data-hf-b' : 'data-section'), box: box, parent: sec ? sec.getAttribute('data-section') : '', name: OPS.label(el), bg: bgOf(el), text: hex(getComputedStyle(el).color) || '#111111',
+                 hasBg: el.hasAttribute('data-sbg'), hasTx: el.hasAttribute('data-stx'), added: !box && el.hasAttribute('data-hf-added') };
+    }
+    // Рамка = ближайший предок с заметным фоном, обводкой или тенью (карточка, плитка, кнопка)
+    function shown(n){
+        var cs = getComputedStyle(n);
+        if (hex(cs.backgroundColor) || (cs.backgroundImage && cs.backgroundImage !== 'none')) return true;
+        if (cs.boxShadow && cs.boxShadow !== 'none') return true;
+        return parseFloat(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && !!hex(cs.borderTopColor);
+    }
+    function boxOf(t){
+        for (var n = t; n && n.nodeType === 1; n = n.parentElement){
+            if (n.hasAttribute('data-section')) return null;
+            if (n.hasAttribute('data-hf-b') && n.offsetWidth >= 24 && n.offsetHeight >= 16 && shown(n)) return n;
+        }
+        return null;
     }
     function pick(id){
         var el = byId(id); if (!el) return;
@@ -2786,15 +2871,20 @@ function hfFrame(OPS){
     document.addEventListener('click', function(e){
         e.preventDefault(); e.stopPropagation();
         var tg = e.target && e.target.closest ? e.target : null;
+        var pb = tg ? tg.closest('[data-hf-plus]') : null;
+        if (pb){ post({ type: 'photo', slot: pb.getAttribute('data-hf-plus') }); return; }
         if (mode === 'text'){
             var t = tg ? tg.closest('[data-hf-t]') : null;
             if (t){ clearT(); t.setAttribute('data-hf-selt', '1'); post({ type: 'text', tid: t.getAttribute('data-hf-t'), value: OPS.getText(t) }); }
             else post({ type: 'textmiss' });
             return;
         }
-        var el = tg ? tg.closest('[data-section]') : null;
+        var el = null;
+        if (mode === 'colors' && tg){ el = boxOf(tg); if (el){ pick(el.getAttribute('data-hf-b')); return; } }
+        el = tg ? tg.closest('[data-section]') : null;
         if (el) pick(el.getAttribute('data-section'));
     }, true);
+    document.addEventListener('submit', function(e){ e.preventDefault(); }, true);
     window.addEventListener('message', function(e){
         if (e.source !== parent) return;
         var d = e.data; if (!d || d.hf !== 1) return;
@@ -2803,7 +2893,11 @@ function hfFrame(OPS){
             mode = d.mode === 'colors' ? 'colors' : (d.mode === 'text' ? 'text' : 'blocks');
             document.documentElement.setAttribute('data-hf-mode', mode);
             clearSel(); clearT();
-            if (mode !== 'text' && cur){ el = byId(cur); if (el){ el.setAttribute('data-hf-sel', '1'); post(info(el)); } else cur = null; }
+            if (mode !== 'text' && cur){
+                el = byId(cur);
+                if (el && mode === 'blocks' && !el.hasAttribute('data-section')){ el = el.closest('[data-section]'); cur = el ? el.getAttribute('data-section') : null; }
+                if (el){ el.setAttribute('data-hf-sel', '1'); post(info(el)); } else cur = null;
+            }
         } else if (d.type === 'add'){
             el = OPS.add(document, d.id, d.html);
             if (el){ pick(d.id); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -2817,8 +2911,39 @@ function hfFrame(OPS){
             OPS.setText(document, d.tid, d.text);
         } else if (d.type === 'clearText'){
             clearT();
+        } else if (d.type === 'pickSection'){
+            pick(d.section);
+        } else if (d.type === 'setPhoto'){
+            OPS.setPhoto(document, d.slot, d.src);
         }
+        setTimeout(layout, 60);
     });
+
+    // «+» на местах для фото: тап открывает выбор фото из галереи (сам выбор делает родительская страница)
+    var layer = document.createElement('div'); layer.setAttribute('data-hf-ed', '');
+    layer.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;overflow:visible;z-index:2147483000';
+    document.body.appendChild(layer);
+    var btns = {};
+    var PLUS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none"><path d="M12 5v14M5 12h14"/></svg>';
+    function layout(){
+        var sx = window.pageXOffset || 0, sy = window.pageYOffset || 0, vw = document.documentElement.clientWidth || window.innerWidth, seen = {};
+        [].forEach.call(document.querySelectorAll('[data-hf-p]'), function(el){
+            var id = el.getAttribute('data-hf-p'), r = el.getBoundingClientRect(), cs = getComputedStyle(el), b = btns[id];
+            if (!(r.width >= 80 && r.height >= 60 && cs.display !== 'none' && cs.visibility !== 'hidden')){ if (b) b.style.display = 'none'; return; }
+            seen[id] = 1;
+            if (!b){ b = document.createElement('button'); b.type = 'button'; b.setAttribute('data-hf-plus', id); b.setAttribute('aria-label', 'Добавить фото'); b.innerHTML = PLUS; layer.appendChild(b); btns[id] = b; }
+            var done = el.tagName === 'IMG' || !!el.querySelector('[data-hf-photo]'), s = done ? 34 : 52, x, y;
+            if (done){ x = Math.min(r.right, vw) - s - 8; y = r.top + 8; }
+            else { x = (Math.max(r.left, 0) + Math.min(r.right, vw)) / 2 - s / 2; y = r.top + r.height / 2 - s / 2; }
+            b.style.cssText = 'width:' + s + 'px;height:' + s + 'px;left:' + Math.round(x + sx) + 'px;top:' + Math.round(y + sy) + 'px;display:flex';
+        });
+        Object.keys(btns).forEach(function(id){ if (!seen[id]) btns[id].style.display = 'none'; });
+    }
+    window.addEventListener('resize', layout);
+    window.addEventListener('load', layout);
+    document.addEventListener('load', layout, true);
+    setInterval(layout, 500);
+    setTimeout(layout, 120);
     setTimeout(function(){ post({ type: 'ready', theme: theme(), n: document.querySelectorAll('[data-section]').length }); }, 60);
 }
 
@@ -2909,8 +3034,10 @@ addEventListener('message', e => {
     if (!ED.on || !d || d.hf !== 1 || e.source !== edWin()) return;
     if (d.type === 'ready'){ ED.theme = String(d.theme || '').replace(/[^\w:;#%.,()\- ]/g, '').slice(0, 400); ED.ready = true; edPost({ type: 'mode', mode: ED.tab }); }
     else if (d.type === 'selected' && typeof d.section === 'string'){
-        ED.sel = { id: d.section, name: String(d.name || ''), bg: d.bg, text: d.text, hasBg: !!d.hasBg, hasTx: !!d.hasTx, added: !!d.added };
+        ED.sel = { id: d.section, name: String(d.name || ''), bg: d.bg, text: d.text, hasBg: !!d.hasBg, hasTx: !!d.hasTx, added: !!d.added, box: !!d.box, parent: String(d.parent || '') };
         edRender();
+    } else if (d.type === 'photo' && typeof d.slot === 'string' && /^[\w-]{1,60}$/.test(d.slot)){
+        edPickPhoto(d.slot);
     } else if (d.type === 'text' && typeof d.tid === 'string' && /^[\w-]{1,60}$/.test(d.tid)){
         edSaveText(true);   // тап по другому тексту = «увёл фокус»: сохраняем введённое
         ED.text = { tid: d.tid, value: String(d.value || '').slice(0, 1000) };
@@ -2924,13 +3051,13 @@ function edSer(doc, src){
 }
 function edDoc(src){
     return '<!doctype html><meta data-hf-ed http-equiv="Content-Security-Policy" content="' + VIS_CSP + '"><meta data-hf-ed name="viewport" content="width=device-width,initial-scale=1">' +
-        '<style data-hf-ed>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style><script data-hf-ed>(' + visNav.toString() + ')()<\/script>' + src +
+        '<style data-hf-ed>html,body{margin:0;min-height:100%}body{font-family:system-ui,-apple-system,sans-serif}</style>' + src +
         '<script data-hf-ed>(function(){var OPS=(' + hfOps.toString() + ')();(' + hfFrame.toString() + ')(OPS);})()<\/script>';
 }
 // Подготовка исходника: у блоков и текстовых элементов появляются служебные атрибуты (на вид сайта они не влияют)
 function edPrepare(code){
     const doc = new DOMParser().parseFromString(code, 'text/html');
-    ED_OPS.tag(doc); ED_OPS.tagText(doc.body, 't');
+    ED_OPS.tag(doc); ED_OPS.tagText(doc.body, 't'); ED_OPS.tagBox(doc.body, 'bx'); ED_OPS.tagPhoto(doc.body, 'p');
     ED.src = edSer(doc, code);
     ED.used = {};
     doc.querySelectorAll('[data-section]').forEach(n => { ED.used[n.getAttribute('data-section')] = 1; });
@@ -2945,8 +3072,9 @@ function edReplay(){
         else if (o.k === 'move') ED_OPS.move(doc, o.id, o.dir);
         else if (o.k === 'color') ED_OPS.color(doc, o.id, o.bg, o.text);
         else if (o.k === 'text') ED_OPS.setText(doc, o.tid, o.text);
+        else if (o.k === 'photo') ED_OPS.setPhoto(doc, o.slot, o.src);
     });
-    doc.querySelectorAll('[data-hf-t]').forEach(n => n.removeAttribute('data-hf-t'));
+    doc.querySelectorAll('[data-hf-t],[data-hf-b],[data-hf-p],[data-hf-photo]').forEach(n => { ['data-hf-t', 'data-hf-b', 'data-hf-p', 'data-hf-photo'].forEach(a => n.removeAttribute(a)); });
     return edSer(doc, ED.src);
 }
 async function edEnter(){
@@ -2956,14 +3084,14 @@ async function edEnter(){
     const src0 = stripMark(stripWm(code));
     const doc = edPrepare(src0);
     ED.orig = curVis.v.orig || src0;   // исходник, каким его сгенерировали: к нему возвращает «Сбросить всё»
-    ED.ops = []; ED.sel = null; ED.text = null; ED.reset = false; ED.theme = ''; ED.ready = false; ED.tab = 'blocks'; ED.form = false; ED.ft = ''; ED.fx = ''; ED.busy = false;
+    ED.ops = []; ED.sel = null; ED.text = null; ED.reset = false; ED.theme = ''; ED.ready = false; ED.tab = 'blocks'; ED.form = false; ED.ft = ''; ED.fx = ''; ED.busy = false; ED.link = null;
     ED.site = ((doc.title || (doc.querySelector('h1') || {}).textContent || '') + '').replace(/\s+/g, ' ').trim().slice(0, 120);
     ED.on = true; $('visview').classList.add('ed-on'); $('vv-ed').textContent = 'Готово';
     $('vv-frame').srcdoc = edDoc(ED.src);
     edRender();
 }
 function edReset(){
-    ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false;
+    ED.on = false; ED.sel = null; ED.text = null; ED.ops = []; ED.form = false; ED.reset = false; ED.link = null;
     const v = $('visview'); if (v) v.classList.remove('ed-on');
     const b = $('vv-ed'); if (b) b.textContent = 'Редактор';
     const f = $('vv-frame'); if (f) f.style.height = '';
@@ -2973,7 +3101,7 @@ function edFinish(){
     edSaveText(true);
     if (ED.ops.length || ED.reset){
         const code = ED.ops.length ? edReplay() : ED.orig;   // после сброса без новых правок возвращаем исходник как есть
-        if (code.length > 400000){ toast('Страница получилась слишком большой'); return; }
+        if (code.length > ED_MAX_CODE + 50000){ toast('Страница получилась слишком большой'); return; }
         const v = curVis.v;
         if (!v.orig) v.orig = ED.orig;
         v.code = EDMARK + code; delete v.pid; v.edited = true;   // метка остаётся навсегда: сброс не снимает пейволл
@@ -3024,6 +3152,73 @@ function edLayout(){
 }
 addEventListener('resize', edLayout);
 
+// ---- Фото из галереи: «+» на месте для фото -> выбор файла -> сжатие -> вставка ----
+const ED_MAX_CODE = 650000;
+let edPhotoSlot = null;
+const edSize = () => ED.src.length + ED.ops.reduce((n, o) => n + (o.src ? o.src.length : 0) + (o.html ? o.html.length : 0), 0);
+function edReadPhoto(file){
+    return new Promise((res, rej) => {
+        const url = URL.createObjectURL(file), im = new Image();
+        im.onload = () => {
+            try {
+                let side = 1000, out = '';
+                for (let t = 0; t < 4; t++){
+                    const k = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight));
+                    const w = Math.max(1, Math.round(im.naturalWidth * k)), h = Math.max(1, Math.round(im.naturalHeight * k));
+                    const c = document.createElement('canvas'); c.width = w; c.height = h;
+                    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(im, 0, 0, w, h);
+                    for (let q = 0.8; q >= 0.45; q -= 0.1){ out = c.toDataURL('image/jpeg', q); if (out.length <= 130000) break; }
+                    if (out.length <= 130000) break;
+                    side = Math.round(side * 0.75);
+                }
+                URL.revokeObjectURL(url);
+                if (!/^data:image\/jpeg;base64,/.test(out)) rej(new Error('enc')); else res(out);
+            } catch (e) { URL.revokeObjectURL(url); rej(e); }
+        };
+        im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('bad')); };
+        im.src = url;
+    });
+}
+function edPickPhoto(slot){
+    if (!ED.on) return;
+    if (tg && tg.showPopup){
+        tg.showPopup({ title: 'Фото', message: 'Ссылка не утяжеляет сайт. Фото из галереи вшивается в код.', buttons: [{ id: 'link', type: 'default', text: 'Вставить ссылку' }, { id: 'gal', type: 'default', text: 'Из галереи' }, { type: 'cancel' }] }, id => {
+            if (id === 'link'){ ED.link = slot; edRender(); setTimeout(() => { const u = $('ed-url'); if (u) u.focus(); }, 50); }
+            else if (id === 'gal') edGallery(slot);
+        });
+    } else edGallery(slot);
+}
+function edGallery(slot){
+    if (!ED.on) return;
+    edPhotoSlot = slot;
+    let inp = $('ed-file');
+    if (!inp){
+        inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'ed-file';
+        inp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+        inp.addEventListener('change', async () => {
+            const f = inp.files && inp.files[0], sl = edPhotoSlot; edPhotoSlot = null; inp.value = '';
+            if (!f || !sl || !ED.on) return;
+            if (!/^image\//.test(f.type || 'image/')){ toast('Выбери фото'); return; }
+            try { edSetPhoto(sl, await edReadPhoto(f)); } catch (e) { toast('Не удалось открыть фото'); }
+        });
+        document.body.appendChild(inp);
+    }
+    inp.value = ''; inp.click();
+}
+function edApplyLink(){
+    const u = $('ed-url'), v = (u ? u.value : '').trim(), slot = ED.link;
+    if (!/^https:\/\/[^\s"'<>]{4,1500}$/i.test(v)){ toast('Нужна прямая ссылка на картинку, начинается с https://'); return; }
+    if (edSetPhoto(slot, v)){ ED.link = null; edRender(); }
+}
+function edSetPhoto(slot, src){
+    let o = ED.ops.find(x => x.k === 'photo' && x.slot === slot);
+    if (edSize() - (o ? o.src.length : 0) + src.length > ED_MAX_CODE){ toast('Слишком много фото. Выбери поменьше'); return false; }
+    if (!o){ o = { k: 'photo', slot }; ED.ops.push(o); }
+    o.src = src;
+    edPost({ type: 'setPhoto', slot, src });
+    tap(); toast('Фото добавлено');
+    return true;
+}
 function edAdd(kind, html){
     if (!ED.ready){ toast('Страница ещё загружается'); return false; }
     let id = kind, i = 1; while (ED.used[id]) id = kind + '-' + (++i);
@@ -3070,8 +3265,9 @@ function edSaveText(quiet){
 }
 async function edGen(){
     if (!isPro()){ edPaywall('Текст блока с ИИ доступен на платных тарифах. Остальной редактор бесплатный.'); return; }
-    const topic = ED.ft.trim();
-    if (!topic){ toast('Напиши в заголовке, о чём блок'); return; }
+    { const ti = $('ed-ti'), tx = $('ed-tx'); if (ti) ED.ft = ti.value; if (tx) ED.fx = tx.value; }
+    const topic = (ED.ft.trim() || ED.fx.trim().split('\n')[0] || '').slice(0, 200);
+    if (!topic){ toast('Напиши в заголовке, о чём блок'); const ti = $('ed-ti'); if (ti) ti.focus(); return; }
     if (ED.busy) return;
     ED.busy = true; edRender();
     try {
@@ -3087,11 +3283,19 @@ function edRender(){
     p.querySelectorAll('#ed-tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === ED.tab));
     $('ed-mv').classList.toggle('on', !!ED.sel && ED.tab !== 'text');
     if (ED.sel){
-        $('ed-mv-n').textContent = 'Блок: ' + (ED.sel.name || ED_NAMES[ED.sel.id.replace(/-\d+$/, '')] || ED.sel.id);
-        $('ed-mv-d').hidden = !(ED.tab === 'blocks' && ED.sel.added);   // «Удалить» только у добавленных блоков
-        $('ed-mv-h').hidden = !(ED.tab === 'blocks' && !ED.sel.added);
+        const bx = !!ED.sel.box;
+        $('ed-mv-n').textContent = bx ? ('Рамка' + (ED.sel.name ? ': ' + ED.sel.name : '')) : 'Блок: ' + (ED.sel.name || ED_NAMES[ED.sel.id.replace(/-\d+$/, '')] || ED.sel.id);
+        p.querySelectorAll('#ed-mv [data-mv]').forEach(b => { b.hidden = bx; });
+        p.querySelector('#ed-mv [data-sec]').hidden = !bx;
+        $('ed-mv-d').hidden = bx || !(ED.tab === 'blocks' && ED.sel.added);   // «Удалить» только у добавленных блоков
+        $('ed-mv-h').hidden = bx || !(ED.tab === 'blocks' && !ED.sel.added);
     }
     let h = '';
+    if (ED.link){
+        $('ed-body').innerHTML = '<label class="ed-lbl" for="ed-url">Ссылка на фото</label><input class="ed-in" id="ed-url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="https://site.com/photo.jpg">' +
+            '<div class="ed-row"><button class="ed-b" type="button" data-l="cancel">Отмена</button><button class="ed-b pri" type="button" data-l="ok" style="margin-left:auto">Вставить</button></div>';
+        requestAnimationFrame(edLayout); return;
+    }
     if (ED.tab === 'blocks'){
         if (ED.form){
             h = '<label class="ed-lbl" for="ed-ti">Заголовок</label><input class="ed-in" id="ed-ti" maxlength="80" placeholder="Доставка" value="' + edEsc(ED.ft) + '">' +
@@ -3112,20 +3316,21 @@ function edRender(){
             ED_SW.map(c => '<button type="button" data-c="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>').join('') +
             '<input type="color" value="' + (/^#[0-9a-f]{6}$/i.test(cur) ? cur : '#ffffff') + '" aria-label="Свой цвет">' +
             (has ? '<button type="button" class="ed-rs" data-c="">Сброс</button>' : '') + '</div>';
-        h = '<p class="ed-hint">Цвета выбранного блока меняются сразу. Чтобы выбрать другой блок, нажми на него на странице.</p>' + row('bg', 'Фон', ED.sel.bg, ED.sel.hasBg) + row('text', 'Текст', ED.sel.text, ED.sel.hasTx);
+        h = '<p class="ed-hint">Цвета меняются сразу. Нажми на карточку или блок на странице, чтобы выбрать его. «Весь блок» выбирает секцию целиком.</p>' + row('bg', 'Фон', ED.sel.bg, ED.sel.hasBg) + row('text', 'Текст', ED.sel.text, ED.sel.hasTx);
     }
     $('ed-body').innerHTML = h;
     requestAnimationFrame(edLayout);
 }
 // Каркас панели (иконки вставляются здесь, чтобы все они были в одном стиле)
 $('ed-mv').innerHTML = '<div class="ed-mv-r"><span id="ed-mv-n"></span>' +
-    '<button class="ed-b" type="button" data-mv="-1">' + edIc('up', 18) + 'Вверх</button><button class="ed-b" type="button" data-mv="1">' + edIc('down', 18) + 'Вниз</button>' +
+    '<button class="ed-b" type="button" data-sec="1" hidden>Весь блок</button><button class="ed-b" type="button" data-mv="-1">' + edIc('up', 18) + 'Вверх</button><button class="ed-b" type="button" data-mv="1">' + edIc('down', 18) + 'Вниз</button>' +
     '<button class="ed-b dng" type="button" id="ed-mv-d" data-del="1" aria-label="Удалить блок" title="Удалить блок" hidden>' + edIc('trash', 18) + '</button></div>' +
     '<p class="ed-hint" id="ed-mv-h" hidden>Этот блок нельзя удалить, он часть исходного дизайна.</p>';
 $('ed-tabs').innerHTML = '<button class="ed-b on" type="button" data-tab="blocks">Блоки</button><button class="ed-b" type="button" data-tab="colors">Цвета</button><button class="ed-b" type="button" data-tab="text">Текст</button>' +
     '<button class="ed-b" type="button" id="ed-reset" aria-label="Сбросить всё" title="Сбросить всё">' + edIc('reset', 18) + '</button>';
 $('ed-body').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.l){ if (b.dataset.l === 'ok') edApplyLink(); else { ED.link = null; edRender(); } return; }
     if (b.dataset.blk){
         if (b.dataset.blk === 'custom'){ ED.form = true; edRender(); }
         else edAdd(b.dataset.blk, ED_TPL[b.dataset.blk]());
@@ -3150,13 +3355,14 @@ $('ed-body').addEventListener('input', e => {
 $('ed-tabs').addEventListener('click', e => {
     if (e.target.closest('#ed-reset')){ tap(); edResetAll(); return; }
     const b = e.target.closest('button[data-tab]'); if (!b || b.dataset.tab === ED.tab) return;
-    tap(); edSaveText(true);
+    tap(); edSaveText(true); ED.link = null;
     ED.tab = b.dataset.tab; ED.form = false; ED.text = null;
     edPost({ type: 'mode', mode: ED.tab }); edRender();
 });
 $('ed-mv').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.del) edDel();
+    else if (b.dataset.sec){ if (ED.sel && ED.sel.parent) edPost({ type: 'pickSection', section: ED.sel.parent }); }
     else if (b.dataset.mv) edMove(+b.dataset.mv < 0 ? -1 : 1);
 });
 $('vv-ed').addEventListener('click', () => { tap(); if (ED.on) edFinish(); else edEnter(); });
