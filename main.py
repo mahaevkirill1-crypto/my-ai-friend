@@ -607,6 +607,16 @@ VISUAL_RULES = """
 Формат ответа в этом режиме: {"text": "...", "emotion": "...", "visual": null или {"type": "...", "code": "..."}}.
 """
 
+# Визуальный редактор — только для сайтов. Игры и ролики помечаем флагом noedit: клиент прячет у них «Редактор».
+_GAME_SCORE_RE = re.compile(r"score|сч[её]т|очк[иао]|game ?over|игра окончена|lives|жизни|restart|заново|начать игру", re.I)
+_GAME_LOOP_RE = re.compile(r"requestAnimationFrame|setInterval\s*\(", re.I)
+_GAME_INPUT_RE = re.compile(r"keydown|keyup|ArrowLeft|ArrowUp|touchstart|touchmove|pointerdown|mousemove", re.I)
+def looks_like_game(code):
+    """Код похож на игру: счёт + игровой цикл + управление. Страницы с data-section — всегда сайты."""
+    if not isinstance(code, str) or "data-section=" in code: return False
+    if not _GAME_SCORE_RE.search(code): return False
+    return sum(1 for r in (_GAME_LOOP_RE, _GAME_INPUT_RE, re.compile(r"<canvas", re.I)) if r.search(code)) >= 2
+
 def clean_visual(v, max_len=MAX_VISUAL_LEN):
     if not isinstance(v, dict): return None
     kind = v.get("type"); code = v.get("code")
@@ -614,7 +624,9 @@ def clean_visual(v, max_len=MAX_VISUAL_LEN):
     code = code.strip()
     code = re.sub(r"^```[a-zA-Z]*\s*", "", code); code = re.sub(r"\s*```$", "", code)
     if not code or len(code) > max_len: return None
-    return {"type": kind, "code": code}
+    out = {"type": kind, "code": code}
+    if kind == "html" and (looks_like_game(code) or motion_contract_ok(code)): out["noedit"] = True   # игра или ролик, пришедший как html
+    return out
 
 # ---------- ВОДЯНОЙ ЗНАК ОТКЛЮЧЁН: плашку «Сделано в Holo Friend» больше нигде не добавляем (strip_watermark чистит старые проекты) ----------
 WM_START, WM_END = "<!--HF-WM-->", "<!--/HF-WM-->"
@@ -665,7 +677,7 @@ def lock_visual(conn, uid, visual):
     """Бесплатному пользователю код не отдаём: клиент получает только pid."""
     try:
         pid = store_preview(conn, uid, visual["code"])
-        return {"type": visual["type"], "code": "", "pid": pid}
+        return {"type": visual["type"], "code": "", "pid": pid, **({"noedit": True} if visual.get("noedit") else {})}
     except Exception:
         log.exception("store_preview failed — отдаю код как есть (без плашки)")
         return visual
@@ -2377,7 +2389,7 @@ async def ask(request: Request):
                 if len(imported) < MIN_IMPORT_LEN or not is_valid_html(imported):
                     return {"text": "Не похоже на HTML-проект. Пришли файл целиком.", "emotion": "sad", "pro": pro_pre}
                 return {"text": IMPORT_OK_TEXT, "emotion": "happy", "imported": True,
-                        "visual": {"type": "html", "code": imported}, "pro": pro_pre}
+                        "visual": {"type": "html", "code": imported, **({"noedit": True} if (looks_like_game(imported) or motion_contract_ok(imported)) else {})}, "pro": pro_pre}
         # ПРОДОЛЖЕНИЕ СБОРКИ: пользователь прислал только название («Шопи фай») в ответ на вопрос бота по запросу на сайт
         if not data.get("edit_project") and not att and not data.get("build_choice") and not build_intent(user_text) and is_bare_name(raw_text):
             prev_req = pending_build_request(history_text, raw_text)
