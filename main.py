@@ -226,6 +226,8 @@ MODEL_FREE = os.getenv("MODEL_FREE", "anthropic/claude-sonnet-5-5")
 MODEL_PRO = os.getenv("MODEL_PRO", "anthropic/claude-opus-5-5")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "20000")) 
 BUILD_TIMEOUT = 170
+MOTION_MAX_TOKENS = int(os.getenv("MOTION_MAX_TOKENS", "10000"))   # ролик по контракту это ~350-450 строк кода: больше не нужно, дальше только трата денег
+MOTION_DEADLINE = int(os.getenv("MOTION_DEADLINE", "110"))         # общий предел времени на генерацию ролика, секунд
 
 # ВЕСА: 100 за новую сборку, 150 за правку
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
@@ -1100,6 +1102,30 @@ MOTION_STAGE_RE = re.compile(r"id\s*=\s*[\"']?stage\b", re.I)
 def motion_contract_ok(code):
     return isinstance(code, str) and bool(MOTION_CONTRACT_RE.search(code)) and bool(MOTION_STAGE_RE.search(code)) and "VIDEO" in code
 
+# ---------- ОГРАНИЧЕНИЯ РОЛИКОВ: что приложение реально умеет (до 15 секунд, без звука) ----------
+MOTION_AUDIO_RE = re.compile(r"озвучк|озвуч|голос|диктор|закадров|звуков\w* эффект|whoosh|свист|музык|саундтрек|\bзвук\w*", re.I)
+MOTION_SECS_RE = re.compile(r"(\d{1,3})(?:\s*[–—-]\s*(\d{1,3}))?\s*(сек|с\b|мин)", re.I)
+MOTION_FAIL_TEXT = "Не получилось снять ролик: он оказался слишком сложным. В приложении ролик до 15 секунд и без звука. Опиши короче: одна-две сцены и один герой. Списанное я вернул."
+
+def motion_limits_note(task):
+    """Если просят то, чего приложение не умеет (длиннее 15 с, озвучка и звук, много сцен), добавляем жёсткую заметку для модели:
+    иначе она пытается написать огромный код, упирается в лимит токенов, и деньги на API тратятся впустую."""
+    task = str(task or "")
+    secs = 0
+    for mm in MOTION_SECS_RE.finditer(task):
+        v = int(mm.group(2) or mm.group(1)) * (60 if mm.group(3).lower().startswith("мин") else 1)
+        secs = max(secs, v)
+    long_ = secs > 15
+    audio = bool(MOTION_AUDIO_RE.search(task))
+    scenes = len(re.findall(r"сцен[аы]?\s*\d", task, re.I))
+    if not (long_ or audio or scenes >= 4): return ""
+    parts = ["ОГРАНИЧЕНИЯ ПРИЛОЖЕНИЯ (важнее пожеланий пользователя, их нельзя обойти):"]
+    if long_: parts.append("- Длительность ролика не больше 15 секунд (duration не больше 15000). Пользователь просит дольше: сожми сюжет до самого главного.")
+    if audio: parts.append("- Звука нет вообще: приложение собирает MP4 без аудио. Озвучку, музыку и звуковые эффекты не делай. Вместо озвучки сделай крупные субтитры, синхронные с действием.")
+    if long_ or scenes >= 4: parts.append("- Сюжет сожми в 3–4 ключевые сцены. Героя рисуй простыми фигурами на canvas (круглая голова, глаза, тело) одной и той же функцией во всех сценах. Код не длиннее ~350 строк.")
+    parts.append("- В [[TEXT]] одной короткой фразой честно скажи, что учтено (например: до 15 секунд и без звука, озвучку заменили субтитрами).")
+    return "\n\n" + "\n".join(parts)
+
 MOTION_SYSTEM = r"""
 Ты — Holo в режиме МОУШЕН-ДИЗАЙНА: ведущий motion-дизайнер. Пользователь просит ролик, интро, анимацию для TikTok, YouTube Shorts или Reels. Ты делаешь анимацию на чистом HTML/CSS/JS (или canvas). Приложение само снимет её кадр за кадром и соберёт MP4 на устройстве пользователя после нажатия «Скачать».
 
@@ -1348,7 +1374,7 @@ def build_messages(user_content, history_text, current_code, needs_backend=False
             + ("Полный [[HTML]] — только если правка затрагивает почти весь файл или не получается точно найти место для правки." if len(current_code) <= BIG_CODE_NO_REWRITE
                else "Полный [[HTML]] ЗАПРЕЩЁН: файл большой. Отвечай только парами FIND/REPLACE.")})
     else:
-        messages.append({"role": "user", "content": f"ЗАДАЧА: {task}"})
+        messages.append({"role": "user", "content": f"ЗАДАЧА: {task}" + (motion_limits_note(task) if motion else "")})
     return messages
 
 def build_continue_messages(messages, raw):
@@ -1494,6 +1520,8 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False, m
         log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
         if current_code:  # правка: ясное сообщение вместо общей отписки
             return {"text": EDIT_FAIL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
+        if motion:   # ролик не вышел: говорим про реальные границы приложения вместо общего «попробуй проще»
+            return {"text": MOTION_FAIL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
         return {**BUILD_FAIL, "pro": pro_safe(conn, uid)}
     if emotion not in EMOTIONS_OK: emotion = "happy"
     text = text or ("Ролик готов! Нажми «Скачать», и MP4 соберётся прямо на твоём устройстве." if motion else "Готово! Смотри превью.")
@@ -1506,15 +1534,15 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
     model = model or get_model_for_user(uid, conn)
     messages = build_messages(user_content, history_text, current_code, needs_backend, user_name, motion)
     try:
-        resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+        resp = await client.with_options(timeout=(MOTION_DEADLINE if motion else BUILD_TIMEOUT)).chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=EDIT_MAX_TOKENS if current_code else BUILD_MAX_TOKENS,
+            max_tokens=EDIT_MAX_TOKENS if current_code else (MOTION_MAX_TOKENS if motion else BUILD_MAX_TOKENS),
             temperature=EDIT_TEMPERATURE if current_code else 0.7
         )
         raw = resp.choices[0].message.content or ""
         # в правке авто-докрутку не делаем: оборванный полный файл = сбой, а не второй платный запрос
-        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code:
+        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code and not motion:   # у ролика обрыв = сбой: второй платный запрос не помог бы
             log.warning("Код оборвался, запускаю авто-докрутку...")
             resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
                 model=model,
@@ -1658,11 +1686,17 @@ class BuildStreamParser:
 def _nd(obj):
     return (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
-async def _llm_stream(messages, model, edit=False, temperature=None):
-    stream = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
-        model=model, messages=messages, max_tokens=(EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS),
+async def _llm_stream(messages, model, edit=False, temperature=None, max_tokens=None, deadline=None):
+    stream = await client.with_options(timeout=(deadline or BUILD_TIMEOUT)).chat.completions.create(
+        model=model, messages=messages, max_tokens=(max_tokens or (EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS)),
         temperature=(temperature if temperature is not None else (EDIT_TEMPERATURE if edit else 0.7)), stream=True)
+    t_end = time.monotonic() + deadline if deadline else None
     async for chunk in stream:
+        if t_end and time.monotonic() > t_end:   # общий предел времени: таймаут клиента считает паузы между кусками, а не всю генерацию
+            log.warning("stream: превышен общий лимит времени %ss, обрываю генерацию", deadline)
+            try: await stream.close()
+            except Exception: pass
+            break
         if not chunk.choices: continue
         d = chunk.choices[0].delta.content
         if d: yield d
@@ -1746,9 +1780,9 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
     try:
         yield _nd({"t": "start"})
         try:
-            async for d in _llm_stream(messages, model, edit=bool(current_code)):
+            async for d in _llm_stream(messages, model, edit=bool(current_code), max_tokens=(MOTION_MAX_TOKENS if motion else None), deadline=(MOTION_DEADLINE if motion else None)):
                 for b in handle(d): yield b
-            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]) and not current_code:
+            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]) and not current_code and not motion:
                 log.warning("Код оборвался, запускаю авто-докрутку (stream)...")
                 async for d in _llm_stream(build_continue_messages(messages, st["raw"]), model):
                     for b in handle(d): yield b
