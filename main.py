@@ -1938,6 +1938,179 @@ def admin_banned(data: dict = Body(...)):
     total = scalar(conn, "SELECT COUNT(*) FROM banned_users")
     return {"status": "ok", "total": total, "list": [{"id": r[0], "reason": r[1] or "", "at": r[2]} for r in rows]}
 
+# ===================== РАССЫЛКА (админка) =====================
+NT_FREE = [
+    "👋 Давно не виделись! Holo Friend тебя ждёт. Заходи, поболтаем.",
+    "Holo Friend скучает 🥺 Дневной лимит обновился, можно снова писать.",
+    "Эй, ты куда пропал? 👀 Holo Friend на связи.",
+    "Holo Friend на месте. Пиши что угодно, я отвечу.",
+]
+NT_PRO = [
+    "👋 Давно не виделись! У тебя ещё осталось запросов Pro: {left}.",
+    "Holo Friend скучает ✨ Твой Pro ждёт.",
+    "Есть идея для проекта? 💡 Опиши её, и я соберу.",
+]
+NT_TRIAL_LINE = "\n\n🎁 А ещё у тебя есть бесплатная сборка сайта: опиши, что нужно, и я его сделаю."
+NT_RATE_SLEEP = 0.05   # ~20 сообщений/сек, лимит Telegram около 30
+_nt_state = {"running": False, "total": 0, "sent": 0, "blocked": 0, "failed": 0}
+
+def _nt_init(conn):
+    conn.execute("CREATE TABLE IF NOT EXISTS notify_log (user_id INTEGER NOT NULL, day TEXT NOT NULL, ts INTEGER NOT NULL, PRIMARY KEY (user_id, day))")
+    conn.execute("CREATE TABLE IF NOT EXISTS notify_blocked (user_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS notify_optout (user_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL)")
+
+def _nt_today():
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+def _nt_text(kind, data, trial, left=0):
+    if kind == "pro":
+        vs = NT_PRO; i = data["variant_pro"]
+        return vs[i if 0 <= i < len(vs) else 0].format(left=left)
+    vs = NT_FREE; i = data["variant_free"]
+    t = vs[i if 0 <= i < len(vs) else 0]
+    return t + (NT_TRIAL_LINE if trial else "")
+
+def _nt_params(data):
+    aud = data.get("audience") if data.get("audience") in ("free", "pro", "all") else "free"
+    try: vf = int(data.get("variant_free", 0))
+    except (TypeError, ValueError): vf = 0
+    try: vp = int(data.get("variant_pro", 0))
+    except (TypeError, ValueError): vp = 0
+    tm = "off" if data.get("trial_mode") == "off" else "auto"
+    return {"audience": aud, "variant_free": vf, "variant_pro": vp, "trial_mode": tm}
+
+def _nt_recipients(conn, data):
+    """Возвращает (список получателей [(uid, kind, trial, left)], статистика)."""
+    _nt_init(conn)
+    now = int(time.time()); today = _nt_today()
+    uids = [r[0] for r in conn.execute("SELECT user_id FROM users").fetchall()]
+    banned = {r[0] for r in conn.execute("SELECT user_id FROM banned_users").fetchall()}
+    blocked = {r[0] for r in conn.execute("SELECT user_id FROM notify_blocked").fetchall()}
+    muted = {r[0] for r in conn.execute("SELECT user_id FROM notify_optout").fetchall()}
+    done_today = {r[0] for r in conn.execute("SELECT user_id FROM notify_log WHERE day = ?", (today,)).fetchall()}
+    pro_left = {r[0]: r[1] for r in conn.execute("SELECT user_id, requests_left FROM pro_state WHERE expires_at > ? AND requests_left > 0", (now,)).fetchall()}
+    trial_used = {r[0] for r in conn.execute("SELECT user_id FROM trial_build").fetchall()}
+    st = {"free": 0, "free_trial": 0, "free_plain": 0, "pro": 0, "today": 0, "blocked": 0, "muted": 0, "banned": 0}
+    out = []
+    for uid in uids:
+        if uid in banned: st["banned"] += 1; continue
+        if uid in blocked: st["blocked"] += 1; continue
+        if uid in muted: st["muted"] += 1; continue
+        if uid in done_today: st["today"] += 1; continue
+        is_pro = uid in pro_left
+        kind = "pro" if is_pro else "free"
+        if data["audience"] != "all" and data["audience"] != kind: continue
+        trial = (not is_pro) and data["trial_mode"] == "auto" and uid not in trial_used
+        if is_pro: st["pro"] += 1
+        else:
+            st["free"] += 1
+            if uid not in trial_used: st["free_trial"] += 1
+            else: st["free_plain"] += 1
+        out.append((uid, kind, trial, pro_left.get(uid, 0)))
+    return out, st
+
+def _nt_markup():
+    if not BOT_USERNAME: return None
+    url = f"https://t.me/{BOT_USERNAME}" + (f"/{MINIAPP_SHORT_NAME}" if MINIAPP_SHORT_NAME else "")
+    return {"inline_keyboard": [[{"text": "Открыть Holo Friend", "url": url}]]}
+
+def _nt_admin(data):
+    info = validate_init_data(data.get("init_data", ""))
+    return bool(info and info["user"]["id"] == ADMIN_ID)
+
+@app.post("/admin/notify/preview")
+def admin_notify_preview(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    p = _nt_params(data)
+    conn = get_db_connection()
+    rec, st = _nt_recipients(conn, p)
+    return {"status": "ok", "total": len(rec), "stats": st}
+
+async def _nt_send_one(uid, text):
+    """'ok' | 'blocked' | 'failed'"""
+    payload = {"chat_id": uid, "text": text, "disable_web_page_preview": True}
+    mk = _nt_markup()
+    if mk: payload["reply_markup"] = mk
+    for _ in range(3):
+        try:
+            r = await tg_call("sendMessage", payload)
+            j = r.json()
+        except Exception:
+            log.warning("notify send exc uid=%s", uid, exc_info=True)
+            return "failed"
+        if j.get("ok"): return "ok"
+        code = j.get("error_code")
+        if code == 429:
+            await asyncio.sleep(min(int((j.get("parameters") or {}).get("retry_after", 2)) + 1, 30)); continue
+        if code == 403 or (code == 400 and "chat not found" in str(j.get("description", "")).lower()):
+            return "blocked"
+        log.warning("notify api error uid=%s: %s", uid, j)
+        return "failed"
+    return "failed"
+
+def _nt_mark(uid, kind):
+    conn = get_db_connection(); _nt_init(conn); now = int(time.time())
+    if kind == "sent":
+        conn.execute("INSERT OR REPLACE INTO notify_log (user_id, day, ts) VALUES (?, ?, ?)", (uid, _nt_today(), now))
+    else:
+        conn.execute("INSERT OR REPLACE INTO notify_blocked (user_id, ts) VALUES (?, ?)", (uid, now))
+    conn.commit()
+
+async def _nt_run(rec, p):
+    try:
+        for uid, kind, trial, left in rec:
+            res = await _nt_send_one(uid, _nt_text(kind, p, trial, left))
+            if res == "ok":
+                _nt_state["sent"] += 1
+                try: await asyncio.to_thread(_nt_mark, uid, "sent")
+                except Exception: log.warning("notify mark sent failed", exc_info=True)
+            elif res == "blocked":
+                _nt_state["blocked"] += 1
+                try: await asyncio.to_thread(_nt_mark, uid, "blocked")
+                except Exception: log.warning("notify mark blocked failed", exc_info=True)
+            else:
+                _nt_state["failed"] += 1
+            await asyncio.sleep(NT_RATE_SLEEP)
+    except Exception:
+        log.exception("notify run crashed")
+    finally:
+        _nt_state["running"] = False
+
+@app.post("/admin/notify/send")
+async def admin_notify_send(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    if _nt_state["running"]: return {"status": "error", "reason": "running"}
+    p = _nt_params(data)
+    def _calc():
+        return _nt_recipients(get_db_connection(), p)
+    rec, _st = await asyncio.to_thread(_calc)
+    if not rec: return {"status": "error", "reason": "empty"}
+    _nt_state.update(running=True, total=len(rec), sent=0, blocked=0, failed=0)
+    asyncio.get_running_loop().create_task(_nt_run(rec, p))
+    return {"status": "ok", "total": len(rec)}
+
+@app.post("/admin/notify/status")
+def admin_notify_status(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    return {"status": "ok", **_nt_state}
+
+@app.post("/admin/notify/test")
+async def admin_notify_test(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    p = _nt_params(data)
+    def _calc():
+        conn = get_db_connection(); now = int(time.time())
+        pi = pro_info(conn, ADMIN_ID, now)
+        return pi, trial_available(conn, ADMIN_ID)
+    pi, trial_free = await asyncio.to_thread(_calc)
+    kind = "pro" if p["audience"] == "pro" else "free" if p["audience"] == "free" else ("pro" if pi["active"] else "free")
+    # тест показывает текст выбранной аудитории, строку про сборку: как у реального получателя (у админа сборка может быть потрачена, поэтому для Free показываем её всегда, если включена)
+    trial = kind == "free" and p["trial_mode"] == "auto"
+    left = pi["left"] if pi["active"] else pi["limit"]
+    res = await _nt_send_one(ADMIN_ID, "🧪 ТЕСТ\n\n" + _nt_text(kind, p, trial, left))
+    return {"status": "ok" if res == "ok" else "error", "sent": 1 if res == "ok" else 0}
+# ===================== /РАССЫЛКА =====================
+
 @app.post("/save_progress")
 def save_progress(data: dict = Body(...)):
     info = validate_init_data(data.get("init_data", ""))
