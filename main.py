@@ -2009,10 +2009,11 @@ def _nt_recipients(conn, data):
         out.append((uid, kind, trial, pro_left.get(uid, 0)))
     return out, st
 
+NT_WEBAPP_URL = os.getenv("WEBAPP_URL", "https://mahaevkirill1-crypto.github.io/my-ai-friend/")
+
 def _nt_markup():
-    if not BOT_USERNAME: return None
-    url = f"https://t.me/{BOT_USERNAME}" + (f"/{MINIAPP_SHORT_NAME}" if MINIAPP_SHORT_NAME else "")
-    return {"inline_keyboard": [[{"text": "Открыть Holo Friend", "url": url}]]}
+    # кнопка открывает мини-апп прямо внутри Telegram (web_app), а не ссылку на бота
+    return {"inline_keyboard": [[{"text": "Открыть Holo Friend", "web_app": {"url": NT_WEBAPP_URL}}]]}
 
 def _nt_admin(data):
     info = validate_init_data(data.get("init_data", ""))
