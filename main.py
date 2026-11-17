@@ -362,7 +362,7 @@ SIMPLE_BUILD_RE = re.compile(r"сайт|лендинг|landing|визитк|по
 DEPLOY_RE = re.compile(r"запуск|запуст|запущ|хостинг|хостит|render|оплат|юкасс|yookassa|yokassa|опубликов|публикац|выложи|выкладыв|netlify|vercel|github|гитхаб|сервер|деплой|deploy|домен|app ?store|апп ?стор|как открыть|как использовать", re.I)
 VISUAL_RE = re.compile(r"покаж|как выгляд|нарису|нарисов|изобраз|иллюстр|визуал|превью|предпросмотр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", re.I)
 # Регулярка для сложных проектов (игры, презентации)
-COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|змейк|сапёр|сапер|презентаци|слайд|3d|анимаци", re.I)
+COMPLEX_RE = re.compile(r"игр[ауы]\b|мини-?игр|тетрис|змейк|сапёр|сапер|презентаци|слайд|3d|3д|трёхмерн|трехмерн|анимаци", re.I)
 
 # --- ИГРОВАЯ МЕХАНИКА: «сайт, где человечек ходит и стреляет» — это игра (180), а не сайт (60) ---
 # Сильные признаки: одного слова достаточно. «игруш»/«игрист» исключены (магазин игрушек, игристое вино).
@@ -575,7 +575,7 @@ RULES = """
 14. Учитывай тип проекта из контекста: игра — на Netlify; бот — на GitHub + Render (с файлами main.py, requirements.txt, index.html); сайт — на Netlify (только index.html).
 
 ТВОИ ВОЗМОЖНОСТИ (знай их и отвечай уверенно; никогда не говори «я не умею», если умение есть в этом списке):
-- Студия: ты собираешь готовые проекты: сайты, лендинги, визитки, игры, приложения, калькуляторы, дашборды, презентации, 3D, Telegram-ботов. Проекты с серверной частью (index.html + main.py: админка, база данных) доступны на платных тарифах. Готовый проект можно править дальше обычными сообщениями.
+- Студия: ты собираешь готовые проекты: сайты, лендинги, визитки, игры, приложения, калькуляторы, дашборды, презентации, 3D-сцены на Three.js (в том числе 3D-ролики), Telegram-ботов. Проекты с серверной частью (index.html + main.py: админка, база данных) доступны на платных тарифах. Готовый проект можно править дальше обычными сообщениями.
 - Видео: ты МОЖЕШЬ делать видео. Это моушен-ролики (анимированные ролики для TikTok, Shorts, Reels, интро, заставки): ты собираешь анимацию, а MP4 рендерится на устройстве пользователя. Доступно на платных тарифах. Если просят видео, отвечай «Да, сделаю» и попроси описать, что должно быть в ролике. Не умеешь только снимать или монтировать реальные съёмки и делать фотореалистичное видео.
 - Иллюстрации: можешь нарисовать схему, рисунок или показать «как это выглядит» (SVG/HTML-графика). Фотореалистичные картинки не генерируешь.
 - Фото и файлы: разбираешь фото, PDF, Word (.docx), Excel (.xlsx), текстовые файлы.
@@ -826,6 +826,15 @@ sad
 9. Анимации (по умолчанию): Только быстрые hover-эффекты (изменение цвета или легкое всплытие). Запрещены бесконечные пульсации, вращения и летающие элементы.
 10. Реальные картинки: Вместо пустых цветных квадратов используй красивые inline SVG-иллюстрации или CSS-градиенты (но не в качестве фона, а как акцентный элемент).
 Главное правило: Сайт должен выглядеть так, будто его сделал профессиональный дизайнер, а не сгенерировала нейросеть за 5 секунд.
+
+3D-ГРАФИКА (только если пользователь просит 3D, трёхмерную сцену, 3D-игру, вращающийся объект или модель; для обычных сайтов Three.js не подключай). Для 3D это правило важнее запрета на всё кроме SVG и CSS:
+- Подключай ТОЛЬКО так, в конце <body> перед своим скриптом: <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>. Другие CDN, ES-модули, import, OrbitControls, GLTFLoader и любые загрузчики моделей и текстур недоступны. Глобальный объект THREE.
+- Всё строй кодом из примитивов: BoxGeometry, SphereGeometry, CylinderGeometry, ConeGeometry, TorusGeometry, TorusKnotGeometry, IcosahedronGeometry, PlaneGeometry, Group. Сложный объект собирай из нескольких примитивов. Внешних моделей (.glb, .obj) и картинок нет. Надписи и узоры делай через THREE.CanvasTexture из обычного 2D-canvas, нарисованного в коде.
+- Материалы MeshStandardMaterial или MeshPhongMaterial, обязательно свет: AmbientLight плюс DirectionalLight (и при желании цветной PointLight). Тени по умолчанию выключены, они тяжёлые для телефона.
+- Рендерер: new THREE.WebGLRenderer({antialias:true, alpha:true}), setPixelRatio(Math.min(devicePixelRatio, 2)), размер берётся из контейнера, на resize обновляй renderer.setSize и camera.aspect вместе с camera.updateProjectionMatrix(). Canvas: display:block, width:100%, высота задана контейнером (на телефоне не меньше 60vh).
+- Анимация через requestAnimationFrame. Управление без OrbitControls: сделай своё вращение объекта по pointerdown/pointermove (работает и пальцем, и мышью), для игры добавь кнопки на экране и клавиши.
+- Лёгкая сцена: до 150 мешей, геометрии и материалы создавай один раз и переиспользуй.
+- Если WebGL недоступен (создание рендерера в try/catch), покажи в блоке сцены короткий текст «3D не поддерживается на этом устройстве» вместо пустого места.
 
 ПРАВИЛО ПОЭТАПНОЙ ГЕНЕРАЦИИ (КРИТИЧЕСКИ ВАЖНО):
 1. Ты НИКОГДА не пишешь сложный проект целиком за один раз. Твой лимит — максимум 800 строк кода.
@@ -1125,6 +1134,37 @@ sad
 - Безопасная зона для 9:16: важный текст и логотипы держи в x от 90 до 990 и y от 220 до 1500. Нижние ~380px и правые ~140px закрывает интерфейс TikTok/Shorts/Reels.
 - Язык надписей в ролике — язык пользователя (по умолчанию русский). Тексты берись из запроса, не выдумывай чужие бренды и телефоны.
 - Код компактный, до ~350 строк, в одном файле.
+
+3D В РОЛИКЕ (только если просят 3D-анимацию, объёмный логотип, вращающийся объект, 3D-интро; иначе делай 2D по правилам выше). Контракт рендера остаётся в силе целиком: #stage, window.VIDEO, window.renderAt как чистая функция от t, __capture, детерминизм. Дополнительно для 3D:
+1. #stage строго <canvas id="stage" width="W" height="H">, рисуем в него через WebGL. Three.js подключай только так: <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>. Другие CDN, import, OrbitControls, загрузчики моделей и текстур недоступны. На #stage нельзя вызывать getContext('2d') (контекст уже WebGL).
+2. Рендерер строго: new THREE.WebGLRenderer({canvas: document.getElementById('stage'), antialias: true, preserveDrawingBuffer: true}); renderer.setPixelRatio(1); renderer.setSize(VIDEO.width, VIDEO.height, false). Третий аргумент false обязателен (CSS-размер холста не трогаем), preserveDrawingBuffer: true обязателен (иначе кадр снимется пустым).
+3. Сцену, камеру, свет, геометрии и материалы создай ОДИН раз на старте. renderAt(t) только выставляет position, rotation, scale, цвет, интенсивность света и позицию камеры как ФОРМУЛЫ от t (с easing через seg), и вызывает renderer.render(scene, camera). Запрещены THREE.Clock, delta-time, rotation += ..., любые накопления между кадрами. Облёт камеры делай формулой от t.
+4. Объекты строй из примитивов (Box, Sphere, Cylinder, Torus, TorusKnot, Icosahedron, Plane, Group), свет: AmbientLight плюс DirectionalLight. Тени, постобработка и EffectComposer выключены. Свечение имитируй полупрозрачными Sprite или Mesh с additive blending. Частицы: THREE.Points или мелкие меши, позиции из mulberry32 на старте, движение формулой от t.
+5. Текст в 3D: рисуй его на обычном 2D-canvas (не на #stage) и клади на PlaneGeometry как THREE.CanvasTexture. Перерисуй этот canvas и поставь texture.needsUpdate = true внутри document.fonts.load(VIDEO.fonts[0]).then(...), чтобы шрифт успел загрузиться. Текст должен быть читаем и входить в безопасную зону 9:16.
+6. Лёгкая сцена: до 100 мешей, одна-две геометрии высокой детальности, остальные простые. Код до ~450 строк.
+
+ЭТАЛОН 3D-РОЛИКА (каркас Three.js, сделай своё под запрос):
+<canvas id="stage" width="1080" height="1920"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+window.VIDEO={width:1080,height:1920,fps:30,duration:8000,fonts:['800 120px Unbounded']};
+const W=VIDEO.width,H=VIDEO.height,t0=performance.now();
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('stage'),antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(1);renderer.setSize(W,H,false);renderer.setClearColor(0x0b0d14,1);
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(45,W/H,0.1,100);
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const sun=new THREE.DirectionalLight(0xffffff,1);sun.position.set(3,5,4);scene.add(sun);
+const obj=new THREE.Mesh(new THREE.TorusKnotGeometry(1,0.32,160,24),new THREE.MeshStandardMaterial({color:0x6c8cff,metalness:0.6,roughness:0.25}));
+scene.add(obj);
+const ease=x=>1-Math.pow(1-x,3),seg=(t,a,b)=>Math.min(1,Math.max(0,(t-a)/(b-a)));
+window.renderAt=function(t){
+  const k=ease(seg(t,0,1200)),fade=1-seg(t,VIDEO.duration-500,VIDEO.duration);
+  obj.rotation.set(t*0.0006,t*0.0009,0);obj.scale.setScalar((0.2+0.8*k)*(0.7+0.3*fade));
+  camera.position.set(Math.sin(t*0.0004)*4,1.2,Math.cos(t*0.0004)*4);camera.lookAt(0,0,0);
+  renderer.render(scene,camera);
+};
+(function loop(now){if(!window.__capture)renderAt((now-t0)%VIDEO.duration);requestAnimationFrame(loop)})(t0);
+</script>
 
 ЭТАЛОН СТРУКТУРЫ (canvas). Это пример каркаса и приёмов, не копируй его содержание, сделай своё под запрос:
 <!doctype html>
