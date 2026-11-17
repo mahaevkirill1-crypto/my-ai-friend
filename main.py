@@ -2522,6 +2522,9 @@ async def ask(request: Request):
         if not build_mode and is_forbidden_chat(user_text):
             # запрещённая просьба в обычном чате: отказ до списаний и до вызова модели, токены не тратятся
             return {"text": CHAT_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
+        # «покажи новости / покажи курс» слабый визуальный триггер: если это вопрос для поиска и нет явной просьбы нарисовать, ищем
+        if visual_mode and not build_mode and not att and wants_search(raw_text) and not re.search(r"нарису|нарисов|изобраз|иллюстр|отрисуй|отрендер|схем|диаграмм|график|макет|логотип", user_text, re.I):
+            visual_mode = False
         search_mode = (not att) and (not build_mode) and (not visual_mode) and wants_search(raw_text)
         if search_mode: weight = max(weight, SEARCH_WEIGHT)
         
