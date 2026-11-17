@@ -1635,6 +1635,37 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
         <button class="txtbtn" style="flex: 1;" onclick="adminUnban()">✅ Разбанить</button>
     </div>
     <div id="adm-banlist" style="font-size: 13px; margin-bottom: 12px; max-height: 130px; overflow-y: auto;"></div>
+    <div style="border-top: 1px solid var(--ui-line-hi); margin: 6px 0 12px; padding-top: 12px; text-align: center; color: var(--ui-gold-hi);">📣 Рассылка</div>
+    <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+        <button class="txtbtn on" id="nt-aud-free" style="flex: 1;" onclick="ntSetAud('free')">Free</button>
+        <button class="txtbtn" id="nt-aud-pro" style="flex: 1;" onclick="ntSetAud('pro')">Pro</button>
+        <button class="txtbtn" id="nt-aud-all" style="flex: 1;" onclick="ntSetAud('all')">Все</button>
+    </div>
+    <div style="font-size: 13px; text-align: left; margin-bottom: 4px; opacity: .8;">Текст для Free</div>
+    <select id="nt-vf" onchange="ntPreview()" style="width: 100%; margin-bottom: 8px; background: transparent; color: var(--ui-tx-hi); border: 1px solid var(--ui-line-hi); border-radius: 8px; padding: 8px; font-size: 14px; font-family: inherit;">
+        <option value="0" style="color:#000">1. Давно не виделись! Holo Friend тебя ждёт</option>
+        <option value="1" style="color:#000">2. Holo Friend скучает, лимит обновился</option>
+        <option value="2" style="color:#000">3. Эй, ты куда пропал?</option>
+        <option value="3" style="color:#000">4. Holo Friend на месте, пиши что угодно</option>
+    </select>
+    <div style="font-size: 13px; text-align: left; margin-bottom: 4px; opacity: .8;">Текст для Pro</div>
+    <select id="nt-vp" onchange="ntPreview()" style="width: 100%; margin-bottom: 8px; background: transparent; color: var(--ui-tx-hi); border: 1px solid var(--ui-line-hi); border-radius: 8px; padding: 8px; font-size: 14px; font-family: inherit;">
+        <option value="0" style="color:#000">1. Давно не виделись + остаток</option>
+        <option value="1" style="color:#000">2. Holo Friend скучает, Pro ждёт</option>
+        <option value="2" style="color:#000">3. Есть идея для проекта?</option>
+    </select>
+    <div style="font-size: 13px; text-align: left; margin-bottom: 4px; opacity: .8;">Строка про бесплатную сборку</div>
+    <select id="nt-trial" onchange="ntPreview()" style="width: 100%; margin-bottom: 10px; background: transparent; color: var(--ui-tx-hi); border: 1px solid var(--ui-line-hi); border-radius: 8px; padding: 8px; font-size: 14px; font-family: inherit;">
+        <option value="auto" style="color:#000">Авто: только у кого сборка не потрачена</option>
+        <option value="off" style="color:#000">Выключена: никому</option>
+    </select>
+    <div id="nt-info" style="font-size: 13px; line-height: 1.5; margin-bottom: 10px; padding: 8px; border: 1px solid var(--ui-line-hi); border-radius: 8px; text-align: left;">Считаю получателей…</div>
+    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <button class="txtbtn" style="flex: 1;" onclick="ntTest()">🧪 Тест мне</button>
+        <button class="txtbtn on" id="nt-send" style="flex: 1;" onclick="ntSend()">📣 Отправить</button>
+    </div>
+    <div id="nt-prog" style="font-size: 13px; margin-bottom: 12px; min-height: 18px;"></div>
+    
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
   </div>
 </div>
@@ -4819,8 +4850,8 @@ setInterval(refreshPro, 120000);
 
 const ADMIN_ID = 5194423911;
 let admT = null;
-function openAdmin(){ $('admin-panel').classList.add('open'); refreshAdmin(); refreshBans(); clearInterval(admT); admT = setInterval(refreshAdmin, 5000); }
-function closeAdmin(){ clearInterval(admT); $('admin-panel').classList.remove('open'); }
+function openAdmin(){ $('admin-panel').classList.add('open'); refreshAdmin(); refreshBans(); clearInterval(admT); admT = setInterval(refreshAdmin, 5000); ntPreview(); ntPoll(); }
+function closeAdmin(){ clearInterval(ntT); clearInterval(admT); $('admin-panel').classList.remove('open'); }
 async function refreshAdmin(){
     if (!refOk()) return;
     try {
@@ -4869,6 +4900,74 @@ async function adminGivePro(){
         else toast('Не получилось');
     } catch(e) { toast('Нет связи'); }
 }
+let ntAud = 'free', ntT = null;
+function ntBody(){
+    return { audience: ntAud, variant_free: +$('nt-vf').value, variant_pro: +$('nt-vp').value, trial_mode: $('nt-trial').value };
+}
+function ntSetAud(a){
+    ntAud = a;
+    ['free', 'pro', 'all'].forEach(k => $('nt-aud-' + k).classList.toggle('on', k === a));
+    ntPreview();
+}
+async function ntPreview(){
+    if (!refOk()) return;
+    try {
+        const r = await tgPost('admin/notify/preview', ntBody());
+        if (r.status !== 'ok'){ $('nt-info').textContent = 'Нет доступа'; return; }
+        const s = r.stats, L = [];
+        if (ntAud !== 'pro') L.push(`Free: <b>${s.free}</b> (со сборкой: ${s.free_trial}, без: ${s.free_plain})`);
+        if (ntAud !== 'free') L.push(`Pro: <b>${s.pro}</b>`);
+        L.push(`Итого получат: <b>${r.total}</b>`);
+        L.push(`<span style="opacity:.65">Пропущено: уже писали сегодня ${s.today}, заблокировали бота ${s.blocked}, отписались ${s.muted}, баны ${s.banned}</span>`);
+        $('nt-info').innerHTML = L.join('<br>');
+    } catch(e) { $('nt-info').textContent = 'Нет связи'; }
+}
+async function ntTest(){
+    if (!refOk()){ toast('Только в Telegram'); return; }
+    try {
+        const r = await tgPost('admin/notify/test', ntBody());
+        toast(r.status === 'ok' ? 'Тест отправлен (' + r.sent + ')' : 'Не получилось');
+    } catch(e) { toast('Нет связи'); }
+}
+function ntConfirm(msg){
+    return new Promise(res => {
+        if (tg && tg.showConfirm) tg.showConfirm(msg, ok => res(!!ok));
+        else res(confirm(msg));
+    });
+}
+async function ntSend(){
+    if (!refOk()){ toast('Только в Telegram'); return; }
+    let total = 0;
+    try {
+        const p = await tgPost('admin/notify/preview', ntBody());
+        if (p.status !== 'ok'){ toast('Нет доступа'); return; }
+        total = p.total;
+    } catch(e) { toast('Нет связи'); return; }
+    if (!total){ toast('Некому отправлять'); return; }
+    const name = ntAud === 'free' ? 'Free' : ntAud === 'pro' ? 'Pro' : 'всем';
+    if (!(await ntConfirm(`Отправить уведомление (${name}) ${total} пользователям?`))) return;
+    try {
+        const r = await tgPost('admin/notify/send', ntBody());
+        if (r.status === 'ok'){ toast('Рассылка запущена'); ntPoll(); }
+        else toast(r.reason === 'running' ? 'Рассылка уже идёт' : 'Не получилось');
+    } catch(e) { toast('Нет связи'); }
+}
+function ntPoll(){
+    clearInterval(ntT);
+    const tick = async () => {
+        try {
+            const r = await tgPost('admin/notify/status');
+            if (r.status !== 'ok') return;
+            $('nt-prog').innerHTML = (r.running ? '⏳ ' : '✅ Готово: ') + `отправлено <b>${r.sent}</b> из ${r.total}` +
+                (r.blocked ? `, заблокировали бота ${r.blocked}` : '') + (r.failed ? `, ошибок ${r.failed}` : '');
+            $('nt-send').disabled = r.running;
+            if (!r.running){ clearInterval(ntT); ntPreview(); }
+        } catch(e) {}
+    };
+    tick(); ntT = setInterval(tick, 2000);
+}
+window.ntSetAud = ntSetAud; window.ntPreview = ntPreview; window.ntTest = ntTest; window.ntSend = ntSend;
+
 function ping(){ if (refOk() && !document.hidden) tgPost('ping').catch(() => {}); }
 setInterval(ping, 60000); ping();
 
