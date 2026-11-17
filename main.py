@@ -226,8 +226,6 @@ MODEL_FREE = os.getenv("MODEL_FREE", "anthropic/claude-sonnet-5-5")
 MODEL_PRO = os.getenv("MODEL_PRO", "anthropic/claude-opus-5-5")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "20000")) 
 BUILD_TIMEOUT = 170
-MOTION_MAX_TOKENS = int(os.getenv("MOTION_MAX_TOKENS", "10000"))   # ролик по контракту это ~350-450 строк кода: больше не нужно, дальше только трата денег
-MOTION_DEADLINE = int(os.getenv("MOTION_DEADLINE", "110"))         # общий предел времени на генерацию ролика, секунд
 
 # ВЕСА: 100 за новую сборку, 150 за правку
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
@@ -236,7 +234,6 @@ BUILD_WEIGHT_SIMPLE = int(os.getenv("BUILD_WEIGHT_SIMPLE", "60"))    # прос�
 BUILD_WEIGHT_MEDIUM = int(os.getenv("BUILD_WEIGHT_MEDIUM", "120"))   # приложение, калькулятор, дашборд, бот
 BUILD_WEIGHT_COMPLEX = int(os.getenv("BUILD_WEIGHT_COMPLEX", "180")) # игра, презентация, 3D, анимации
 BUILD_WEIGHT_BACKEND = int(os.getenv("BUILD_WEIGHT_BACKEND", "200"))  # проект с серверной частью: index.html + main.py
-BUILD_WEIGHT_MOTION = int(os.getenv("BUILD_WEIGHT_MOTION", "180"))    # моушен-ролик (видео-html): как игра / презентация
 
 # --- ПРОЕКТЫ С СЕРВЕРНОЙ ЧАСТЬЮ (админка, база данных, сервер, сохранение данных) ---
 NEEDS_BACKEND_RE = re.compile(r"админк\w*|баз\w*\s+данных|сервер\w*|сохранени\w*\s+данных", re.I)
@@ -314,7 +311,7 @@ def looks_like_edit(user_text: str) -> bool:
     """True, если сообщение — просьба изменить текущий проект (а не вопрос, не новая сборка и не обычный чат)."""
     t = (user_text or "").strip().lower()
     if not t or len(t) > 600: return False
-    if motion_strength(t) == 2: return False   # однозначно просят видео — это новая сборка, а не правка сайта
+    if video_strength(t) == 2: return False   # однозначно просят видео — это не правка сайта
     if "?" in t or BUILD_NEG_RE.search(t) or EDIT_NEW_PROJECT_RE.search(t): return False
     if re.match(r"\s*(?:как|что|чем|почему|зачем|где|когда|сколько|какой|какая|какие|какое|кто)\b", t): return False
     head = " ".join(t.split()[:8])  # глагол правки должен стоять в начале фразы
@@ -577,8 +574,8 @@ RULES = """
 14. Учитывай тип проекта из контекста: игра — на Netlify; бот — на GitHub + Render (с файлами main.py, requirements.txt, index.html); сайт — на Netlify (только index.html).
 
 ТВОИ ВОЗМОЖНОСТИ (знай их и отвечай уверенно; никогда не говори «я не умею», если умение есть в этом списке):
-- Студия: ты собираешь готовые проекты: сайты, лендинги, визитки, игры, приложения, калькуляторы, дашборды, презентации, 3D-сцены на Three.js (в том числе 3D-ролики), Telegram-ботов. Проекты с серверной частью (index.html + main.py: админка, база данных) доступны на платных тарифах. Готовый проект можно править дальше обычными сообщениями.
-- Видео: ты МОЖЕШЬ делать видео. Это моушен-ролики (анимированные ролики для TikTok, Shorts, Reels, интро, заставки): ты собираешь анимацию, а MP4 рендерится на устройстве пользователя. Доступно на платных тарифах. Если просят видео, отвечай «Да, сделаю» и попроси описать, что должно быть в ролике. Не умеешь только снимать или монтировать реальные съёмки и делать фотореалистичное видео.
+- Студия: ты собираешь готовые проекты: сайты, лендинги, визитки, игры, приложения, калькуляторы, дашборды, презентации, 3D-сцены на Three.js, Telegram-ботов. Проекты с серверной частью (index.html + main.py: админка, база данных) доступны на платных тарифах. Готовый проект можно править дальше обычными сообщениями.
+- Видео: ты НЕ умеешь создавать видео (ни ролики, ни клипы, ни анимацию для TikTok, Shorts, Reels, ни MP4). Если просят видео, коротко ответь: «Я не могу создавать видео». Можешь предложить сайт, игру, иллюстрацию или презентацию вместо этого.
 - Иллюстрации: можешь нарисовать схему, рисунок или показать «как это выглядит» (SVG/HTML-графика). Фотореалистичные картинки не генерируешь.
 - Фото и файлы: разбираешь фото, PDF, Word (.docx), Excel (.xlsx), текстовые файлы.
 - Хостинг: подсказываешь, как запустить проект (Netlify, Render, GitHub).
@@ -600,8 +597,8 @@ RULES = """
 У пользователя есть визуальный редактор для сайтов (visual.type === 'html'). Если он упёрся в лимит или не может сделать правку, проверь, есть ли у него сохранённый сайт:
 - Если сайт есть: предложи открыть «Редактор» под проектом. Там он бесплатно (без ИИ и лимитов) может менять цвета, добавлять блоки, править текст и удалять свои блоки.
 - Если сайта нет: скажи, что сначала нужно сгенерировать сайт (у бесплатного тарифа это его единственная бесплатная сборка), и только потом его можно настраивать в редакторе. Не отправляй в редактор того, у кого нет сайта.
-- Для видео (video-html) и игр редактора нет. Не отправляй туда пользователя. Правки только через чат (на Pro, после пополнения лимита, если он закончился).
-Если про сайт спрашивают «Как поменять цвет?», «Как добавить блок?», «Как убрать этот блок?», «Как изменить текст?», отвечай коротко: открой «Редактор» под проектом, там это делается в пару кликов без лимитов. Если спрашивают «Как изменить видео/игру?», отвечай: ручного редактора для них нет, правки только через чат.
+- Для игр редактора нет. Не отправляй туда пользователя. Правки только через чат (на Pro, после пополнения лимита, если он закончился).
+Если про сайт спрашивают «Как поменять цвет?», «Как добавить блок?», «Как убрать этот блок?», «Как изменить текст?», отвечай коротко: открой «Редактор» под проектом, там это делается в пару кликов без лимитов. Если спрашивают «Как изменить игру?», отвечай: ручного редактора для неё нет, правки только через чат.
 
 ПОИСК В ИНТЕРНЕТЕ: если в контексте есть результаты поиска, выжимай из них суть и отвечай фактами, своими словами: обобщай сниппеты, а не пересказывай их по очереди. Используй ТОЛЬКО их и не выдумывай факты. Не пиши, что ты видишь только выдержки, и не отправляй пользователя читать источники самому. Если поиск вернул пустоту, ответь одной короткой фразой: «Не нашёл актуальной информации в интернете», без просьб уточнить запрос и без оправданий.
 
@@ -623,7 +620,7 @@ VISUAL_RULES = """
 Формат ответа в этом режиме: {"text": "...", "emotion": "...", "visual": null или {"type": "...", "code": "..."}}.
 """
 
-# Визуальный редактор — только для сайтов. Игры и ролики помечаем флагом noedit: клиент прячет у них «Редактор».
+# Визуальный редактор — только для сайтов. Игры помечаем флагом noedit: клиент прячет у них «Редактор».
 _GAME_SCORE_RE = re.compile(r"score|сч[её]т|очк[иао]|game ?over|игра окончена|lives|жизни|restart|заново|начать игру", re.I)
 _GAME_LOOP_RE = re.compile(r"requestAnimationFrame|setInterval\s*\(", re.I)
 _GAME_INPUT_RE = re.compile(r"keydown|keyup|ArrowLeft|ArrowUp|touchstart|touchmove|pointerdown|mousemove", re.I)
@@ -636,35 +633,33 @@ def looks_like_game(code):
 def clean_visual(v, max_len=MAX_VISUAL_LEN):
     if not isinstance(v, dict): return None
     kind = v.get("type"); code = v.get("code")
-    if kind not in ("html", "svg", "video-html") or not isinstance(code, str): return None
+    if kind not in ("html", "svg") or not isinstance(code, str): return None
     code = code.strip()
     code = re.sub(r"^```[a-zA-Z]*\s*", "", code); code = re.sub(r"\s*```$", "", code)
     if not code or len(code) > max_len: return None
     out = {"type": kind, "code": code}
-    if kind == "html" and (looks_like_game(code) or motion_contract_ok(code)): out["noedit"] = True   # игра или ролик, пришедший как html
+    if kind == "html" and looks_like_game(code): out["noedit"] = True   # игра
     return out
 
 # ---------- ПОДСКАЗКИ ПРО ВИЗУАЛЬНЫЙ РЕДАКТОР: только для сайтов (visual.type == "html" без noedit) ----------
 def project_kind(lv):
-    """Какой проект сейчас у пользователя (из last_visual): site / video / game / other / none.
+    """Какой проект сейчас у пользователя (из last_visual): site / game / other / none.
     none = проекта нет (или это просто SVG-иллюстрация): подсказки про редактор не добавляем.
-    other = проект без редактора, но игра это или ролик, неизвестно (есть флаг noedit, а кода нет)."""
+    other = проект без редактора, тип неизвестен (есть флаг noedit, а кода нет)."""
     if not isinstance(lv, dict): return "none"
     t = lv.get("type")
-    if t == "video-html": return "video"
     if t != "html": return "none"
     code = lv.get("code")
     if isinstance(code, str) and code:
-        if motion_contract_ok(code): return "video"
         if looks_like_game(code): return "game"
         return "site"
     if lv.get("noedit"): return "other"
     return "site" if lv.get("pid") else "none"
 
 # Режимы подсказки: site (есть сайт: можно в редактор), nosite (бесплатник без сайта и с неиспользованной сборкой),
-# media (видео/игра: редактора нет), none (Pro без проекта в чате: ничего не добавляем)
+# media (игра: редактора нет), none (Pro без проекта в чате: ничего не добавляем)
 def editor_mode(conn, uid, kind, pro_active):
-    if kind in ("video", "game", "other"): return "media"
+    if kind in ("game", "other"): return "media"
     if kind == "site": return "site"
     if pro_active: return "none"
     # у бесплатника одна сборка: если она уже потрачена, сайт у него есть; если нет, сайта ещё нет
@@ -674,9 +669,9 @@ H_FREE_LIMIT_SITE = "Ты уже сделал сайт. Ты можешь про
 H_FREE_LIMIT_NOSITE = "Дневной лимит на чат закончился, но ты можешь потратить свою бесплатную сборку на создание сайта. После этого настраивай его в редакторе бесплатно."
 H_FREE_TRIAL_USED_SITE = "Бесплатная сборка у тебя уже использована. Но ты можешь продолжать настраивать свой текущий сайт в «Редакторе» бесплатно, или выбрать тариф для новой сборки."
 H_FREE_EDIT_SITE = "Если хочешь поправить сайт сам, без ИИ и без тарифа, нажми «Редактор» под проектом. Там доступны цвета, блоки и правка текста."
-H_MEDIA = "Ручного редактора для видео/игр нет, потому что это не блоки, а код и таймлайн. Правки только через чат."
+H_MEDIA = "Ручного редактора для игр нет, потому что это не блоки, а код. Правки только через чат."
 H_PRO_LIMIT_SITE = "Или настрой сайт сам в «Редакторе» без лимитов."
-H_PRO_LIMIT_MEDIA = "Правки видео/игр делаются через чат после пополнения лимита. Ручного редактора для них нет."
+H_PRO_LIMIT_MEDIA = "Правки игры делаются через чат после пополнения лимита. Ручного редактора для неё нет."
 PRO_LIMIT_TEXT = "Для этого нужно пополнить лимит тарифа. После пополнения напиши мне в чат, и я внесу правки."
 
 def with_editor_hint(text, mode, when, pro_active):
@@ -706,7 +701,7 @@ def editor_context_line(mode, pro_active):
     if mode == "site":
         return "\n\nКОНТЕКСТ: у пользователя есть сохранённый сайт. Для правок цветов, блоков и текста предлагай «Редактор» под проектом (бесплатно, без ИИ и лимитов)."
     if mode == "media":
-        return "\n\nКОНТЕКСТ: у пользователя сейчас видео или игра. Редактора для них нет, не отправляй в «Редактор». Правки только через чат" + (" после пополнения лимита." if pro_active else " на Pro.")
+        return "\n\nКОНТЕКСТ: у пользователя сейчас игра. Редактора для неё нет, не отправляй в «Редактор». Правки только через чат" + (" после пополнения лимита." if pro_active else " на Pro.")
     if mode == "nosite":
         return "\n\nКОНТЕКСТ: сохранённого сайта у пользователя ещё нет, а бесплатная сборка не потрачена. Не отправляй его в редактор. На вопросы про редактор отвечай: у тебя ещё нет сохранённого сайта; сначала сгенерируй его (это твоя бесплатная сборка), а потом сможешь настроить в редакторе."
     return "\n\nКОНТЕКСТ: сайта в чате не видно. Если спрашивают про редактор, скажи, что сначала нужно собрать сайт, а потом его можно настраивать в «Редакторе»."
@@ -1072,170 +1067,32 @@ def noun_led_intent(user_text):
     if GOAL_WEAK_RE.search(head): return NOUN_LED_WEAK if NOUN_LED_WEAK in ("ask", "build") else "ask"
     return None
 
-# ---------- МОУШЕН-ДИЗАЙН: ролики (visual.type = "video-html"), MP4 рендерится на устройстве пользователя ----------
-MOTION_PAYWALL_TEXT = "Моушен-ролики (видео для TikTok, Shorts, Reels) доступны на платных тарифах. Я собираю анимацию, а MP4 рендерится прямо на твоём устройстве."
+# ---------- ВИДЕО: бот видео создавать НЕ умеет, на такие просьбы сразу отвечает отказом (без списаний и без вызова нейросети) ----------
+VIDEO_REFUSAL_TEXT = "Я не могу создавать видео."
 # однозначные слова: это видео-запрос, даже если рядом есть слово «сайт»
-MOTION_HARD_RE = re.compile(r"моуш[еэ]н\w*|motion[\s-]?(?:design|graphics?)|тик-?ток\w*|tik-?tok|\bshorts?\b|\breels?\b|\bрилс\w*|\bmp4\b|\bролик(?:а|у|ом|е)?\b|видео-?ролик\w*|видео-?клип\w*", re.I)
-# слабые слова: «анимация», «видео», «интро» — видео-запрос, только если рядом нет слов про сайт/приложение («сайт с анимацией» остаётся сайтом)
-MOTION_SOFT_RE = re.compile(r"\bвидео\b|видос\w*|\bклип(?:а|у|ом|е|ы)?\b|анимаци\w*|анимированн\w*|\bинтро\b|\bаутро\b|\bintro\b|\boutro\b|заставк\w*|\bтитр\w*", re.I)
-MOTION_WEB_RE = re.compile(r"сайт|лендинг|landing|веб-?страниц|страниц[ауы]\b|приложени|\bигр[ауы]\b|мини-?игр|калькулятор|визитк|интерфейс|презентаци|слайд|дашборд|трекер|магазин|кнопк|меню|шапк|футер|\bблок", re.I)
+VIDEO_HARD_RE = re.compile(r"моуш[еэ]н\w*|motion[\s-]?(?:design|graphics?)|тик-?ток\w*|tik-?tok|\bshorts?\b|\breels?\b|\bрилс\w*|\bmp4\b|\bролик(?:а|у|ом|е)?\b|видео-?ролик\w*|видео-?клип\w*", re.I)
+# слабые слова: «видео», «клип» — видео-запрос, только если рядом нет слов про сайт/приложение («добавь видео на сайт» остаётся сайтом)
+VIDEO_SOFT_RE = re.compile(r"\bвидео\b|видос\w*|\bклип(?:а|у|ом|е|ы)?\b", re.I)
+VIDEO_WEB_RE = re.compile(r"сайт|лендинг|landing|веб-?страниц|страниц[ауы]\b|приложени|\bигр[ауы]\b|мини-?игр|калькулятор|визитк|интерфейс|презентаци|слайд|дашборд|трекер|магазин|кнопк|меню|шапк|футер|\bблок", re.I)
 
-def motion_strength(user_text):
-    """2 — однозначно просят видео/ролик; 1 — слабый признак (анимация, интро, видео) без слов про сайт или приложение; 0 — не про видео."""
+def video_strength(user_text):
+    """2 — однозначно просят видео/ролик; 1 — слабый признак («видео», «клип») без слов про сайт или приложение; 0 — не про видео."""
     t = (user_text or "").strip().lower()
     if not t or len(t) > 600: return 0
     if BUILD_NEG_RE.search(t) or BUILD_PROBLEM_RE.search(t): return 0
-    hard = bool(MOTION_HARD_RE.search(t)); soft = bool(MOTION_SOFT_RE.search(t))
+    hard = bool(VIDEO_HARD_RE.search(t)); soft = bool(VIDEO_SOFT_RE.search(t))
     if not (hard or soft): return 0
     if "?" in t and not (hard and BUILD_ACTION_RE.search(t)): return 0   # «Как скачать видео из тикток?» — обычный чат
-    if not hard and MOTION_WEB_RE.search(t): return 0
+    if not hard and VIDEO_WEB_RE.search(t): return 0
     head = " ".join(t.split()[:3])   # «Ролик для кофейни» (существительное-цель в начале) — тоже команда
-    if not (BUILD_ACTION_RE.search(t) or MOTION_HARD_RE.search(head) or MOTION_SOFT_RE.search(head)): return 0
+    if not (BUILD_ACTION_RE.search(t) or VIDEO_HARD_RE.search(head) or VIDEO_SOFT_RE.search(head)): return 0
     return 2 if hard else 1
 
-def is_motion_request(user_text):
-    return motion_strength(user_text) > 0
-
-# контракт рендера: без window.renderAt и #stage клиент не сможет снять ролик кадр в кадр, такой ответ считаем сбоем (возврат лимита)
-MOTION_CONTRACT_RE = re.compile(r"window\s*\.\s*renderAt\s*=|window\s*\[\s*['\"]renderAt['\"]\s*\]\s*=|function\s+renderAt\s*\(", re.I)
-MOTION_STAGE_RE = re.compile(r"id\s*=\s*[\"']?stage\b", re.I)
-def motion_contract_ok(code):
-    return isinstance(code, str) and bool(MOTION_CONTRACT_RE.search(code)) and bool(MOTION_STAGE_RE.search(code)) and "VIDEO" in code
-
-# ---------- ОГРАНИЧЕНИЯ РОЛИКОВ: что приложение реально умеет (до 15 секунд, без звука) ----------
-MOTION_AUDIO_RE = re.compile(r"озвучк|озвуч|голос|диктор|закадров|звуков\w* эффект|whoosh|свист|музык|саундтрек|\bзвук\w*", re.I)
-MOTION_SECS_RE = re.compile(r"(\d{1,3})(?:\s*[–—-]\s*(\d{1,3}))?\s*(сек|с\b|мин)", re.I)
-MOTION_FAIL_TEXT = "Не получилось снять ролик: он оказался слишком сложным. В приложении ролик до 15 секунд и без звука. Опиши короче: одна-две сцены и один герой. Списанное я вернул."
-
-def motion_limits_note(task):
-    """Если просят то, чего приложение не умеет (длиннее 15 с, озвучка и звук, много сцен), добавляем жёсткую заметку для модели:
-    иначе она пытается написать огромный код, упирается в лимит токенов, и деньги на API тратятся впустую."""
-    task = str(task or "")
-    secs = 0
-    for mm in MOTION_SECS_RE.finditer(task):
-        v = int(mm.group(2) or mm.group(1)) * (60 if mm.group(3).lower().startswith("мин") else 1)
-        secs = max(secs, v)
-    long_ = secs > 15
-    audio = bool(MOTION_AUDIO_RE.search(task))
-    scenes = len(re.findall(r"сцен[аы]?\s*\d", task, re.I))
-    if not (long_ or audio or scenes >= 4): return ""
-    parts = ["ОГРАНИЧЕНИЯ ПРИЛОЖЕНИЯ (важнее пожеланий пользователя, их нельзя обойти):"]
-    if long_: parts.append("- Длительность ролика не больше 15 секунд (duration не больше 15000). Пользователь просит дольше: сожми сюжет до самого главного.")
-    if audio: parts.append("- Звука нет вообще: приложение собирает MP4 без аудио. Озвучку, музыку и звуковые эффекты не делай. Вместо озвучки сделай крупные субтитры, синхронные с действием.")
-    if long_ or scenes >= 4: parts.append("- Сюжет сожми в 3–4 ключевые сцены. Героя рисуй простыми фигурами на canvas (круглая голова, глаза, тело) одной и той же функцией во всех сценах. Код не длиннее ~350 строк.")
-    parts.append("- В [[TEXT]] одной короткой фразой честно скажи, что учтено (например: до 15 секунд и без звука, озвучку заменили субтитрами).")
-    return "\n\n" + "\n".join(parts)
-
-MOTION_SYSTEM = r"""
-Ты — Holo в режиме МОУШЕН-ДИЗАЙНА: ведущий motion-дизайнер. Пользователь просит ролик, интро, анимацию для TikTok, YouTube Shorts или Reels. Ты делаешь анимацию на чистом HTML/CSS/JS (или canvas). Приложение само снимет её кадр за кадром и соберёт MP4 на устройстве пользователя после нажатия «Скачать».
-
-ПРАВИЛО О ПРОИСХОЖДЕНИИ: если спрашивают, какая ты модель, кто тебя создал или на чём ты работаешь, не называй никаких компаний и моделей (Anthropic, Claude, OpenAI, ChatGPT и т.п.). Ты — Holo. Ответь в [[TEXT]], что используешь лучшие доступные языковые модели и собственные алгоритмы, и предложи описать ролик.
-
-ЗАПРЕЩЁННЫЕ ТЕМЫ: накрутка отзывов, обман людей, скам, незаконное, а также сцены насилия, крови и убийств. Откажись и верни только:
-[[TEXT]]
-Я не создаю ролики на такие темы. Могу сделать анимацию на другую тему.
-[[EMOTION]]
-sad
-[[END]]
-Без [[HTML]] и без кода.
-
-ФОРМАТ ОТВЕТА (строго): [[TEXT]] 1–2 фразы: что за ролик, формат и длительность, и что для получения MP4 нужно нажать «Скачать» [[EMOTION]] happy [[HTML]] полный самодостаточный HTML-документ [[END]]. В [[TEXT]] нет кода. Никакого Python, moviepy, ffmpeg-команд и инструкций по рендеру: рендер делает приложение.
-
-ЖЁСТКИЙ КОНТРАКТ РЕНДЕРА (нарушение = ролик не снимется):
-1. Корневой элемент строго с id="stage". Режим canvas (РЕКОМЕНДУЕТСЯ: надёжнее и намного быстрее при экспорте): <canvas id="stage" width="1080" height="1920">. Режим DOM: <div id="stage"> с CSS width и height в px, position:absolute, left:0, top:0, overflow:hidden.
-2. Объяви настройки до всего остального: window.VIDEO = {width:1080, height:1920, fps:30, duration:8000, fonts:['800 120px Unbounded']}. duration в миллисекундах: 6000–12000, не больше 15000. fonts — шрифты, которые нужно загрузить до съёмки (в формате CSS font shorthand).
-3. Формат по умолчанию вертикальный 9:16 (1080x1920). Если пользователь явно просит 16:9 — 1920x1080, квадрат — 1080x1080.
-4. Определи window.renderAt = function(t){...}: t — время в миллисекундах от начала ролика. renderAt рисует ВЕСЬ кадр как ЧИСТУЮ ФУНКЦИЮ от t: сначала полностью очищает или перекрашивает фон, потом рисует всё остальное. Ничего не накапливай между вызовами (никаких x += v, никаких счётчиков и флагов), потому что хост вызывает кадры подряд, но может вызвать любой t в любом порядке.
-5. Предпросмотр запускай через requestAnimationFrame-цикл, который только вызывает renderAt((now - t0) % VIDEO.duration) и пропускает вызов, если window.__capture равен true (в этот момент хост сам вызывает renderAt для каждого кадра).
-6. ДЕТЕРМИНИЗМ: запрещены Math.random, Date.now, new Date, performance.now (кроме строки t0 в rAF-цикле), setTimeout/setInterval для анимации, CSS @keyframes, transition и animation. Случайность — только через сидированный генератор (mulberry32), частицы создаются один раз на старте из сида. Положение частицы, прозрачность, фаза считаются формулой от t.
-7. Ничего внешнего: без <img>, <video>, <audio>, iframe, fetch, localStorage. Разрешены только Google Fonts (<link> в <head>) и скрипты с cdnjs. Графику рисуй кодом: фигуры, градиенты, текст, частицы, SVG-инлайн.
-8. В режиме DOM html2canvas НЕ рисует: filter, backdrop-filter, mix-blend-mode, clip-path, mask, background-clip:text, 3D-transform. Для свечения и размытия в DOM используй box-shadow и text-shadow. В режиме canvas доступны shadowBlur, градиенты, globalCompositeOperation, но не ctx.filter (его нет в Safari).
-
-ДИЗАЙН (делай красиво, а не «как у всех»):
-- Easing вместо линейного движения: easeOutCubic, easeInOutCubic, easeOutBack, easeOutElastic. Все движения идут через seg(t, начало, конец) -> прогресс 0..1 -> easing.
-- Staggered-появление: слова и буквы входят по очереди со сдвигом 60–200 мс, каждое с лёгким въездом по Y, масштабом и ростом прозрачности. Заголовок не «выскакивает» разом.
-- Ритм: хук в первые 0.3 секунды (на экране уже есть движение), смены сцен каждые 2–3 секунды, финальная пауза не короче 0.6 секунды, лёгкий fade-out в последние 400–600 мс, чтобы ролик зацикливался красиво.
-- Слои: анимированный градиентный фон, 40–120 частиц или боке (мягкое свечение), 1–2 акцентные фигуры (линия, кольцо, блик), крупный заголовок, подзаголовок. Не более 2–3 основных цветов, один яркий акцент.
-- Шрифты Google Fonts с кириллицей: Unbounded, Montserrat, Rubik, Manrope, Oswald, Russo One, Playfair Display, Pacifico, Comfortaa. Заголовок 120–180px, жирный, подзаголовок 44–56px. Длинный текст переноси сам по measureText.
-- Безопасная зона для 9:16: важный текст и логотипы держи в x от 90 до 990 и y от 220 до 1500. Нижние ~380px и правые ~140px закрывает интерфейс TikTok/Shorts/Reels.
-- Язык надписей в ролике — язык пользователя (по умолчанию русский). Тексты берись из запроса, не выдумывай чужие бренды и телефоны.
-- Код компактный, до ~350 строк, в одном файле.
-
-3D В РОЛИКЕ (только если просят 3D-анимацию, объёмный логотип, вращающийся объект, 3D-интро; иначе делай 2D по правилам выше). Контракт рендера остаётся в силе целиком: #stage, window.VIDEO, window.renderAt как чистая функция от t, __capture, детерминизм. Дополнительно для 3D:
-1. #stage строго <canvas id="stage" width="W" height="H">, рисуем в него через WebGL. Three.js подключай только так: <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>. Другие CDN, import, OrbitControls, загрузчики моделей и текстур недоступны. На #stage нельзя вызывать getContext('2d') (контекст уже WebGL).
-2. Рендерер строго: new THREE.WebGLRenderer({canvas: document.getElementById('stage'), antialias: true, preserveDrawingBuffer: true}); renderer.setPixelRatio(1); renderer.setSize(VIDEO.width, VIDEO.height, false). Третий аргумент false обязателен (CSS-размер холста не трогаем), preserveDrawingBuffer: true обязателен (иначе кадр снимется пустым).
-3. Сцену, камеру, свет, геометрии и материалы создай ОДИН раз на старте. renderAt(t) только выставляет position, rotation, scale, цвет, интенсивность света и позицию камеры как ФОРМУЛЫ от t (с easing через seg), и вызывает renderer.render(scene, camera). Запрещены THREE.Clock, delta-time, rotation += ..., любые накопления между кадрами. Облёт камеры делай формулой от t.
-4. Объекты строй из примитивов (Box, Sphere, Cylinder, Torus, TorusKnot, Icosahedron, Plane, Group), свет: AmbientLight плюс DirectionalLight. Тени, постобработка и EffectComposer выключены. Свечение имитируй полупрозрачными Sprite или Mesh с additive blending. Частицы: THREE.Points или мелкие меши, позиции из mulberry32 на старте, движение формулой от t.
-5. Текст в 3D: рисуй его на обычном 2D-canvas (не на #stage) и клади на PlaneGeometry как THREE.CanvasTexture. Перерисуй этот canvas и поставь texture.needsUpdate = true внутри document.fonts.load(VIDEO.fonts[0]).then(...), чтобы шрифт успел загрузиться. Текст должен быть читаем и входить в безопасную зону 9:16.
-6. Лёгкая сцена: до 100 мешей, одна-две геометрии высокой детальности, остальные простые. Код до ~450 строк.
-
-ЭТАЛОН 3D-РОЛИКА (каркас Three.js, сделай своё под запрос):
-<canvas id="stage" width="1080" height="1920"></canvas>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-window.VIDEO={width:1080,height:1920,fps:30,duration:8000,fonts:['800 120px Unbounded']};
-const W=VIDEO.width,H=VIDEO.height,t0=performance.now();
-const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('stage'),antialias:true,preserveDrawingBuffer:true});
-renderer.setPixelRatio(1);renderer.setSize(W,H,false);renderer.setClearColor(0x0b0d14,1);
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(45,W/H,0.1,100);
-scene.add(new THREE.AmbientLight(0xffffff,0.5));
-const sun=new THREE.DirectionalLight(0xffffff,1);sun.position.set(3,5,4);scene.add(sun);
-const obj=new THREE.Mesh(new THREE.TorusKnotGeometry(1,0.32,160,24),new THREE.MeshStandardMaterial({color:0x6c8cff,metalness:0.6,roughness:0.25}));
-scene.add(obj);
-const ease=x=>1-Math.pow(1-x,3),seg=(t,a,b)=>Math.min(1,Math.max(0,(t-a)/(b-a)));
-window.renderAt=function(t){
-  const k=ease(seg(t,0,1200)),fade=1-seg(t,VIDEO.duration-500,VIDEO.duration);
-  obj.rotation.set(t*0.0006,t*0.0009,0);obj.scale.setScalar((0.2+0.8*k)*(0.7+0.3*fade));
-  camera.position.set(Math.sin(t*0.0004)*4,1.2,Math.cos(t*0.0004)*4);camera.lookAt(0,0,0);
-  renderer.render(scene,camera);
-};
-(function loop(now){if(!window.__capture)renderAt((now-t0)%VIDEO.duration);requestAnimationFrame(loop)})(t0);
-</script>
-
-ЭТАЛОН СТРУКТУРЫ (canvas). Это пример каркаса и приёмов, не копируй его содержание, сделай своё под запрос:
-<!doctype html>
-<html lang="ru"><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800&family=Manrope:wght@500&display=swap" rel="stylesheet">
-<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{display:block}</style></head>
-<body><canvas id="stage" width="1080" height="1920"></canvas>
-<script>
-window.VIDEO={width:1080,height:1920,fps:30,duration:8000,fonts:['800 150px Unbounded','500 52px Manrope']};
-const W=1080,H=1920,cv=document.getElementById('stage'),g=cv.getContext('2d');
-const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
-const seg=(t,a,b)=>clamp((t-a)/(b-a));
-const outBack=x=>1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);
-const inOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
-function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const R=rng(42),DOTS=Array.from({length:70},()=>({x:R()*W,y:R()*H,r:6+R()*26,v:30+R()*90,p:R()*6.28}));
-const WORDS=['СДЕЛАНО','В','HOLO'];
-window.renderAt=function(t){
-  const k=t/1000;
-  const bg=g.createLinearGradient(0,0,W*.6,H);
-  bg.addColorStop(0,'hsl('+(250+k*8)+',70%,12%)');bg.addColorStop(1,'hsl('+(300+k*8)+',75%,22%)');
-  g.globalAlpha=1;g.fillStyle=bg;g.fillRect(0,0,W,H);
-  for(const d of DOTS){const y=((d.y-d.v*k)%H+H)%H;g.globalAlpha=.10+.12*Math.sin(k*2+d.p);g.fillStyle='#ffd27a';g.beginPath();g.arc(d.x+Math.sin(k+d.p)*20,y,d.r,0,6.2832);g.fill();}
-  g.textAlign='center';g.textBaseline='middle';
-  const out=1-seg(t,7400,8000);
-  WORDS.forEach((w,i)=>{
-    const a=400+i*220,p=outBack(seg(t,a,a+700)),al=seg(t,a,a+250)*out;
-    g.save();g.globalAlpha=al;g.translate(W/2,760+i*190+(1-p)*120);g.scale(.8+.2*p,.8+.2*p);
-    g.font='800 150px Unbounded, sans-serif';g.shadowColor='rgba(255,210,122,.6)';g.shadowBlur=40;g.fillStyle='#fff';g.fillText(w,0,0);g.restore();
-  });
-  const lw=640*inOut(seg(t,1500,2300));
-  g.globalAlpha=out;g.fillStyle='#ffd27a';g.fillRect(W/2-lw/2,1380,lw,8);
-  g.globalAlpha=seg(t,2100,2700)*out;g.font='500 52px Manrope, sans-serif';g.fillStyle='#fff';g.fillText('Видео прямо в Telegram',W/2,1470);
-  g.globalAlpha=1;
-};
-const t0=performance.now();
-(function loop(now){if(!window.__capture)renderAt((now-t0)%VIDEO.duration);requestAnimationFrame(loop)})(t0);
-</script></body></html>
-"""
 
 def build_intent(user_text):
     """'build' — явная сборка (действие + существительное ИЛИ существительное-цель в начале: «Сайт для кафе»);
     'ask' — действие + прилагательное без существительного (неясно: собрать или совет); None — обычный чат."""
     if BUILD_NEG_RE.search(user_text): return None
-    if motion_strength(user_text): return "build"   # видео / моушен / тикток / ролик: полноценная сборка, не чат
     if not BUILD_ACTION_RE.search(user_text): return noun_led_intent(user_text)
     if BUILD_THING_RE.search(user_text): return "build"
     if BUILD_ADJ_RE.search(user_text): return "ask"
@@ -1357,9 +1214,9 @@ def user_name_line(first_name) -> str:
     name = re.sub(r"\s+", " ", name).strip()[:40]
     return f"\n\nСправка: пользователя зовут {name}. Используй имя только при крайней необходимости (первое приветствие, важное уточнение). В обычных ответах к пользователю по имени не обращайся." if name else ""
 
-def build_messages(user_content, history_text, current_code, needs_backend=False, user_name="", motion=False):
+def build_messages(user_content, history_text, current_code, needs_backend=False, user_name=""):
     task = content_to_text(user_content)
-    messages = [{"role": "system", "content": (MOTION_SYSTEM if motion else BUILD_SYSTEM + (BACKEND_SYSTEM_ADDON if needs_backend and not current_code else "")) + user_name_line(user_name)}]
+    messages = [{"role": "system", "content": (BUILD_SYSTEM + (BACKEND_SYSTEM_ADDON if needs_backend and not current_code else "")) + user_name_line(user_name)}]
     # правка: в модель идут только текущий код и последний запрос, история чата не нужна (экономия токенов)
     if history_text and not current_code: messages.append({"role": "user", "content": f"Контекст: предыдущие сообщения диалога:\n{history_text[-4000:]}"})
     if current_code:
@@ -1374,7 +1231,7 @@ def build_messages(user_content, history_text, current_code, needs_backend=False
             + ("Полный [[HTML]] — только если правка затрагивает почти весь файл или не получается точно найти место для правки." if len(current_code) <= BIG_CODE_NO_REWRITE
                else "Полный [[HTML]] ЗАПРЕЩЁН: файл большой. Отвечай только парами FIND/REPLACE.")})
     else:
-        messages.append({"role": "user", "content": f"ЗАДАЧА: {task}" + (motion_limits_note(task) if motion else "")})
+        messages.append({"role": "user", "content": f"ЗАДАЧА: {task}"})
     return messages
 
 def build_continue_messages(messages, raw):
@@ -1486,7 +1343,7 @@ def rewrite_messages(user_content, current_code, user_name=""):
                 "Формат строго [[TEXT]]..[[EMOTION]]..[[HTML]]..[[END]], без [[FIND]]/[[REPLACE]]. "
                 "Запрошенный эффект обязателен: не отказывайся от него и не подменяй его другим."}]
 
-def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False, motion=False):
+def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
     conn = renew_conn(conn)
     if current_code and is_diff_raw(raw):
         text, emotion, html, err = parse_diff_build(raw, current_code)
@@ -1503,11 +1360,8 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False, m
     visual = None
     if parsed:
         text, emotion, html = parsed
-        if motion:   # ролик: код без window.renderAt / #stage снять нельзя — считаем сбоем (сработает возврат лимита)
-            visual = clean_visual({"type": "video-html", "code": html}, MAX_BUILD_LEN) if motion_contract_ok(html) else None
-        else:
-            visual = clean_visual({"type": "html", "code": html}, (MAX_EDIT_CODE_LEN + 20_000) if current_code else MAX_BUILD_LEN)
-        if visual and watermark and not motion: visual = lock_visual(conn, uid, visual)  # бесплатный пользователь: код остаётся на сервере, наружу уходит только pid
+        visual = clean_visual({"type": "html", "code": html}, (MAX_EDIT_CODE_LEN + 20_000) if current_code else MAX_BUILD_LEN)
+        if visual and watermark: visual = lock_visual(conn, uid, visual)  # бесплатный пользователь: код остаётся на сервере, наружу уходит только pid
     if not parsed or not visual:
         if BUILD_VIOLENCE_REFUSAL_TEXT in (raw or ""):  # осознанный отказ, а не сбой: возвращаем всегда, не тратя бюджет возвратов
             refund_units(conn, uid, weight)
@@ -1520,29 +1374,27 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False, m
         log.error(f"Build failed to parse. Raw: {(raw or '')[:200]}")
         if current_code:  # правка: ясное сообщение вместо общей отписки
             return {"text": EDIT_FAIL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
-        if motion:   # ролик не вышел: говорим про реальные границы приложения вместо общего «попробуй проще»
-            return {"text": MOTION_FAIL_TEXT, "emotion": "sad", "pro": pro_safe(conn, uid)}
         return {**BUILD_FAIL, "pro": pro_safe(conn, uid)}
     if emotion not in EMOTIONS_OK: emotion = "happy"
-    text = text or ("Ролик готов! Нажми «Скачать», и MP4 соберётся прямо на твоём устройстве." if motion else "Готово! Смотри превью.")
+    text = text or "Готово! Смотри превью."
     if current_code and weight > 0:
         text = f"Правка применена. Списано {weight} {units_word(weight)}."
     return {"text": text, "emotion": emotion, "visual": visual, "charged": weight, "pro": pro_safe(conn, uid)}
 
-async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False, user_name="", motion=False):
+async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False, user_name=""):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
     model = model or get_model_for_user(uid, conn)
-    messages = build_messages(user_content, history_text, current_code, needs_backend, user_name, motion)
+    messages = build_messages(user_content, history_text, current_code, needs_backend, user_name)
     try:
-        resp = await client.with_options(timeout=(MOTION_DEADLINE if motion else BUILD_TIMEOUT)).chat.completions.create(
+        resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=EDIT_MAX_TOKENS if current_code else (MOTION_MAX_TOKENS if motion else BUILD_MAX_TOKENS),
+            max_tokens=EDIT_MAX_TOKENS if current_code else BUILD_MAX_TOKENS,
             temperature=EDIT_TEMPERATURE if current_code else 0.7
         )
         raw = resp.choices[0].message.content or ""
         # в правке авто-докрутку не делаем: оборванный полный файл = сбой, а не второй платный запрос
-        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code and not motion:   # у ролика обрыв = сбой: второй платный запрос не помог бы
+        if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code:
             log.warning("Код оборвался, запускаю авто-докрутку...")
             resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
                 model=model,
@@ -1569,7 +1421,7 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
     except Exception as e:
         log.exception("build request failed")
         return build_error_result(conn, uid, weight, e, current_code)
-    return finalize_build(conn, uid, raw, weight, current_code, watermark, motion)
+    return finalize_build(conn, uid, raw, weight, current_code, watermark)
 
 # ---------- СТРИМИНГ СБОРКИ ----------
 _TRAIL = "`\n\r\t "
@@ -1726,9 +1578,9 @@ _RE_STYLE  = re.compile(r"<style\b[^>]*>", re.I)
 _RE_SCRIPT = re.compile(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>", re.I)  # только inline, без src
 _RE_END    = re.compile(r"</html>", re.I)
 
-async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None, needs_backend=False, user_name="", motion=False):
+async def run_build_stream(conn, uid, user_content, history_text, current_code, weight, trial, watermark=False, model=None, needs_backend=False, user_name=""):
     """NDJSON-поток: {"t":"start"} {"t":"text","d"} {"t":"html","d"} ... {"t":"done"|"error", ...итог как у /ask}"""
-    messages = build_messages(user_content, history_text, current_code, needs_backend, user_name, motion)
+    messages = build_messages(user_content, history_text, current_code, needs_backend, user_name)
     parser = BuildStreamParser(patch=bool(current_code))
     st = {"raw": "", "hbuf": "", "last": time.monotonic(), "stage": -1, "tail": ""}
     done = False
@@ -1780,9 +1632,9 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
     try:
         yield _nd({"t": "start"})
         try:
-            async for d in _llm_stream(messages, model, edit=bool(current_code), max_tokens=(MOTION_MAX_TOKENS if motion else None), deadline=(MOTION_DEADLINE if motion else None)):
+            async for d in _llm_stream(messages, model, edit=bool(current_code)):
                 for b in handle(d): yield b
-            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]) and not current_code and not motion:
+            if "</html>" not in st["raw"].lower() and len(st["raw"]) > 100 and not is_diff_raw(st["raw"]) and not current_code:
                 log.warning("Код оборвался, запускаю авто-докрутку (stream)...")
                 async for d in _llm_stream(build_continue_messages(messages, st["raw"]), model):
                     for b in handle(d): yield b
@@ -1798,7 +1650,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
                 done = True
                 yield _nd({"t": "error", **res}); return
             log.warning("stream failed before first token, fallback to non-stream", exc_info=True)
-            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model, needs_backend=needs_backend, user_name=user_name, motion=motion), trial)
+            res = _trial_adjust(conn, uid, await run_build(conn, uid, user_content, history_text, current_code, weight, watermark, model=model, needs_backend=needs_backend, user_name=user_name), trial)
             done = True
             yield _nd({"t": "done" if res.get("visual") else "error", **res}); return
         if current_code and edit_needs_rewrite(st["raw"], current_code) and rewrite_allowed(conn, uid, current_code):
@@ -1821,7 +1673,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         for b in flush(): yield b
         if st["stage"] == 4:
             for b in status(5): yield b
-        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight, current_code, watermark, motion), trial)
+        res = _trial_adjust(conn, uid, finalize_build(conn, uid, st["raw"], weight, current_code, watermark), trial)
         done = True
         yield _nd({"t": "done" if res.get("visual") else "error", **res})
     finally:
@@ -2544,7 +2396,7 @@ async def ask(request: Request):
                 if len(imported) < MIN_IMPORT_LEN or not is_valid_html(imported):
                     return {"text": "Не похоже на HTML-проект. Пришли файл целиком.", "emotion": "sad", "pro": pro_pre}
                 return {"text": IMPORT_OK_TEXT, "emotion": "happy", "imported": True,
-                        "visual": {"type": "html", "code": imported, **({"noedit": True} if (looks_like_game(imported) or motion_contract_ok(imported)) else {})}, "pro": pro_pre}
+                        "visual": {"type": "html", "code": imported, **({"noedit": True} if looks_like_game(imported) else {})}, "pro": pro_pre}
         # ПРОДОЛЖЕНИЕ СБОРКИ: пользователь прислал только название («Шопи фай») в ответ на вопрос бота по запросу на сайт
         if not data.get("edit_project") and not att and not data.get("build_choice") and not build_intent(user_text) and is_bare_name(raw_text):
             prev_req = pending_build_request(history_text, raw_text)
@@ -2560,12 +2412,13 @@ async def ask(request: Request):
         edit_req = bool(data.get("edit_project"))
         # «умная» правка: кнопку не нажимали, но в последних сообщениях есть проект и просят его изменить
         has_project = isinstance(lv, dict) and lv.get("type") == "html" and bool(lv.get("pid") or lv.get("code"))
-        # МОУШЕН-ДИЗАЙН (видео/анимация/тикток/ролик): новая платная сборка на MODEL_PRO, не чат и не правка сайта.
-        # Слабое слово («анимация») при открытом сайте и фразе-правке («сделай анимацию плавнее») остаётся правкой.
-        _mstr = motion_strength(user_text)
+        # ВИДЕО: бот видео не создаёт. Отказ ДО списаний и до вызова модели, токены не тратятся.
+        # Фраза-правка открытого сайта со слабым словом («видео») остаётся правкой.
+        _vstr = video_strength(user_text)
         _looks_edit = (not edit_req) and (not att) and (not data.get("build_choice")) and has_project and looks_like_edit(user_text)
-        motion_req = (not edit_req) and (not att) and _mstr > 0 and data.get("build_choice") != "advice" and (_mstr == 2 or not _looks_edit)
-        auto_edit_cand = _looks_edit and not motion_req
+        if (not edit_req) and (not att) and _vstr > 0 and data.get("build_choice") != "advice" and (_vstr == 2 or not _looks_edit):
+            return {"text": VIDEO_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
+        auto_edit_cand = _looks_edit
         if auto_edit_cand and not pro_pre["active"]:
             return editor_paywall(conn, uid, proj_kind, EDIT_PRO_ONLY_TEXT, pro_pre, "edit")
         if isinstance(lv, dict) and lv.get("pid") and not lv.get("code") and (edit_req or auto_edit_cand) and pro_pre["active"]:
@@ -2616,14 +2469,12 @@ async def ask(request: Request):
                 return {"text": BUILD_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
             if is_violent_build(user_text):
                 return {"text": BUILD_VIOLENCE_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
-            is_realtime = (not is_edit) and (not motion_req) and bool(REALTIME_RE.search(user_text))
+            is_realtime = (not is_edit) and bool(REALTIME_RE.search(user_text))
             if is_edit:
                 try:
                     weight = calc_edit_weight(len(current_code))  # 30 / 35 / 50 / 80 / 120 по размеру кода
                 except ProjectTooLargeError as e:
                     return {"text": str(e), "emotion": "sad", "pro": pro_pre}  # до списаний
-            elif motion_req:
-                weight = BUILD_WEIGHT_MOTION   # 180: ролик
             elif is_realtime:
                 weight = BUILD_WEIGHT_COMPLEX  # мессенджер / WebSocket: сервер + интерфейс, самая дорогая сборка
             elif is_complex_request(user_text):
@@ -2635,14 +2486,12 @@ async def ask(request: Request):
             else:
                 weight = BUILD_WEIGHT_MEDIUM   # 120: приложение, калькулятор, дашборд, бот
             
-            needs_backend = (not is_edit) and (not motion_req) and bool(NEEDS_BACKEND_RE.search(user_text))
+            needs_backend = (not is_edit) and bool(NEEDS_BACKEND_RE.search(user_text))
             if needs_backend:
                 weight = BUILD_WEIGHT_BACKEND  # 200 вместо 60–120
 
             # ЗАЩИТА БЕСПЛАТНИКОВ: если сложный проект, не даем делать его бесплатно
             if not pro_pre["active"]:
-                if motion_req:  # видео только на платных: бесплатной пробной сборки нет (и код бесплатных клиенту не отдаётся)
-                    return JSONResponse({"text": MOTION_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 if needs_backend:  # два файла и сервер: бесплатной пробной сборки нет
                     return JSONResponse({"text": BACKEND_PAYWALL_TEXT, "emotion": "sleepy", "pro": pro_pre, "limit_reached": True}, status_code=402)
                 if is_realtime:  # бесплатной пробной сборки для мессенджеров нет
@@ -2738,7 +2587,7 @@ async def ask(request: Request):
         log.info("ask uid=%s weight=%s build=%s visual=%s search=%s history_len=%s", uid, weight, build_mode, visual_mode, search_mode, history_len)
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
-            build_model = MODEL_PRO if motion_req else get_model_for_user(uid, conn)   # ролик: принудительно платная модель
+            build_model = get_model_for_user(uid, conn)
             if trial:
                 # занимаем пробную попытку атомарно: из N параллельных запросов пройдёт один
                 cur = conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
@@ -2747,10 +2596,10 @@ async def ask(request: Request):
                     return editor_paywall(conn, uid, proj_kind, "Бесплатную пробную сборку ты уже использовал. Выбери тариф, чтобы продолжить.", pro, "trial_used", emotion="happy")
             if data.get("stream") is True:
                 return StreamingResponse(
-                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req),
+                    run_build_stream(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, trial, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name),
                     media_type="application/x-ndjson",
                     headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
-            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name, motion=motion_req)
+            res = await run_build(conn, uid, user_content, history_text, strip_watermark(current_code) if is_edit else None, weight, watermark=False, model=build_model, needs_backend=needs_backend, user_name=first_name)
             if res.get("visual") and needs_backend: res["needs_backend"] = True
             if trial:
                 if res.get("visual"):
