@@ -227,6 +227,52 @@ MODEL_PRO = os.getenv("MODEL_PRO", "anthropic/claude-opus-5-5")
 BUILD_MAX_TOKENS = int(os.getenv("BUILD_MAX_TOKENS", "20000")) 
 BUILD_TIMEOUT = 170
 
+# --- РАЗМЫШЛЕНИЕ (thinking) МОДЕЛИ ПРИ СБОРКЕ ---
+# Opus/Sonnet могли тратить весь лимит токенов на «мысли» и не писать код (finish_reason=length, text_tokens=0).
+# BUILD_THINKING: "off" (по умолчанию, размышление выключено) | число (бюджет токенов на размышление, напр. 2000) | "default" (не трогать, как у провайдера)
+BUILD_THINKING = os.getenv("BUILD_THINKING", "off").strip().lower()
+_thinking_rejected = False  # если провайдер отверг параметр thinking, больше его не шлём
+
+def _thinking_body():
+    if _thinking_rejected or BUILD_THINKING in ("", "default", "none"): return None, 0
+    if BUILD_THINKING in ("off", "0", "false", "disabled"): return {"thinking": {"type": "disabled"}}, 0
+    try: n = max(1024, int(BUILD_THINKING))
+    except ValueError: return {"thinking": {"type": "disabled"}}, 0
+    return {"thinking": {"type": "enabled", "budget_tokens": n}}, n
+
+async def _build_create(timeout, **kw):
+    """Вызов модели для сборки с управлением размышлением. Если провайдер не принял параметр thinking, повторяет без него."""
+    global _thinking_rejected
+    cli = client.with_options(timeout=timeout)
+    extra, budget = _thinking_body()
+    if not extra:
+        return await cli.chat.completions.create(**kw)
+    body = dict(kw, extra_body=extra)
+    if budget:
+        body["max_tokens"] = int(kw.get("max_tokens") or 0) + budget  # лимит ответа остаётся прежним, размышление сверху
+        body.pop("temperature", None)  # у Anthropic с включённым thinking температура фиксирована
+    try:
+        return await cli.chat.completions.create(**body)
+    except Exception as e:
+        if api_error_kind(e) or getattr(e, "status_code", None) not in (400, 422): raise
+        _thinking_rejected = True
+        log.error("Провайдер отверг параметр thinking (%s). Дальше шлю без него: размышление может тратить токены!", str(e)[:200])
+        return await cli.chat.completions.create(**kw)
+
+def _log_build_usage(resp, model):
+    """Пишет в лог расход токенов и причину остановки: сразу видно, если токены ушли в размышление."""
+    try:
+        ch = resp.choices[0]
+        u = getattr(resp, "usage", None)
+        det = getattr(u, "completion_tokens_details", None)
+        reasoning = getattr(det, "reasoning_tokens", None)
+        log.info("build usage model=%s finish=%s prompt=%s completion=%s reasoning=%s", model, getattr(ch, "finish_reason", None),
+                 getattr(u, "prompt_tokens", None), getattr(u, "completion_tokens", None), reasoning)
+        if getattr(ch, "finish_reason", None) == "length" and not (ch.message.content or "").strip():
+            log.error("build: модель упёрлась в лимит токенов, не написав ответа (reasoning=%s). Проверь BUILD_THINKING.", reasoning)
+    except Exception:
+        log.debug("usage log failed", exc_info=True)
+
 # ВЕСА: 100 за новую сборку, 150 за правку
 BUILD_WEIGHT = int(os.getenv("BUILD_WEIGHT", "100"))
 BUILD_WEIGHT_EDIT = int(os.getenv("BUILD_WEIGHT_EDIT", "150")) 
@@ -1386,17 +1432,18 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
     model = model or get_model_for_user(uid, conn)
     messages = build_messages(user_content, history_text, current_code, needs_backend, user_name)
     try:
-        resp = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+        resp = await _build_create(BUILD_TIMEOUT,
             model=model,
             messages=messages,
             max_tokens=EDIT_MAX_TOKENS if current_code else BUILD_MAX_TOKENS,
             temperature=EDIT_TEMPERATURE if current_code else 0.7
         )
         raw = resp.choices[0].message.content or ""
+        _log_build_usage(resp, model)
         # в правке авто-докрутку не делаем: оборванный полный файл = сбой, а не второй платный запрос
         if "</html>" not in raw.lower() and len(raw) > 100 and not is_diff_raw(raw) and not current_code:
             log.warning("Код оборвался, запускаю авто-докрутку...")
-            resp2 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+            resp2 = await _build_create(BUILD_TIMEOUT,
                 model=model,
                 messages=build_continue_messages(messages, raw),
                 max_tokens=BUILD_MAX_TOKENS,
@@ -1408,11 +1455,11 @@ async def run_build(conn, uid, user_content, history_text, current_code, weight,
             first_raw = raw
             try:
                 rw = rewrite_messages(user_content, current_code, user_name)
-                resp3 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+                resp3 = await _build_create(BUILD_TIMEOUT,
                     model=model, messages=rw, max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
                 raw = resp3.choices[0].message.content or ""
                 if "</html>" not in raw.lower() and len(raw) > 100:
-                    resp4 = await client.with_options(timeout=BUILD_TIMEOUT).chat.completions.create(
+                    resp4 = await _build_create(BUILD_TIMEOUT,
                         model=model, messages=build_continue_messages(rw, raw), max_tokens=BUILD_MAX_TOKENS, temperature=0.4)
                     raw = raw + (resp4.choices[0].message.content or "")
             except Exception:
@@ -1539,7 +1586,7 @@ def _nd(obj):
     return (json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
 async def _llm_stream(messages, model, edit=False, temperature=None, max_tokens=None, deadline=None):
-    stream = await client.with_options(timeout=(deadline or BUILD_TIMEOUT)).chat.completions.create(
+    stream = await _build_create((deadline or BUILD_TIMEOUT),
         model=model, messages=messages, max_tokens=(max_tokens or (EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS)),
         temperature=(temperature if temperature is not None else (EDIT_TEMPERATURE if edit else 0.7)), stream=True)
     t_end = time.monotonic() + deadline if deadline else None
@@ -1550,6 +1597,8 @@ async def _llm_stream(messages, model, edit=False, temperature=None, max_tokens=
             except Exception: pass
             break
         if not chunk.choices: continue
+        fr = getattr(chunk.choices[0], "finish_reason", None)
+        if fr == "length": log.warning("stream: ответ оборван лимитом токенов (finish_reason=length), model=%s", model)
         d = chunk.choices[0].delta.content
         if d: yield d
 
