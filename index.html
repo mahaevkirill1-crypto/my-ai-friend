@@ -1391,7 +1391,190 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     #splash .word { font-size: 14px; color: var(--ui-tx-lo); animation: splashWord .5s ease .6s forwards; }
     @keyframes spFill { from { transform: translateX(-42px); } to { transform: translateX(0); } }
     @media (prefers-reduced-motion: reduce) { #splash .sp-o, #splash .sp-f, #splash .sp-pl { animation: none; } #splash .sp-f { transform: none; } #splash .sp-pl { opacity: .5; } }
+/* ===== Prompt Box: поле ввода в стиле DesignBookmark (стили поверх, id и логика те же) ===== */
+:root:root:root:root body .input-container{background:transparent;padding:0;border-radius:24px;box-shadow:none}
+:root:root:root:root body .input-container:focus-within{background:transparent;box-shadow:none}
+:root:root:root:root body .input-inner{background:var(--cl-field);border-radius:24px;padding:10px 10px 10px 8px;gap:8px;align-items:flex-end}
+:root:root:root:root body #user-input{height:22px;min-height:22px;max-height:132px;padding:0;margin:0 0 5px;line-height:22px;font-size:16px;font-weight:400;box-shadow:none}
+:root:root:root:root body #att-btn{width:32px;height:32px;border-radius:50%;flex:none}
+:root:root:root:root body #att-btn svg{width:18px;height:18px}
+:root:root:root:root body #send-btn{width:32px;height:32px;padding:0;position:relative;border-radius:50%;background:var(--cl-acc);color:var(--cl-acc-fg);box-shadow:none;transition:background .2s ease,color .2s ease,transform .15s ease}
+:root:root:root:root body #user-input:placeholder-shown + #send-btn:not(.stop){background:var(--ui-line-hi);color:var(--ui-tx-lo)}
+#send-btn i{position:absolute;inset:0;display:grid;place-items:center;will-change:transform;transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+#send-btn .sb-a svg{width:16px;height:16px}
+#send-btn .sb-s{transform:scale(0)}
+#send-btn .sb-s::after{content:"";width:10px;height:10px;border-radius:2.5px;background:currentColor}
+#send-btn.stop .sb-a{transform:scale(0) rotate(90deg)}
+#send-btn.stop .sb-s{transform:scale(1)}
+/* ===== AI Loading State: «думает» ===== */
+.msg-row.stp .col{width:min(340px,100%)}
+.ail{--text:var(--ui-tx-hi);--text-2:var(--ui-tx-mid);--muted:var(--ui-tx-mid);--muted-2:var(--ui-tx-lo);--fill-2:var(--ui-line);--fill-3:var(--ui-line-hi);--red:#FF6B6B;--font:'Manrope',system-ui,sans-serif;padding:0 2px}
 </style>
+<script>
+(() => {
+  const CSS = `
+.ail{--c1:var(--text,#fff);--c2:var(--muted,#9a9a9a);--c3:var(--muted-2,#828282);--ln:var(--fill-3,rgba(255,255,255,.14));
+  width:100%;max-width:384px;font:14px/1.4 var(--font,Inter,system-ui,sans-serif);color:var(--c1);--ease:cubic-bezier(.23,1,.32,1)}
+.ail-h{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:4px 0;cursor:pointer;font-weight:500;color:var(--text-2,#ccc)}
+.ail-h:focus-visible{outline:2px solid var(--ln);border-radius:6px}
+.ail-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ail-s{color:var(--c3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ail-c{margin-left:auto;width:16px;height:16px;flex:none;color:var(--c3);transition:transform .2s var(--ease)}
+.ail.open .ail-c{transform:rotate(180deg)}
+.ail-body{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .25s var(--ease),opacity .25s var(--ease)}
+.ail.open .ail-body{grid-template-rows:1fr;opacity:1}
+.ail-list{list-style:none;margin:0;padding:0;overflow:hidden;min-height:0}
+.ail-li{position:relative;display:flex;gap:12px;padding-top:14px}
+.ail-ic{position:relative;width:16px;height:16px;flex:none;display:grid;place-items:center;color:var(--text-2,#ccc);animation:ail-in .18s var(--ease)}
+.ail-ic svg{width:14px;height:14px}
+.ail-ic .dot{width:6px;height:6px;border-radius:50%;background:var(--ln)}
+.ail-ic .spin{animation:ail-spin .8s linear infinite}
+.ail-ic .check{stroke-dasharray:1;stroke-dashoffset:1;animation:ail-draw .3s .05s var(--ease) forwards}
+.ail-li.error .ail-ic{color:var(--red,#ff5a5f)}
+.ail-rail{position:absolute;left:7.5px;top:34px;bottom:-10px;width:1px;background:var(--fill-2,rgba(255,255,255,.09))}
+.ail-rail::after{content:"";position:absolute;inset:0;background:var(--c3);transform:scaleY(0);transform-origin:top;transition:transform .5s var(--ease)}
+.ail-li.done .ail-rail::after{transform:scaleY(1)}
+.ail-main{flex:1;min-width:0;margin-top:-2px}
+.ail-row{display:flex;align-items:baseline;gap:8px}
+.ail-lb{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c3);transition:color .2s}
+.ail-li.running .ail-lb{color:var(--c1)}
+.ail-li.done .ail-lb{color:var(--c2)}
+.ail-li.error .ail-lb{color:var(--red,#ff5a5f)}
+.ail-tm{margin-left:auto;font-size:12px;color:var(--c3);font-variant-numeric:tabular-nums;animation:ail-in .2s var(--ease)}
+.ail-w{white-space:pre;animation:ail-wave 1.6s ease-in-out infinite both}
+.ail-log{margin-top:4px;height:0;overflow:hidden;font:12px/24px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--c2);transition:height .24s var(--ease)}
+.ail-log.fade{-webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.25),#000 70%);mask-image:linear-gradient(to bottom,rgba(0,0,0,.25),#000 70%)}
+.ail-ll{display:flex;gap:8px;height:24px;animation:ail-in .2s var(--ease)}
+.ail-ll b{width:16px;text-align:right;font-weight:400;color:var(--c3);opacity:.6}
+.ail-ll span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes ail-in{from{opacity:0;filter:blur(2px)}}
+@keyframes ail-spin{to{transform:rotate(360deg)}}
+@keyframes ail-draw{to{stroke-dashoffset:0}}
+@keyframes ail-wave{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.ail *{animation:none!important;transition:none!important}.ail-ic .check{stroke-dashoffset:0}}`;
+
+  const ICON = {
+    pending: '<i class="dot"></i>',
+    running: '<svg class="spin" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-opacity=".2" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 6.25 6.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    done: '<svg viewBox="0 0 16 16" fill="none"><path class="check" pathLength="1" d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    error: '<svg viewBox="0 0 16 16" fill="none"><path d="M4.5 4.5l7 7m0-7-7 7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>',
+  };
+  const CHEV = '<svg class="ail-c" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+  const LINE = 24, VISIBLE = 3;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const dur = s => (s < 60 ? s + 'с' : Math.floor(s / 60) + 'м ' + String(s % 60).padStart(2, '0') + 'с');
+  const stepTime = ms => (ms < 10000 ? (ms / 1000).toFixed(1) : Math.round(ms / 1000)) + 'с';
+
+  function mount(root) {
+    if (!document.getElementById('ail-css')) {
+      const st = document.createElement('style'); st.id = 'ail-css'; st.textContent = CSS; document.head.appendChild(st);
+    }
+    root.classList.add('ail', 'open');
+    root.innerHTML = '<button class="ail-h" type="button" aria-expanded="true"><output class="ail-t">Готовлюсь</output><span class="ail-s"></span>' + CHEV + '</button><div class="ail-body"><ol class="ail-list"></ol></div>';
+    const head = root.querySelector('.ail-h'), title = root.querySelector('.ail-t'),
+      side = root.querySelector('.ail-s'), list = root.querySelector('.ail-list');
+    const rows = new Map();
+    let steps = [], start = null, seconds = 0, timer = null, wasDone = false;
+
+    head.onclick = () => { const o = root.classList.toggle('open'); head.setAttribute('aria-expanded', o); };
+
+    function tick() { seconds = Math.floor((Date.now() - start) / 1000); paintHead(); }
+    function paintHead() {
+      const run = steps.find(s => s.status === 'running'), err = steps.find(s => s.status === 'error');
+      const done = steps.length > 0 && steps.every(s => s.status === 'done');
+      title.textContent = err ? 'Остановлено: ' + err.label : done ? (seconds > 0 ? 'Работал ' + dur(seconds) : 'Готово') : run ? run.label : 'Готовлюсь';
+      side.textContent = run ? dur(seconds) : done ? '· шагов: ' + steps.length : '';
+      return done;
+    }
+
+    function setLog(row, step) {
+      const lines = step.status === 'running' && step.detail ? step.detail : [];
+      const key = lines.length + '|' + (lines[lines.length - 1] || '');
+      if (row.logKey === key) return;
+      row.logKey = key;
+      const shown = lines.slice(-VISIBLE), first = lines.length - shown.length;
+      const prev = row.logCount || 0;
+      row.log.innerHTML = shown.map((l, i) => '<div class="ail-ll"' + (first + i >= prev ? '' : ' style="animation:none"') + '><b>' + (first + i + 1) + '</b><span>' + esc(l) + '</span></div>').join('');
+      row.logCount = lines.length;
+      row.log.style.height = shown.length * LINE + 'px';
+      row.log.classList.toggle('fade', lines.length > VISIBLE - 1);
+    }
+
+    function set(next) {
+      steps = next;
+      const now = Date.now();
+      const ids = new Set(next.map(s => s.id));
+      rows.forEach((r, id) => { if (!ids.has(id)) { r.li.remove(); rows.delete(id); } });
+
+      next.forEach((s, i) => {
+        let r = rows.get(s.id);
+        if (!r) {
+          const li = document.createElement('li');
+          li.className = 'ail-li';
+          li.innerHTML = '<span class="ail-rail"></span><span class="ail-ic"></span><div class="ail-main"><div class="ail-row"><p class="ail-lb" style="margin:0"></p><span class="ail-tm" hidden></span></div><div class="ail-log" aria-hidden="true"></div></div>';
+          r = { li, ic: li.querySelector('.ail-ic'), lb: li.querySelector('.ail-lb'), tm: li.querySelector('.ail-tm'), log: li.querySelector('.ail-log'), status: null, t0: 0 };
+          rows.set(s.id, r);
+        }
+        if (list.children[i] !== r.li) list.insertBefore(r.li, list.children[i] || null);
+        r.li.querySelector('.ail-rail').hidden = i === next.length - 1;
+
+        if (r.status !== s.status) {
+          if (s.status === 'running') { r.t0 = now; r.tm.hidden = true; }
+          if (s.status === 'pending') r.tm.hidden = true;
+          if ((s.status === 'done' || s.status === 'error') && r.status !== null) {
+            if (!r.t0) r.t0 = now;
+            r.tm.textContent = stepTime(now - r.t0); r.tm.hidden = false;
+          }
+          r.status = s.status;
+          r.li.className = 'ail-li ' + s.status;
+          r.ic.innerHTML = ICON[s.status];
+          r.ic.style.animation = 'none'; void r.ic.offsetWidth; r.ic.style.animation = '';
+          r.lb.innerHTML = s.status === 'running'
+            ? Array.from(s.label).map((c, k) => '<span class="ail-w" style="animation-delay:' + k * 0.05 + 's">' + esc(c) + '</span>').join('')
+            : esc(s.label);
+          r.lb.setAttribute('aria-label', s.label);
+        }
+        setLog(r, s);
+      });
+
+      const active = next.some(s => s.status === 'running');
+      if (active && !timer) {
+        if (wasDone || start === null) { start = Date.now(); wasDone = false; }
+        tick(); timer = setInterval(tick, 500);
+      } else if (!active && timer) { clearInterval(timer); timer = null; }
+
+      const done = paintHead();
+      if (done && !wasDone) { wasDone = true; root.classList.remove('open'); head.setAttribute('aria-expanded', 'false'); }
+      if (!done && wasDone && active) { root.classList.add('open'); head.setAttribute('aria-expanded', 'true'); }
+    }
+
+    return { set, el: root, destroy() { clearInterval(timer); root.innerHTML = ''; } };
+  }
+
+  /* Демо-прогон по кругу, как в оригинале. Возвращает функцию остановки. */
+  function demo(handle) {
+    const D = [
+      { id: 'search', label: 'Ищу в интернете', detail: ['запрос: loading states', 'открываю 5 сайтов', 'читаю emilkowal.ski', 'читаю developer.apple.com'] },
+      { id: 'read', label: 'Читаю 4 источника', detail: ['достаю ключевые места', 'убираю дубликат', 'сортирую по важности'] },
+      { id: 'compare', label: 'Сравниваю подходы', detail: ['спиннеры и списки шагов', 'прогресс, который видно'] },
+      { id: 'write', label: 'Пишу ответ', detail: ['черновик, 3 раздела'] },
+    ];
+    let step = 0, line = 0, id;
+    const paint = () => handle.set(D.map((s, i) => i < step ? { ...s, status: 'done' } : i === step ? { ...s, status: 'running', detail: s.detail.slice(0, line) } : { ...s, status: 'pending' }));
+    const next = () => {
+      if (step >= D.length) { step = 0; line = 0; }
+      else if (line < D[step].detail.length) line++;
+      else { step++; line = 0; }
+      paint();
+      id = setTimeout(next, step >= D.length ? 3200 : 750);
+    };
+    paint(); id = setTimeout(next, 750);
+    return () => clearTimeout(id);
+  }
+
+  window.AILoading = { mount, demo };
+})();
+</script>
 </head>
 <body>
 <script>
@@ -3494,66 +3677,60 @@ chatHistory.addEventListener('scroll', updDown, { passive: true });
 new MutationObserver(() => setTimeout(updDown, 120)).observe(chatHistory, { childList: true });
 downBtn.addEventListener('click', () => { userScrolled = false; stick = true; chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }); });
 if (window.ResizeObserver) new ResizeObserver(() => { syncBody(); if (stick && !userScrolled) chatHistory.scrollTop = chatHistory.scrollHeight; }).observe($('hud-panel'));
-let typingRow = null, typingT = 0, typingSlowT = [], stepsMode = false, stT0 = 0;
+let typingRow = null, typingT = 0, typingSlowT = [], stepsMode = false, stT0 = 0, aiL = null, aiSteps = [];
 const SLOW_AFTER = 15000, SLOWER_AFTER = 45000;   // через сколько мс менять текст ожидания
+const aiLabel = s => String(s).replace(/\.{2,}$/, '').replace(/…$/, '');
+function aiPaint(){ if (aiL) aiL.set(aiSteps.map(s => ({ id: s.id, label: s.label, status: s.status }))); }
 function showTyping(stages, ms, slowText){
     hideTyping();
     const list = stages && stages.length ? stages : ['Анализирую...', 'Думаю над ответом...', 'Формулирую...'];
-    const row = document.createElement('div'); row.className = 'msg-row bot thk';
-    row.innerHTML = '<div class="avatar thinking">' + (char === 'astro' ? '<span>🧑‍🚀</span>' : THINK_ICON) + '</div><div class="col"><div class="message think"><span class="shimmer stg"></span></div></div>';
-    const sp = row.querySelector('.shimmer'); let n = 0; sp.textContent = list[0];
-    typingT = setInterval(() => { if (n < list.length - 1){ n++; sp.textContent = list[n]; sp.classList.remove('stg'); void sp.offsetWidth; sp.classList.add('stg'); } }, ms || 2500);
-    chatHistory.appendChild(row); smoothBottom(); typingRow = row;
+    const row = document.createElement('div'); row.className = 'msg-row bot stp';
+    row.innerHTML = '<div class="col"><div class="ail-host"></div></div>';
+    chatHistory.appendChild(row); typingRow = row;
+    aiL = AILoading.mount(row.querySelector('.ail-host'));
+    aiSteps = list.map((l, i) => ({ id: 'f' + i, label: aiLabel(l), status: i === 0 ? 'running' : 'pending' }));
+    aiPaint();
+    let n = 0;
+    typingT = setInterval(() => { if (n < aiSteps.length - 1){ aiSteps[n].status = 'done'; n++; aiSteps[n].status = 'running'; aiPaint(); } }, ms || 2500);
+    smoothBottom();
 
-    // запрос идёт долго: меняем текст .shimmer на более понятный (или подсказку под шагами, если сервер присылает реальные статусы)
+    // запрос идёт долго: подсказка под списком шагов
     const say = text => {
         if (typingRow !== row) return;            // запрос уже завершён
         clearInterval(typingT);                   // больше не листаем этапы
-        const shim = row.querySelector('.shimmer'), bar = row.querySelector('.stbar');
-        if (shim){ shim.textContent = text; shim.classList.remove('stg'); void shim.offsetWidth; shim.classList.add('stg'); }
-        else if (bar){ let h = bar.querySelector('.st-slow'); if (!h){ h = document.createElement('div'); h.className = 'st-slow'; bar.appendChild(h); } h.textContent = text; }
+        let h = row.querySelector('.st-slow');
+        if (!h){ h = document.createElement('div'); h.className = 'st-slow'; row.querySelector('.col').appendChild(h); }
+        h.textContent = text;
     };
     typingSlowT = [
         setTimeout(() => say(slowText || 'Чуть дольше обычного, подожди…'), SLOW_AFTER),
         setTimeout(() => say('Всё ещё работаю, спасибо за терпение…'), SLOWER_AFTER)
     ];
 }
-function hideTyping(){ clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; stepsMode = false; if (typingRow){ typingRow.remove(); typingRow = null; } }
-// ---- сводка действий: реальные этапы сборки списком, выполненные с галочкой ----
-const ST_CK = '<svg class="st-ck" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>';
-function stepRow(label){
-    const r = document.createElement('div'); r.className = 'st-row now'; r.dataset.t = label;
-    r.innerHTML = '<i class="st-dot"></i><span></span>'; r.lastChild.textContent = label.replace(/\.{2,}$/, '');
-    return r;
+function hideTyping(){
+    clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; stepsMode = false;
+    if (aiL){ aiL.destroy(); aiL = null; } aiSteps = [];
+    if (typingRow){ typingRow.remove(); typingRow = null; }
 }
-function stepDone(r){ r.classList.remove('now'); r.classList.add('done'); const d = r.querySelector('.st-dot'); if (d) d.outerHTML = ST_CK; }
-function startSteps(){
-    typingRow.className = 'msg-row bot stp';
-    typingRow.innerHTML = '<div class="col"><div class="stbar" role="status" aria-live="polite"></div></div>';
-    stepsMode = true; stT0 = Date.now();
-}
+// ---- реальные этапы от сервера: список шагов, выполненные с галочкой ----
 function setTypingStatus(s){
     clearInterval(typingT);  // выключаем «фейковые» этапы по таймеру
-    if (!typingRow) return;
-    if (!stepsMode) startSteps();
-    const bar = typingRow.querySelector('.stbar'), rows = bar.querySelectorAll('.st-row');
-    if (rows.length && rows[rows.length - 1].dataset.t === s) return;
-    rows.forEach(stepDone);
-    bar.insertBefore(stepRow(s), bar.querySelector('.st-slow'));   // подсказка о долгом ожидании остаётся внизу
+    if (!typingRow || !aiL) return;
+    if (!stepsMode){ stepsMode = true; stT0 = Date.now(); aiSteps = []; }
+    const label = aiLabel(s), last = aiSteps[aiSteps.length - 1];
+    if (last && last.label === label) return;
+    aiSteps.forEach(x => { x.status = 'done'; });
+    aiSteps.push({ id: 'r' + aiSteps.length, label, status: 'running' });
+    aiPaint();
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
-function finishSteps(){   // успех: все шаги с галочкой, плашка остаётся в чате одной строкой (по тапу раскрывается)
-    const row = typingRow, bar = row && row.querySelector('.stbar');
+function finishSteps(){   // успех: все шаги с галочкой, список сворачивается в «Работал N с · шагов: N» (по тапу раскрывается)
+    const row = typingRow;
     clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; typingRow = null; stepsMode = false;
-    if (!bar) return;
-    const slowEl = bar.querySelector('.st-slow'); if (slowEl) slowEl.remove();
-    const rows = bar.querySelectorAll('.st-row'); rows.forEach(stepDone);
-    const sec = Math.max(1, Math.round((Date.now() - stT0) / 1000));
-    const sum = document.createElement('button'); sum.type = 'button'; sum.className = 'st-sum';
-    sum.innerHTML = ST_CK + '<span></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-    sum.querySelector('span').textContent = 'Готово · шагов: ' + rows.length + ' · ' + sec + ' с';
-    sum.addEventListener('click', () => bar.classList.toggle('open'));
-    bar.insertBefore(sum, bar.firstChild); bar.classList.add('fin');
+    if (!row || !aiL) return;
+    const slowEl = row.querySelector('.st-slow'); if (slowEl) slowEl.remove();
+    aiSteps.forEach(x => { x.status = 'done'; });
+    aiPaint(); aiL = null; aiSteps = [];
 }
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 const refOk = () => !!(tg && tg.initData);
@@ -4243,11 +4420,10 @@ function addEditorBtn(){
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 const SEND_ICON = sendBtn.innerHTML;
-const STOP_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
+sendBtn.innerHTML = '<i class="sb-a">' + SEND_ICON + '</i><i class="sb-s"></i>';   // стрелка и «стоп» лежат слоями и перетекают друг в друга
 let sendAbort = null;
 function setStopMode(on){
     sendBtn.classList.toggle('stop', on);
-    sendBtn.innerHTML = on ? STOP_ICON : SEND_ICON;
     sendBtn.setAttribute('aria-label', on ? 'Остановить' : 'Отправить');
     sendBtn.disabled = false;
 }
@@ -4588,7 +4764,26 @@ async function sendMessage(text, opts) {
 }
 sendBtn.addEventListener('click', () => { if (isSending){ if (sendAbort) sendAbort.abort(); return; } sendMessage(input.value.trim()); });  // во время запроса кнопка = «Остановить»
 input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 2000'; });
-function autoGrow(){ input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 132) + 'px'; }
+function autoGrow(){   // высота поля растёт на пружине (как в Prompt Box)
+    const G = autoGrow._g || (autoGrow._g = { x: 0, v: 0, t: 0, run: false, last: 0 });
+    const cur = input.offsetHeight;
+    input.style.height = 'auto';
+    const target = Math.min(input.scrollHeight, 132);
+    if (!cur || matchMedia('(prefers-reduced-motion: reduce)').matches){ G.run = false; input.style.height = target + 'px'; return; }
+    if (!G.run){ G.x = cur; G.v = 0; }
+    input.style.height = G.x.toFixed(1) + 'px';
+    G.t = target;
+    if (G.run) return;
+    G.run = true; G.last = performance.now();
+    const tick = now => {
+        const dt = Math.min((now - G.last) / 1000, 1 / 30); G.last = now;
+        for (let i = 0; i < 4; i++){ const a = -420 * (G.x - G.t) - 34 * G.v; G.v += a * dt / 4; G.x += G.v * dt / 4; }
+        if (Math.abs(G.x - G.t) < .4 && Math.abs(G.v) < 2){ G.run = false; input.style.height = G.t + 'px'; return; }
+        input.style.height = G.x.toFixed(2) + 'px';
+        requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+}
 input.addEventListener('input', autoGrow);
 [sendBtn, $('att-btn')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
 input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
