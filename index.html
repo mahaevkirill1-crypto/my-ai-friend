@@ -694,31 +694,17 @@
     .pw-cta:focus-visible { outline: 2px solid var(--ui-tx-mid); outline-offset: 2px; }
     .pw-cta.is-done { background: var(--pw-green); color: var(--pw-ink); }
     .pw-cta.is-off { background: var(--cl-btn); color: var(--ui-tx-lo); cursor: default; }
+.pw-per { white-space: nowrap; }
+.pw-cursw { position: relative; display: inline-flex; margin-left: auto; align-self: center; padding: 3px; border-radius: 999px; background: var(--cl-btn); }
+.pw-cursw button { position: relative; z-index: 1; width: 36px; height: 30px; padding: 0; border: 0; background: none; border-radius: 999px; font-size: 15px; font-weight: 700; color: var(--ui-tx-lo); cursor: pointer; transition: color .25s !important; }
+.pw-cursw button[aria-checked="true"] { color: var(--ui-tx-hi); }
+.pw-cursw button:focus-visible { outline: 2px solid var(--ui-tx-mid); outline-offset: -2px; }
+.pw-cs-hl { position: absolute; left: 3px; top: 3px; width: 36px; height: 30px; border-radius: 999px; background: var(--cl-acc-soft); transition: transform .45s cubic-bezier(.34,1.56,.64,1); }
+.pw-cursw[data-c="XTR"] .pw-cs-hl { transform: translateX(36px); }
     .pw-cta-in { position: absolute; inset: 0; }
     .pw-cta-in > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; will-change: transform, opacity; }
     .pw-spin { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 25%, currentColor); -webkit-mask: radial-gradient(circle, transparent 8px, #000 8.5px); mask: radial-gradient(circle, transparent 8px, #000 8.5px); }
     .pw-cta svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-    /* ---- Нижняя шторка выбора способа оплаты ---- */
-    .pay-sheet { position: fixed; inset: 0; z-index: 1250; visibility: hidden; pointer-events: none; transition: visibility 0s linear .3s; }
-    .pay-sheet.open { visibility: visible; pointer-events: auto; transition: visibility 0s; }
-    .pay-bg { position: absolute; inset: 0; background: rgba(2,3,8,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .3s ease; }
-    .pay-sheet.open .pay-bg { opacity: 1; }
-    .pay-box { position: absolute; left: 0; right: 0; bottom: 0; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); background: var(--cl-card, var(--ui-bg-1, #2A2B2F)); border: 1px solid var(--ui-line-hi, rgba(255,255,255,.16)); border-bottom: 0; border-radius: 26px 26px 0 0; box-shadow: 0 -18px 50px rgba(0,0,0,.55); transform: translateY(105%); transition: transform .32s cubic-bezier(.2,.8,.2,1); font-family: 'Manrope', system-ui, sans-serif; }
-    .pay-sheet.open .pay-box { transform: none; }
-    .pay-grab { width: 40px; height: 4px; border-radius: 4px; background: var(--ui-line-hi, rgba(255,255,255,.2)); margin: 0 auto 6px; }
-    .pay-title { margin: 2px 0 0; text-align: center; font-size: 20px; font-weight: 700; color: var(--ui-tx-hi, #EAF0FA); }
-    .pay-sub { margin: 0 0 4px; text-align: center; font-size: 14px; color: var(--ui-tx-mid, #A7B4CC); }
-    .pay-opt { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 68px; padding: 12px 16px; border-radius: 18px; border: 1px solid var(--ui-line-hi, rgba(255,255,255,.16)); background: var(--ui-bg-3, #34353A); color: var(--ui-tx-hi, #EAF0FA); font-family: inherit; text-align: left; cursor: pointer; transition: transform .15s ease, border-color .2s ease; -webkit-tap-highlight-color: transparent; }
-    .pay-opt:active { transform: scale(.98); }
-    .pay-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,.08); color: inherit; }
-    .pay-ic svg { width: 24px; height: 24px; display: block; flex: none; }
-    .pay-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    .pay-tx b { font-size: 16px; font-weight: 700; }
-    .pay-tx small { font-size: 12.5px; color: var(--ui-tx-mid, #A7B4CC); }
-    .pay-pr { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .pay-pr svg { width: 16px; height: 16px; display: block; flex: none; }
-    .pay-cancel { height: 52px; border: 0; border-radius: 16px; background: transparent; color: var(--ui-tx-mid, #A7B4CC); font: 600 16px 'Manrope', system-ui, sans-serif; cursor: pointer; }
-    .pay-cancel:active { background: rgba(255,255,255,.06); }
     #pro .ps-msg { margin: 0; text-align: center; }
 
     /* ДУМАЕТ: ровный индикатор действий и живая иконка бота */
@@ -1823,7 +1809,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
       <div class="pw-seg" role="radiogroup" aria-label="Тариф" id="pw-seg"><span class="pw-hl" id="pw-hl" aria-hidden="true"></span></div>
       <div class="pw-plan">
         <div class="pw-name"><span id="pw-pname"></span><span class="pw-chip" id="pw-chip"></span></div>
-        <div class="pw-price"><span class="pw-cur" id="pw-cur">₽</span><span class="pw-num" id="pw-price" aria-hidden="true"></span><span class="pw-per" id="pw-per"></span></div>
+        <div class="pw-price"><span class="pw-cur" id="pw-cur">₽</span><span class="pw-num" id="pw-price" aria-hidden="true"></span><span class="pw-per" id="pw-per"></span><div class="pw-cursw" id="pw-cursw" role="radiogroup" aria-label="Валюта" data-c="RUB"><span class="pw-cs-hl" aria-hidden="true"></span><button type="button" role="radio" data-c="RUB" aria-checked="true" aria-label="Рубли">₽</button><button type="button" role="radio" data-c="XTR" aria-checked="false" aria-label="Звёзды Telegram">⭐</button></div></div>
         <div class="pw-bill pw-rl" id="pw-bill" aria-live="polite"></div>
       </div>
       <ul class="pw-feats">
@@ -1839,26 +1825,6 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <div id="pro-msg" class="ps-msg"></div>
     <button class="pl-alt" id="pro-later" type="button">Остаться на Free</button>
     <div class="pl-note">*Оплата картой или звёздами Telegram. При пополнении лимит и срок суммируются.</div>
-  </div>
-</div>
-
-<div id="pay-sheet" class="pay-sheet" role="dialog" aria-modal="true" aria-labelledby="pay-title" aria-hidden="true">
-  <div class="pay-bg" id="pay-bg"></div>
-  <div class="pay-box">
-    <div class="pay-grab"></div>
-    <h3 class="pay-title" id="pay-title">Способ оплаты</h3>
-    <p class="pay-sub" id="pay-sub"></p>
-    <button type="button" class="pay-opt" id="pay-rub">
-      <span class="pay-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M7 15h3"/></svg></span>
-      <span class="pay-tx"><b>Оплатить картой</b><small>Банковская карта</small></span>
-      <span class="pay-pr" id="pay-rub-pr"></span>
-    </button>
-    <button type="button" class="pay-opt" id="pay-xtr">
-      <span class="pay-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5z"/></svg></span>
-      <span class="pay-tx"><b>Оплатить звездами</b><small>Telegram Stars</small></span>
-      <span class="pay-pr" id="pay-xtr-pr"></span>
-    </button>
-    <button type="button" class="pay-cancel" id="pay-cancel">Отмена</button>
   </div>
 </div>
 
@@ -3835,6 +3801,10 @@ function curPlanId(){ if (!PRO.active) return ''; const p = (PRO.plans || []).fi
 // Подсветка вкладки растягивается: передний край жёсткий, задний мягкий. Цена катится барабанами, строки и кнопка тоже.
 var PW = (function(){
     const root = $('pw'); if (!root) return null;
+    // валюта оплаты: ₽ (карта) или ⭐ (звёзды); показываем цену только в выбранной
+    let payCur = 'RUB'; try { payCur = localStorage.getItem('paycur') === 'XTR' ? 'XTR' : 'RUB'; } catch (e) {}
+    const hasRub = () => (PRO.plans || []).some(x => x.price_rub);
+    const curOf = p => (payCur === 'RUB' && hasRub() && (p.free || p.price_rub)) ? 'RUB' : 'XTR';
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const S = (x, k = 400, c = 30) => ({ x, v: 0, t: x, k, c });
     const tune = (s, k, c) => { s.k = k; s.c = reduce ? 2 * Math.sqrt(k) : c; };
@@ -3929,7 +3899,21 @@ var PW = (function(){
         if (s === 'busy'){ CW.t = 0; btn.set(key, '<span class="pw-spin" aria-hidden="true"></span>'); cta.setAttribute('aria-label', 'Открываю оплату'); }
         if (s === 'done'){ CW.t = 1; CP.x = .92; btn.set(key, CHECK + flashText); cta.setAttribute('aria-label', flashText); }
     }
+    const csw = $('pw-cursw'), csb = csw ? csw.querySelectorAll('button') : [];
+    function syncCur(){
+        if (!csw) return;
+        csw.style.display = hasRub() ? '' : 'none';
+        const on = curOf({ free: true }) === 'RUB' ? 'RUB' : 'XTR'; csw.dataset.c = on;
+        csb.forEach(b => b.setAttribute('aria-checked', b.dataset.c === on));
+    }
+    csb.forEach(b => b.addEventListener('click', () => {
+        if (payCur === b.dataset.c) return;
+        payCur = b.dataset.c; try { localStorage.setItem('paycur', payCur); } catch (e) {}
+        if (typeof tap === 'function') try { tap(); } catch (e) {}
+        render();
+    }));
     function render(snap){
+        syncCur();
         const pl = list(), sig = pl.map(p => p.id).join();
         if (sig !== lastSig){ lastSig = sig; buildSeg(pl); built = false; }
         let i = pl.findIndex(p => p.id === plTab);
@@ -3940,15 +3924,15 @@ var PW = (function(){
         tune(L, ...(right ? TRAIL : LEAD)); tune(R, ...(right ? LEAD : TRAIL));
         place(first);
         const mine = p.free ? !PRO.active : (PRO.active && curPlanId() === p.id);
-        const rub = !p.free && p.price_rub, main = p.free ? 0 : (rub ? p.price_rub : p.price);
+        const rub = curOf(p) === 'RUB', main = p.free ? 0 : (rub ? p.price_rub : p.price);
         const sg = [p.id, main, p.units, p.days, mine, rub ? 1 : 0, p.free ? PRO.free : ''].join('|');
         if (sg !== sigP || first){
             sigP = sg; const change = p.id !== curId; curId = p.id;
             pname.textContent = plName(p);
             price.set(main, first);
-            curEl.textContent = rub || p.free ? '₽' : '⭐'; curEl.classList.toggle('is-star', !p.free && !rub);
+            curEl.textContent = rub ? '₽' : '⭐'; curEl.classList.toggle('is-star', !rub);
             per.textContent = p.free ? '' : '/ ' + p.days + ' дн.';
-            bill.set(p.free ? 'Базовые функции' : (rub ? 'или ' + fmtN(p.price) + ' ⭐ · ' : '') + p.days + ' дней', null, first);
+            bill.set(p.free ? 'Базовые функции' : p.days + ' дней', null, first);
             rowsFor(p).forEach((t, k) => rows[k].set(t, null, first));
             const ct = mine ? 'Ваш план' : (p.id === 'pro' ? 'Популярный' : '');
             if (ct) chip.textContent = ct;
@@ -3959,7 +3943,7 @@ var PW = (function(){
     cta.addEventListener('click', () => {
         const p = list()[sel]; if (!p || p.free || ctaOff || PRO.busy || flashText) return;
         CP.x = .94; if (typeof tap === 'function') try { tap(); } catch (e) {}
-        openPaymentChoice(p.id);
+        buyWithCurrency(p.id, curOf(p));   // без окна выбора: оплата в выбранной валюте
     });
     seg.addEventListener('keydown', e => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -4058,29 +4042,6 @@ async function buyPro(planId){
         PRO.busy = false; setProMsg('Не получилось: ' + e.message, 'bad'); renderPro();
     }
 }
-let payPlan = '';
-const PAY_STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5z"/></svg>';
-function closePaymentChoice(){
-    const s = $('pay-sheet');
-    s.classList.remove('open'); s.setAttribute('aria-hidden', 'true');
-}
-function openPaymentChoice(planId){
-    if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
-    if (PRO.busy) return;
-    const p = (PRO.plans || []).find(x => x.id === planId);
-    payPlan = planId;
-    $('pay-sub').textContent = 'Тариф «' + (p ? plName(p) : planId) + '»' + (p && p.days ? ' · ' + p.days + ' дней' : '');
-    $('pay-xtr-pr').innerHTML = p && p.price ? fmtN(p.price) + PAY_STAR : '';
-    $('pay-rub-pr').textContent = p && p.price_rub ? fmtN(p.price_rub) + ' ₽' : '';
-    $('pay-rub').style.display = p && p.price_rub ? '' : 'none';   // старый сервер без цен в рублях: только звёзды
-    const s = $('pay-sheet');
-    s.classList.add('open'); s.setAttribute('aria-hidden', 'false');
-}
-$('pay-bg').addEventListener('click', closePaymentChoice);
-$('pay-cancel').addEventListener('click', closePaymentChoice);
-$('pay-rub').addEventListener('click', () => { const id = payPlan; closePaymentChoice(); if (id) buyWithCurrency(id, 'RUB'); });
-$('pay-xtr').addEventListener('click', () => { const id = payPlan; closePaymentChoice(); if (id) buyWithCurrency(id, 'XTR'); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('pay-sheet').classList.contains('open')) closePaymentChoice(); });
 async function buyWithCurrency(planId, currency){
     if (!refOk()){ setProMsg('Покупки доступны только в Telegram', 'bad'); return; }
     if (PRO.busy) return;
