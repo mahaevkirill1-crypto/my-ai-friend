@@ -1601,6 +1601,40 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
   window.AILoading = { mount, demo };
 })();
 </script>
+
+<style id="wl2-css">
+/* ===== НОВОЕ ПРИВЕТСТВИЕ (wl2): бегущие слова + плашка в стиле Apple ===== */
+#wl2{position:fixed;inset:0;z-index:940;display:none;background:#1E1F22;color:#fff;opacity:1;transition:opacity .35s}
+#wl2.open{display:block}
+#wl2.fade{opacity:0;pointer-events:none}
+#wl2 .wl2-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#wl2 .wl2-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 24px;
+  font:700 32px/1.2 -apple-system,BlinkMacSystemFont,"SF Pro Display",'Manrope',system-ui,sans-serif;letter-spacing:-.02em;text-align:center;pointer-events:none}
+#wl2 .wl2-word{display:flex;justify-content:center;white-space:pre;transition:opacity .15s,transform .15s,filter .15s}
+#wl2 .wl2-word.out{opacity:0;transform:translateY(-6px);filter:blur(3px)}
+#wl2 .wl2-ch{display:inline-block;opacity:0;transform:translateY(8px);filter:blur(4px);animation:wl2In .28s cubic-bezier(.23,1,.32,1) forwards}
+#wl2 .wl2-ch>span{display:inline-block;animation:wl2Wave 1.6s ease-in-out infinite both}
+@keyframes wl2In{to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes wl2Wave{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){#wl2 .wl2-ch>span{animation:none}}
+#wl2 .wl2-card{position:absolute;left:12px;right:12px;margin:0 auto;max-width:420px;bottom:max(12px,env(safe-area-inset-bottom));
+  padding:28px 22px 14px;border-radius:32px;text-align:center;background:rgba(58,58,60,.72);
+  -webkit-backdrop-filter:saturate(180%) blur(30px);backdrop-filter:saturate(180%) blur(30px);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.14) inset,0 20px 60px rgba(0,0,0,.5);
+  transform:translateY(120%);opacity:0;pointer-events:none;transition:transform .7s cubic-bezier(.32,.72,0,1),opacity .4s;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",'Manrope',system-ui,sans-serif}
+#wl2 .wl2-card.show{transform:none;opacity:1;pointer-events:auto}
+#wl2 .wl2-ico{width:60px;height:60px;margin:0 auto 16px;border-radius:14px;background:linear-gradient(180deg,#707074,#505054);display:grid;place-items:center;
+  box-shadow:0 0 0 .5px rgba(255,255,255,.18) inset,0 4px 14px rgba(0,0,0,.45)}
+#wl2 .wl2-ico svg{width:30px;height:30px}
+#wl2 h3{margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-.02em;color:#fff}
+#wl2 p{margin:0 auto 20px;max-width:300px;font-size:15px;line-height:1.4;color:rgba(235,235,245,.6)}
+#wl2 .wl2-btn{width:100%;height:50px;border:0;border-radius:14px;cursor:pointer;font:600 17px -apple-system,BlinkMacSystemFont,"SF Pro Text",'Manrope',system-ui,sans-serif;
+  background:#5a5a5e;color:#fff;box-shadow:0 0 0 .5px rgba(255,255,255,.2) inset;transition:opacity .15s,transform .15s;-webkit-tap-highlight-color:transparent}
+#wl2 .wl2-btn:active{opacity:.7;transform:scale(.98)}
+#wl2 p.wl2-note{margin:12px auto 4px;max-width:300px;font-size:12px;line-height:1.4;color:rgba(235,235,245,.6)}
+#wl2 .wl2-link{color:#fff;text-decoration:underline;text-underline-offset:2px}
+</style>
 </head>
 <body>
 <script>
@@ -1647,6 +1681,17 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     </div>
     <button class="welcome-btn wl-btn" id="welcome-start" type="button">Начать</button>
     <div class="wl-hint" id="wl-hint" role="alert" aria-live="polite">Сначала примите политику конфиденциальности</div>
+  </div>
+</div>
+
+<div id="wl2" role="dialog" aria-modal="true" aria-labelledby="wl2-title">
+  <div class="wl2-text" aria-live="polite"><span class="wl2-sr">Загрузка</span><span id="wl2-word" class="wl2-word" aria-hidden="true"></span></div>
+  <div class="wl2-card" id="wl2-card">
+    <div class="wl2-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+    <h3 id="wl2-title">Ваша конфиденциальность</h3>
+    <p>Holo Friend — это ИИ, а не человек. Мы бережно относимся к вашим данным и не передаём их третьим лицам.</p>
+    <button class="wl2-btn" id="wl2-go" type="button">Продолжить</button>
+    <p class="wl2-note">Продолжая, вы соглашаетесь с <a class="wl2-link" id="wl2-policy" href="#">Политикой конфиденциальности</a>.</p>
   </div>
 </div>
 
@@ -5220,7 +5265,7 @@ const q = new URLSearchParams(location.search);
 applyOutfit(); if (q.get('emotion')) Hologram.emotion(q.get('emotion')); setChar(char);
 setTimeout(() => { Hologram.react('happy', 'wave', 3500); }, 500);
 let logoT = 0;
-function logoBlocked(){ const sp = $('splash'); return (sp && !sp.classList.contains('hide')) || $('welcome').classList.contains('open') || $('consent').classList.contains('open'); }
+function logoBlocked(){ const sp = $('splash'); return (sp && !sp.classList.contains('hide')) || $('welcome').classList.contains('open') || ($('wl2') && $('wl2').classList.contains('open')) || $('consent').classList.contains('open'); }
 function logoTry(){ clearTimeout(logoT); logoT = setTimeout(function chk(){ if (!document.body.classList.contains('chat-empty')) return; if (logoBlocked()){ logoT = setTimeout(chk, 150); return; } logoT = setTimeout(() => { if (document.body.classList.contains('chat-empty') && !logoBlocked()) document.body.classList.add('logo-play'); }, 600); }, 200); }
 function updEmpty(){ const e = !chatHistory.querySelector('.msg-row'); document.body.classList.toggle('chat-empty', e); if (!e){ clearTimeout(logoT); document.body.classList.remove('logo-play'); } else if (!document.body.classList.contains('logo-play')) logoTry(); }
 new MutationObserver(updEmpty).observe(chatHistory, { childList: true });
@@ -5379,51 +5424,41 @@ function showConsent(){
 })();
 
 (function initWelcome(){
-    const KEY = 'welcome_done_v2';
-    const el = $('welcome');
-    if (!el) return;
+    // Новое приветствие. Ключ v3 новый, поэтому его увидят ВСЕ один раз: и новые, и старые пользователи, и админ.
+    const KEY = 'welcome_done_v3';
+    const el = $('wl2');
+    if (!el || store.get(KEY, false)) return;
+    el.classList.add('open');   // сразу закрываем экран, под заставкой splash
 
-    if (store.get(KEY, false) || chatHistoryForServer.length > 0) {
-        store.set(KEY, true);
-        el.classList.remove('open');
-        showConsent();   // тем, кто уже видел приветствие, но не принял политику, покажется прежнее окно согласия
-        return;
-    }
-    el.classList.add('open');
-
-    const row = $('wl-consent'), check = $('wl-check'), btn = $('welcome-start'), hint = $('wl-hint');
-    let agreed = false, errT = 0;
+    const WORDS = ['Думаю...', 'Обрабатываю...', 'Анализирую...', 'Вычисляю...', 'Почти готово...'];
+    const INTERVAL = 1500, START_DELAY = 1600;   // старт после того, как уйдёт splash (1,5 с)
+    const wordEl = $('wl2-word'), card = $('wl2-card');
     const haptic = fn => { try { if (tg && tg.HapticFeedback) fn(tg.HapticFeedback); } catch (_) {} };
 
-    function clearErr(){
-        clearTimeout(errT);
-        check.classList.remove('wl-err'); btn.classList.remove('wl-err'); hint.classList.remove('show');
+    function renderWord(text){
+        wordEl.classList.remove('out'); wordEl.innerHTML = '';
+        Array.from(text).forEach((ch, i) => {
+            const o = document.createElement('span'); o.className = 'wl2-ch'; o.style.animationDelay = (i * 0.018) + 's';
+            const w = document.createElement('span'); w.textContent = ch; w.style.animationDelay = (i * 0.07) + 's';
+            o.appendChild(w); wordEl.appendChild(o);
+        });
     }
-    function setAgreed(v){
-        agreed = v;
-        check.classList.toggle('on', v);
-        check.setAttribute('aria-checked', v ? 'true' : 'false');
-        if (v) clearErr();
-        haptic(h => h.selectionChanged());
-    }
-    // клик по строке (чекбокс или текст) переключает согласие; клик по ссылке открывает политику
-    row.addEventListener('click', e => {
-        if (e.target.closest('a')) { e.preventDefault(); openPrivacy(); return; }
-        setAgreed(!agreed);
-    });
-    btn.addEventListener('click', () => {
-        if (!agreed) {
-            haptic(h => h.notificationOccurred('error'));
-            clearErr(); void check.offsetWidth;   // перезапуск анимации при повторном нажатии
-            check.classList.add('wl-err'); btn.classList.add('wl-err'); hint.classList.add('show');
-            errT = setTimeout(clearErr, 2000);
-            return;
-        }
+    setTimeout(() => {
+        let i = 0; renderWord(WORDS[0]);
+        const timer = setInterval(() => {
+            if (i === WORDS.length - 1) { clearInterval(timer); card.classList.add('show'); return; }
+            wordEl.classList.add('out');
+            setTimeout(() => renderWord(WORDS[++i]), 150);
+        }, INTERVAL);
+    }, START_DELAY);
+
+    $('wl2-policy').addEventListener('click', e => { e.preventDefault(); openPrivacy(); });
+    $('wl2-go').addEventListener('click', () => {
         haptic(h => h.impactOccurred('light'));
-        store.set(PRIVACY_KEY, true);   // согласие принято здесь, отдельное окно согласия больше не нужно
+        store.set(PRIVACY_KEY, true);   // согласие принято здесь
         store.set(KEY, true);
-        el.style.opacity = '0';
-        setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; }, 400);
+        el.classList.add('fade');
+        setTimeout(() => { el.classList.remove('open'); el.classList.remove('fade'); }, 350);
     });
 })();
 
