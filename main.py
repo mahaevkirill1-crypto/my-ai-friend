@@ -434,15 +434,15 @@ def is_complex_request(user_text: str) -> bool:
 # --- ПОДПИСКА PRO (ОБНОВЛЕННЫЕ ЦЕНЫ) ---
 PUBLISH_FEATURE = "Автоматическая публикация сайтов в Netlify"
 
-PLANS = {
+PLANS = {   # порядок = порядок карточек в приложении: Free (без записи здесь) -> Now -> Start -> Pro
+    "now":      {"title": "Now",    "price": 499,  "units": 300,  "days": 30,  "features": [PUBLISH_FEATURE]},
     "start":    {"title": "Start",  "price": 899,  "units": 500,  "days": 30,  "features": [PUBLISH_FEATURE]},
     "pro":      {"title": "Pro",    "price": 1999, "units": 1500, "days": 30,  "features": [PUBLISH_FEATURE]},
-    "business": {"title": "Maximum", "price": 4999, "units": 4000, "days": 365, "features": [PUBLISH_FEATURE]},
 }
 PRO_WARN_LEFT = 100
 
 # Цена тарифа по валюте: RUB — в копейках (карта через ЮKassa), XTR — в звёздах Telegram
-PLAN_PRICE_RUB = {"start": 119900, "pro": 249900, "business": 599900}
+PLAN_PRICE_RUB = {"now": 59900, "start": 119900, "pro": 249900}
 
 def plan_amount(plan_id, currency):
     """Сумма счёта в минимальных единицах валюты или None, если тариф/валюта неизвестны."""
@@ -452,7 +452,7 @@ def plan_amount(plan_id, currency):
     return None
 
 def plans_public():
-    return [{"id": k, "title": v["title"], "price": v["price"], "price_rub": PLAN_PRICE_RUB.get(k, 0) // 100, "days": v["days"], "features": v.get("features", [])} for k, v in PLANS.items()]
+    return [{"id": k, "title": v["title"], "price": v["price"], "price_rub": PLAN_PRICE_RUB.get(k, 0) // 100, "units": v["units"], "days": v["days"], "features": v.get("features", [])} for k, v in PLANS.items()]
 
 # --- ЭКОНОМИКА И ЗАЩИТА ---
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
