@@ -661,6 +661,43 @@
     .pl-main:active, .pl-alt:active { transform: scale(.98); }
     .pl-main:disabled { opacity: .5; }
     .pl-note { text-align: center; font-size: 13px; line-height: 1.4; color: #8D8A82; padding: 2px 10px; }
+    /* ===== Карточка тарифов (стиль Plan Switch, DesignBookmark) ===== */
+    .pw { --pw-green: #34d17a; --pw-green-soft: rgba(52,209,122,.14); --pw-green-tx: #3ce085; --pw-star: #F5C542; --pw-ink: #04140a;
+        position: relative; padding: 8px; border-radius: 28px; background: var(--cl-card); color: var(--ui-tx-hi); animation: plIn .25s ease; user-select: none; -webkit-user-select: none; }
+    body.light-theme .pw { --pw-green-tx: #15803d; --pw-star: #B7791F; }
+    .pw button { transition: none !important; -webkit-tap-highlight-color: transparent; font-family: inherit; }
+    .pw-seg { position: relative; display: flex; padding: 4px; border-radius: 999px; background: var(--cl-btn); }
+    .pw-seg button { position: relative; z-index: 1; flex: 1; height: 36px; border: 0; background: none; cursor: pointer; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--ui-tx-lo); transition: color .25s !important; }
+    .pw-seg button[aria-checked="true"] { color: var(--ui-tx-hi); }
+    .pw-seg button:focus-visible { outline: 2px solid var(--ui-tx-mid); outline-offset: -2px; }
+    .pw-hl { position: absolute; left: 0; top: 4px; height: 36px; border-radius: 999px; background: var(--cl-acc-soft); will-change: transform, width; }
+    .pw-plan { padding: 14px 12px 2px; }
+    .pw-name { display: flex; align-items: center; gap: 8px; height: 26px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .pw-chip { height: 24px; padding: 0 9px; border-radius: 999px; background: var(--pw-green-soft); color: var(--pw-green-tx); font-size: 12px; font-weight: 700; line-height: 24px; white-space: nowrap; transform-origin: 0 50%; will-change: transform, opacity; }
+    .pw-price { display: flex; align-items: flex-start; margin-top: 8px; font-weight: 700; letter-spacing: -.03em; }
+    .pw-num { display: inline-flex; font-size: 44px; line-height: 48px; height: 48px; font-variant-numeric: tabular-nums; }
+    .pw-rc { display: inline-block; height: 48px; overflow: hidden; width: .62em; will-change: width, opacity; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%); }
+    .pw-rs { display: block; will-change: transform; }
+    .pw-rs i { display: block; height: 48px; line-height: 48px; font-style: normal; text-align: center; }
+    .pw-cur { font-size: 22px; line-height: 30px; margin: 4px 0 0 3px; }
+    .pw-cur.is-star { color: var(--pw-star); }
+    .pw-per { align-self: flex-end; margin: 0 0 8px 6px; font-size: 15px; font-weight: 500; letter-spacing: 0; color: var(--ui-tx-lo); }
+    .pw-rl { position: relative; height: var(--h); overflow: hidden; flex: 1; min-width: 0; }
+    .pw-rl span { position: absolute; left: 0; top: 0; line-height: var(--h); white-space: nowrap; will-change: transform, opacity; }
+    .pw-bill { margin-top: 2px; font-size: 13px; color: var(--ui-tx-lo); --h: 20px; }
+    .pw-feats { list-style: none; margin: 4px 0 12px; padding: 0 12px; }
+    .pw-feats li { display: flex; align-items: center; gap: 10px; height: 32px; font-size: 14px; color: var(--ui-tx-mid); --h: 32px; }
+    .pw-ck { width: 20px; height: 20px; border-radius: 50%; background: var(--cl-btn); display: grid; place-items: center; flex: none; color: var(--ui-tx-hi); }
+    .pw-ck svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+    .pw-cta { position: relative; display: block; margin: 0 auto; width: 100%; height: 52px; border: 0; border-radius: 999px; cursor: pointer; overflow: hidden;
+        background: var(--cl-acc); color: var(--cl-acc-fg); font-size: 15px; font-weight: 700; letter-spacing: -.01em; transition: background .3s, color .3s !important; will-change: width, transform; }
+    .pw-cta:focus-visible { outline: 2px solid var(--ui-tx-mid); outline-offset: 2px; }
+    .pw-cta.is-done { background: var(--pw-green); color: var(--pw-ink); }
+    .pw-cta.is-off { background: var(--cl-btn); color: var(--ui-tx-lo); cursor: default; }
+    .pw-cta-in { position: absolute; inset: 0; }
+    .pw-cta-in > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; will-change: transform, opacity; }
+    .pw-spin { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 25%, currentColor); -webkit-mask: radial-gradient(circle, transparent 8px, #000 8.5px); mask: radial-gradient(circle, transparent 8px, #000 8.5px); }
+    .pw-cta svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
     /* ---- Нижняя шторка выбора способа оплаты ---- */
     .pay-sheet { position: fixed; inset: 0; z-index: 1250; visibility: hidden; pointer-events: none; transition: visibility 0s linear .3s; }
     .pay-sheet.open { visibility: visible; pointer-events: auto; transition: visibility 0s; }
@@ -1556,15 +1593,27 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
   <button class="pl-x" id="pro-close" type="button" aria-label="Закрыть">✕</button>
   <div class="pl-head">
     <h2 class="pl-title">Тарифы</h2>
-    <div class="pl-seg" id="pl-seg"></div>
   </div>
   <div class="pl-scroll" id="pl-scroll">
     <div class="pl-status" id="pro-status" style="display:none"></div>
-    <div id="pl-card"></div>
+    <section class="pw" id="pw" aria-label="Тарифы">
+      <div class="pw-seg" role="radiogroup" aria-label="Тариф" id="pw-seg"><span class="pw-hl" id="pw-hl" aria-hidden="true"></span></div>
+      <div class="pw-plan">
+        <div class="pw-name"><span id="pw-pname"></span><span class="pw-chip" id="pw-chip"></span></div>
+        <div class="pw-price"><span class="pw-num" id="pw-price" aria-hidden="true"></span><span class="pw-cur" id="pw-cur">₽</span><span class="pw-per" id="pw-per"></span></div>
+        <div class="pw-bill pw-rl" id="pw-bill" aria-live="polite"></div>
+      </div>
+      <ul class="pw-feats">
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r1"></span></li>
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r2"></span></li>
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r3"></span></li>
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r4"></span></li>
+      </ul>
+      <button class="pw-cta" id="pw-cta" type="button"><span class="pw-cta-in" id="pw-ctain"></span></button>
+    </section>
   </div>
   <div class="pl-foot">
     <div id="pro-msg" class="ps-msg"></div>
-    <button class="pl-main" id="pl-buy" type="button"></button>
     <button class="pl-alt" id="pro-later" type="button">Остаться на Free</button>
     <div class="pl-note">*Оплата картой или звёздами Telegram. При пополнении лимит и срок суммируются.</div>
   </div>
@@ -3524,7 +3573,7 @@ function showBanned(){
     document.body.appendChild(d);
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'start', title: 'Start', price: 899, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Pro', price: 1999, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'business', title: 'Maximum', price: 4999, days: 365, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'now', title: 'Now', price: 499, price_rub: 599, units: 300, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'start', title: 'Start', price: 899, price_rub: 1199, units: 500, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Pro', price: 1999, price_rub: 2499, units: 1500, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -3553,52 +3602,191 @@ function checkProExpired(){
 const PRO_ITEMS = ['c_aurum', 'b_pro_cape'];
 function grantProItems(){ if (!PRO.active) return; let ch = false; PRO_ITEMS.forEach(id => { if (!OWNED[id]){ OWNED[id] = true; ch = true; } }); if (ch){ store.set('owned', OWNED); } }
 
-const PLAN_STYLE = { start: { cls: 'p-start', tier: 'STARTER' }, pro: { cls: 'p-pro', tier: 'PREMIUM', badge: 'Популярный' }, business: { cls: 'p-biz', tier: 'BUSINESS', badge: 'Maximum' } };
+const PLAN_STYLE = { now: { cls: 'p-now' }, start: { cls: 'p-start' }, pro: { cls: 'p-pro', badge: 'Популярный' } };
 const fmtN = n => Number(n).toLocaleString('ru-RU');
 function setProMsg(t, k){ const m = $('pro-msg'); m.textContent = t || ''; m.dataset.k = k || ''; }
-const PL_TABS = [['free', 'Free'], ['start', 'Start'], ['pro', 'Pro'], ['business', 'Maximum']];
-const PL_SUB = { start: 'Попробовать формат', pro: 'Если делаешь часто', business: 'Когда работаешь с клиентами' };
-const PL_DESC = {
-  start: 'Доступ к самой мощной модели бота: сборки получаются сложнее, с лучшей анимацией и чистым кодом. Хороший способ попробовать.',
-  pro: 'Pro-подписка дает доступ к самой мощной модели бота. Сборки получаются более сложными, с лучшей анимацией, продуманным дизайном и чистым кодом. Также ты получаешь больше лимитов.',
-  business: 'Самая мощная модель бота и большой запас лимитов на целый год: для тех, кто делает проекты для клиентов.'
-};
 const PL_FEAT = {
-  start: ['Базовый лимит запросов', 'Базовый запас сборок', 'Автопубликация', 'Возможность править проект'],
-  pro: ['Повышенный лимит запросов', 'Больше сборок для работы', 'Автопубликация', 'Возможность править проект'],
-  business: ['Максимальный лимит запросов', 'Огромный запас сборок', 'Автопубликация', 'Возможность править проект']
+  now: ['Лимит запросов'], start: ['Базовый лимит запросов'], pro: ['Повышенный лимит запросов']
 };
-const PL_NAME = { start: 'Start', pro: 'Pro', business: 'Maximum' };
-const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Бизнес': 'business', 'Максимум': 'business', 'Базовый': 'start', 'Обычный': 'pro', 'Для клиентов': 'business' };
+const PL_NAME = { now: 'Now', start: 'Start', pro: 'Pro' };
+const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Базовый': 'start', 'Обычный': 'pro' };
 const plName = p => PL_NAME[p.id] || p.title;
 const PL_CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
 let plTab = null;
 function curPlanId(){ if (!PRO.active) return ''; const p = (PRO.plans || []).find(x => x.id === PRO.plan || x.title === PRO.plan || x.id === PL_OLD[PRO.plan]); return p ? p.id : ''; }
+// ===== Карточка тарифов: пружинная анимация (Plan Switch) =====
+// Подсветка вкладки растягивается: передний край жёсткий, задний мягкий. Цена катится барабанами, строки и кнопка тоже.
+var PW = (function(){
+    const root = $('pw'); if (!root) return null;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const S = (x, k = 400, c = 30) => ({ x, v: 0, t: x, k, c });
+    const tune = (s, k, c) => { s.k = k; s.c = reduce ? 2 * Math.sqrt(k) : c; };
+    const stepS = (s, dt) => { const a = -s.k * (s.x - s.t) - s.c * s.v; s.v += a * dt; s.x += s.v * dt; };
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const LEAD = [620, 36], TRAIL = [190, 19], POP = [520, 16], FADE = [420, 32], SOFT = [260, 24];
+    const timers = [];
+    const after = (sec, fn) => timers.push({ t: sec, fn });
+    const comps = [];
+
+    function line(el, h){
+        let items = [], cur = null;
+        return {
+            set(w, html, instant){
+                if (w === cur) return;
+                const snap = instant || cur == null;
+                items.forEach(o => { if (snap){ o.el.remove(); } else { o.y.t = -h; o.o.t = 0; o.dead = true; } });
+                if (snap) items = [];
+                const sp = document.createElement('span');
+                if (html) sp.innerHTML = html; else sp.textContent = w;
+                el.appendChild(sp);
+                const o = { el: sp, y: S(snap ? 0 : h), o: S(snap ? 1 : 0) };
+                tune(o.y, ...FADE); tune(o.o, ...FADE); o.y.t = 0; o.o.t = 1; items.push(o); cur = w;
+            },
+            step(dt){ items.forEach(o => { stepS(o.y, dt); stepS(o.o, dt); }); items = items.filter(o => { if (o.dead && o.o.x < .02){ o.el.remove(); return false; } return true; }); },
+            render(){ items.forEach(o => { o.el.style.transform = `translateY(${o.y.x.toFixed(2)}px)`; o.el.style.opacity = clamp(o.o.x, 0, 1).toFixed(3); }); }
+        };
+    }
+    function roller(el, n, px){
+        const cols = [];
+        for (let i = 0; i < n; i++){
+            const c = document.createElement('span'), s = document.createElement('span');
+            c.className = 'pw-rc'; s.className = 'pw-rs'; s.innerHTML = [...'0123456789'].map(d => `<i>${d}</i>`).join('');
+            c.appendChild(s); el.appendChild(c);
+            const y = S(0), w = S(0); tune(y, 260, 22 + i * 2); tune(w, ...SOFT);
+            cols.push({ c, s, y, w });
+        }
+        let cur = null, token = 0;
+        return {
+            set(v, instant){
+                if (v === cur) return;
+                const str = String(v), off = n - str.length, snap = instant || cur == null, tk = ++token; cur = v;
+                cols.forEach((col, i) => {
+                    const vis = i >= off, go = () => { if (tk !== token) return; col.y.t = vis ? +str[i - off] : 0; col.w.t = vis ? 1 : 0; };
+                    if (snap){ go(); col.y.x = col.y.t; col.w.x = col.w.t; col.y.v = col.w.v = 0; } else after(i * .045, go);
+                });
+            },
+            step(dt){ cols.forEach(c => { stepS(c.y, dt); stepS(c.w, dt); }); },
+            render(){ cols.forEach(c => { c.s.style.transform = `translateY(${(-c.y.x * px).toFixed(2)}px)`; c.c.style.width = (.62 * clamp(c.w.x, 0, 1.05)).toFixed(3) + 'em'; c.c.style.opacity = clamp(c.w.x * 1.5, 0, 1).toFixed(3); }); }
+        };
+    }
+
+    const seg = $('pw-seg'), hl = $('pw-hl'), chip = $('pw-chip'), cta = $('pw-cta'), ctaIn = $('pw-ctain');
+    const pname = $('pw-pname'), per = $('pw-per'), curEl = $('pw-cur');
+    const L = S(0), R = S(0), CH = S(0), CW = S(1), CP = S(1);
+    [[CH, POP], [CW, SOFT], [CP, POP]].forEach(([s, t]) => tune(s, ...t));
+    const price = roller($('pw-price'), 4, 48), bill = line($('pw-bill'), 20), btn = line(ctaIn, 52);
+    const rows = [1, 2, 3, 4].map(i => line($('pw-r' + i), 32));
+    const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4 8-9"/></svg>';
+
+    let buttons = [], lastSig = '', sel = 0, built = false, sigP = '', state = '', btnKey = '', flashText = '', flashT = null, ctaOff = true, curId = '';
+
+    const list = () => [{ id: 'free', title: 'Free', free: true }].concat(PRO.plans || []);
+    const rowsFor = p => p.free
+        ? ['Ежедневный лимит запросов', 'Одна бесплатная сборка', 'Разбор фото и файлов', 'Копирование и скачивание кода']
+        : [p.units ? 'Лимит ' + fmtN(p.units) : ((PL_FEAT[p.id] || [])[0] || 'Больше запросов'), 'Самая мощная модель бота', 'Автопубликация', 'Возможность править проект'];
+
+    function buildSeg(pl){
+        seg.querySelectorAll('button').forEach(b => b.remove());
+        buttons = pl.map(p => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false'); b.textContent = plName(p);
+            b.addEventListener('click', () => { if (typeof tap === 'function') try { tap(); } catch (e) {} plTab = p.id; renderPro(); });
+            seg.appendChild(b); return b;
+        });
+    }
+    function place(snap){
+        const b = buttons[sel]; if (!b) return;
+        L.t = b.offsetLeft; R.t = b.offsetLeft + b.offsetWidth;
+        if (snap){ L.x = L.t; R.x = R.t; L.v = R.v = 0; }
+    }
+    function setBtn(s, p){
+        const free = !!p.free;
+        const text = free ? (PRO.active ? 'Бесплатный тариф' : 'Ваш план') : ((PRO.active ? 'Пополнить план ' : 'Оформить план ') + plName(p));
+        ctaOff = free || !refOk();
+        cta.classList.toggle('is-off', ctaOff && s === 'idle'); cta.classList.toggle('is-done', s === 'done');
+        cta.setAttribute('aria-disabled', ctaOff);
+        const key = s === 'idle' ? text : s === 'done' ? 'done:' + flashText : 'busy';
+        if (key === btnKey) return;
+        const first = !btnKey; btnKey = key;
+        if (s === 'idle'){ CW.t = 1; btn.set(key, null, first); cta.setAttribute('aria-label', text); }
+        if (s === 'busy'){ CW.t = 0; btn.set(key, '<span class="pw-spin" aria-hidden="true"></span>'); cta.setAttribute('aria-label', 'Открываю оплату'); }
+        if (s === 'done'){ CW.t = 1; CP.x = .92; btn.set(key, CHECK + flashText); cta.setAttribute('aria-label', flashText); }
+    }
+    function render(snap){
+        const pl = list(), sig = pl.map(p => p.id).join();
+        if (sig !== lastSig){ lastSig = sig; buildSeg(pl); built = false; }
+        let i = pl.findIndex(p => p.id === plTab);
+        if (i < 0){ i = Math.max(0, pl.findIndex(p => p.id === 'pro')); plTab = pl[i].id; }
+        const p = pl[i], first = !built || snap, right = i > sel;
+        built = true; sel = i;
+        buttons.forEach((b, j) => b.setAttribute('aria-checked', j === i));
+        tune(L, ...(right ? TRAIL : LEAD)); tune(R, ...(right ? LEAD : TRAIL));
+        place(first);
+        const mine = p.free ? !PRO.active : (PRO.active && curPlanId() === p.id);
+        const rub = !p.free && p.price_rub, main = p.free ? 0 : (rub ? p.price_rub : p.price);
+        const sg = [p.id, main, p.units, p.days, mine, rub ? 1 : 0, p.free ? PRO.free : ''].join('|');
+        if (sg !== sigP || first){
+            sigP = sg; const change = p.id !== curId; curId = p.id;
+            pname.textContent = plName(p);
+            price.set(main, first);
+            curEl.textContent = rub || p.free ? '₽' : '⭐'; curEl.classList.toggle('is-star', !p.free && !rub);
+            per.textContent = p.free ? '' : '/ ' + p.days + ' дн.';
+            bill.set(p.free ? 'Базовые функции' : (rub ? 'или ' + fmtN(p.price) + ' ⭐ · ' : '') + p.days + ' дней', null, first);
+            rowsFor(p).forEach((t, k) => rows[k].set(t, null, first));
+            const ct = mine ? 'Ваш план' : (p.id === 'pro' ? 'Популярный' : '');
+            if (ct) chip.textContent = ct;
+            CH.t = ct ? 1 : 0; if (first) CH.x = CH.t; else if (ct && change) CH.x = Math.min(CH.x, .3);
+        }
+        setBtn(flashText ? 'done' : (PRO.busy ? 'busy' : 'idle'), p);
+    }
+    cta.addEventListener('click', () => {
+        const p = list()[sel]; if (!p || p.free || ctaOff || PRO.busy || flashText) return;
+        CP.x = .94; if (typeof tap === 'function') try { tap(); } catch (e) {}
+        openPaymentChoice(p.id);
+    });
+    seg.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault(); go(sel + (e.key === 'ArrowRight' ? 1 : -1)); buttons[sel] && buttons[sel].focus();
+    });
+    function go(i){ const pl = list(); if (i >= 0 && i < pl.length){ plTab = pl[i].id; renderPro(); } }
+    addEventListener('resize', () => place(true));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => place(true));
+
+    let spin = 0, last = performance.now();
+    comps.push({
+        frame(dt){ spin += dt; [L, R, CH, CW, CP].forEach(s => stepS(s, dt)); price.step(dt); bill.step(dt); btn.step(dt); rows.forEach(r => r.step(dt)); },
+        render(){
+            hl.style.transform = `translateX(${L.x.toFixed(2)}px)`;
+            hl.style.width = Math.max(36, R.x - L.x).toFixed(2) + 'px';
+            price.render(); bill.render(); btn.render(); rows.forEach(r => r.render());
+            const ch = Math.max(0, CH.x);
+            chip.style.transform = `scale(${ch.toFixed(4)})`; chip.style.opacity = clamp(ch * 1.4, 0, 1).toFixed(3); chip.style.display = ch < .01 ? 'none' : '';
+            const full = root.clientWidth - 16, w = 52 + (full - 52) * clamp(CW.x, 0, 1.03);
+            cta.style.width = w.toFixed(2) + 'px'; cta.style.transform = `scale(${CP.x.toFixed(4)})`;
+            const sp = ctaIn.querySelector('.pw-spin'); if (sp) sp.style.transform = `rotate(${(spin * 468 % 360).toFixed(1)}deg)`;
+        }
+    });
+    (function loop(now){
+        const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
+        if (proBox.classList.contains('open')){   // экран закрыт: анимацию не считаем, батарею не тратим
+            for (let i = timers.length - 1; i >= 0; i--) if ((timers[i].t -= dt) <= 0) timers.splice(i, 1)[0].fn();
+            for (let k = 0; k < 4; k++) comps.forEach(c => c.frame(dt / 4));
+            comps.forEach(c => c.render());
+        }
+        requestAnimationFrame(loop);
+    })(last);
+
+    return {
+        render, go,
+        ids: () => list().map(p => p.id),
+        reset(){ built = false; btnKey = ''; sigP = ''; },   // при открытии экрана ставим всё сразу, без перелёта
+        flash(text){ flashText = text; render(); clearTimeout(flashT); flashT = setTimeout(() => { flashText = ''; render(); }, 1600); }
+    };
+})();
 function renderPro(){
     grantProItems();
-    const w = PRO.build_weight || 100;
     if (!plTab) plTab = curPlanId() || 'pro';
-    $('pl-seg').innerHTML = PL_TABS.map(t => `<button type="button" data-pt="${t[0]}" class="${t[0] === plTab ? 'on' : ''}">${t[1]}</button>`).join('');
-    const feat = a => '<ul class="pl-feat">' + a.map(x => `<li>${PL_CHECK}<span>${x}</span></li>`).join('') + '</ul>';
-    const buy = $('pl-buy');
-    let card;
-    if (plTab === 'free'){
-        const items = ['Разбор фото и файлов', 'Ежедневный лимит запросов', 'Одна бесплатная сборка', 'Копирование и скачивание кода'];
-        card = `<div class="pl-card"><h3 class="pl-name">Free</h3><p class="pl-sub">Базовые функции</p>${feat(items)}</div>`;
-        buy.style.display = 'none';
-    } else {
-        const p = (PRO.plans || []).find(x => x.id === plTab) || { id: plTab, title: plTab, price: 0, price_rub: 0, days: 30 };
-        const mine = PRO.active && curPlanId() === p.id;
-        const badge = mine ? 'Ваш план' : ((PLAN_STYLE[p.id] || {}).badge || '');
-        card = `<div class="pl-card"><h3 class="pl-name">${plName(p)}</h3><p class="pl-sub">${PL_SUB[p.id] || ''}</p><p class="pl-desc">${PL_DESC[p.id] || ''}</p>` +
-            feat(PL_FEAT[p.id] || ['Автопубликация']) +
-            `<div class="pl-price"><div class="pl-prow"><span class="pl-radio"></span>${badge ? `<span class="pl-badge">${badge}</span>` : ''}</div><b>${p.price_rub ? fmtN(p.price_rub) + ' ₽ или ' : ''}${fmtN(p.price)} ⭐ / ${p.days} дней</b><span>Оплата картой или звёздами Telegram</span></div></div>`;
-        buy.style.display = '';
-        buy.dataset.plan = p.id;
-        buy.disabled = !refOk() || !!PRO.busy;
-        buy.textContent = (PRO.active ? 'Пополнить план ' : 'Оформить план ') + plName(p);
-    }
-    $('pl-card').innerHTML = card;
+    if (PW) PW.render(!proBox.classList.contains('open'));
     $('pro-later').textContent = PRO.active ? 'Закрыть' : 'Остаться на Free';
     const st = $('pro-status');
     if (PRO.active){
@@ -3621,6 +3809,7 @@ function updateProDot(){
 }
 function openPro(){ 
     plTab = null;
+    if (PW) PW.reset();
     proBox.classList.add('open'); 
     renderPro(); 
     refreshPro(); 
@@ -3708,6 +3897,7 @@ async function waitProPaid(){
         if (PRO.active && PRO.left > before){
             setProMsg('Готово! Тариф активирован.', 'ok');
             Snd.fanfare();
+            if (PW) PW.flash('Тариф активирован');
             EQUIP.color = 'c_aurum'; EQUIP.back = 'b_pro_cape'; store.set('equip', EQUIP); applyOutfit(); syncToServer();
             PRO.busy = false; renderPro();
             setTimeout(() => { setProMsg(''); closePro(); }, 1600);
@@ -3717,16 +3907,13 @@ async function waitProPaid(){
     }
     PRO.busy = false; setProMsg('Оплата в обработке. Загляни сюда через минуту.', 'bad'); renderPro();
 }
-$('pl-seg').addEventListener('click', e => { const b = e.target.closest('button[data-pt]'); if (b){ plTab = b.dataset.pt; renderPro(); } });
-$('pl-buy').addEventListener('click', e => { const b = e.currentTarget; if (!b.disabled && b.dataset.plan) openPaymentChoice(b.dataset.plan); });
 (function(){
     let sx = 0, sy = 0; const el = $('pl-scroll');
     el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
     el.addEventListener('touchend', e => {
         const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
         if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-        const ids = PL_TABS.map(t => t[0]), i = ids.indexOf(plTab) + (dx < 0 ? 1 : -1);
-        if (i >= 0 && i < ids.length){ plTab = ids[i]; renderPro(); }
+        if (PW) PW.go(PW.ids().indexOf(plTab) + (dx < 0 ? 1 : -1));
     }, { passive: true });
 })();
 $('pro-close').addEventListener('click', closePro);
