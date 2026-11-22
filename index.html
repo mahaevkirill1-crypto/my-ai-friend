@@ -1635,6 +1635,78 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 #wl2 p.wl2-note{margin:12px auto 4px;max-width:300px;font-size:12px;line-height:1.4;color:rgba(235,235,245,.6)}
 #wl2 .wl2-link{color:#fff;text-decoration:underline;text-underline-offset:2px}
 </style>
+<style id="sb-css">
+/* ===== Боковая панель: сворачивается в рейку, плашка и подписи на пружинах (Sidebar Collapse) ===== */
+#hist-panel .sb-top{position:relative;display:flex;align-items:center;height:44px;padding:0 6px;margin-bottom:8px;flex:none;color:var(--ui-tx-hi)}
+#hist-panel .sb-logo{display:flex;width:28px;flex:none;justify-content:center}
+#hist-panel .sb-brand{margin-left:10px;font:600 17px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-hi)}
+#hist-panel .sb-col{position:absolute;right:0;top:4px;width:36px;height:36px;padding:0;border:0;border-radius:12px;background:var(--cl-hover,rgba(127,127,127,.16));color:var(--ui-tx-hi);cursor:pointer;display:grid;place-items:center;-webkit-tap-highlight-color:transparent}
+#hist-panel .sb-col svg{width:18px;height:18px;will-change:transform}
+#hist-panel .sb-list{position:relative;display:flex;flex-direction:column;gap:2px;flex:none}
+#hist-panel .sb-it{position:relative;z-index:1;display:flex;align-items:center;height:48px;padding:0 13px;border:0;border-radius:14px;background:none;color:var(--ui-tx-mid);cursor:pointer;font:500 16px 'Manrope',system-ui,sans-serif;white-space:nowrap;text-align:left;transition:color .25s;-webkit-tap-highlight-color:transparent}
+#hist-panel .sb-it.on{color:var(--ui-tx-hi)}
+#hist-panel .sb-it svg,#hist-panel .sb-col svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#hist-panel .sb-it svg{width:22px;height:22px;flex:none}
+#hist-panel .sb-it .sb-lb{margin-left:14px}
+#hist-panel .sb-lb{display:inline-block;white-space:nowrap;will-change:transform,opacity}
+#hist-panel .sb-hl{position:absolute;left:0;right:0;top:0;height:48px;border-radius:14px;background:var(--cl-hover,rgba(127,127,127,.16));will-change:transform}
+#hist-panel .sb-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#hist-panel .sb-links{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0 0}
+#hist-panel .sb-link{border:0;background:none;padding:8px 10px;font:500 13px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-lo,var(--ui-tx-mid));text-decoration:underline;text-underline-offset:3px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#hist-panel .sb-col:focus-visible,#hist-panel .sb-it:focus-visible{outline:2px solid var(--ui-tx-hi);outline-offset:2px}
+</style>
+<style id="inv-css">
+/* ===== Пригласить друга: чёрный нижний лист ===== */
+:root:root body #invite{background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);align-items:flex-end;justify-content:center;padding:0;z-index:60}
+#invite .inv-sheet{position:relative;width:100%;max-width:460px;padding:12px 20px calc(20px + env(safe-area-inset-bottom,0px));text-align:center;
+  background:#000;color:#fff;border-radius:28px 28px 0 0;box-shadow:0 0 0 .5px rgba(255,255,255,.14) inset,0 -20px 60px rgba(0,0,0,.6);font-family:'Manrope',system-ui,-apple-system,sans-serif}
+#invite.open .inv-sheet{animation:invUp .55s cubic-bezier(.32,.72,0,1) both}
+@keyframes invUp{from{transform:translateY(100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){#invite.open .inv-sheet{animation:none}}
+#invite .inv-grab{display:block;width:36px;height:5px;margin:0 auto 18px;border-radius:3px;background:rgba(255,255,255,.22)}
+#invite .inv-x{position:absolute;top:14px;right:14px;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#invite .inv-x svg,#invite .inv-ico svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#invite .inv-x svg{width:16px;height:16px}
+#invite .inv-ico{width:64px;height:64px;margin:0 auto 16px;border-radius:18px;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.09);box-shadow:0 0 0 .5px rgba(255,255,255,.16) inset}
+#invite .inv-ico svg{width:30px;height:30px}
+#invite h3{margin:0 0 8px;font-size:24px;font-weight:700;letter-spacing:-.02em;color:#fff}
+#invite .inv-sub{margin:0 auto 20px;max-width:320px;font-size:15px;line-height:1.45;color:rgba(235,235,245,.6)}
+#invite .inv-sub b{color:#fff;font-weight:700}
+#invite .inv-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+#invite .inv-stat{padding:16px 10px;border-radius:18px;background:rgba(255,255,255,.07);box-shadow:0 0 0 .5px rgba(255,255,255,.1) inset}
+#invite .inv-stat b{display:block;font-size:28px;line-height:1.1;font-weight:700;letter-spacing:-.02em;color:#fff}
+#invite .inv-stat span{display:block;margin-top:4px;font-size:12px;color:rgba(235,235,245,.6)}
+#invite .inv-main,#invite .inv-sec{display:block;width:100%;border:0;border-radius:14px;font:600 16px 'Manrope',system-ui,-apple-system,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .15s}
+#invite .inv-main{height:52px;background:var(--cl-acc,#F2F3F5);color:var(--cl-acc-fg,#111214)}
+#invite .inv-sec{height:48px;margin-top:8px;background:rgba(255,255,255,.08);color:#fff}
+#invite .inv-main:active,#invite .inv-sec:active,#invite .inv-x:active{opacity:.7;transform:scale(.98)}
+#invite .inv-main:focus-visible,#invite .inv-sec:focus-visible,#invite .inv-x:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style>
+<style id="black-theme">
+/* ===== Чёрный фон тёмной темы (светлая тема не затронута: её переменные лежат на body.light-theme) ===== */
+:root:root{
+  --cl-rgb:14,14,16;
+  --cl-side:#1A1A1D; --cl-card:#1C1C1F; --cl-user:#232326; --cl-field:#1C1C1F; --cl-code:#151517;
+  --ui-bg-0:#0E0E10; --ui-bg-1:#1C1C1F; --ui-bg-2:#1C1C1F; --ui-bg-3:#2A2A2E;
+}
+html,body{background:#0E0E10}
+body.light-theme{background:var(--ui-bg-0)}
+#wl2{background:#0E0E10}
+</style>
+<style id="vis-card-css">
+/* ===== Карточка проекта в чате: компактная плашка </> вместо превью ===== */
+.vis .vis-card{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:var(--cl-card,#1C1C1F);border:1px solid var(--ui-line-hi,rgba(255,255,255,.14));cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;overflow:hidden}
+.vis .vis-card:active{opacity:.75}
+.vis .vis-ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--cl-hover,rgba(255,255,255,.08));color:var(--ui-tx-hi)}
+.vis .vis-meta{min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+.vis .vis-name{font:600 15px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-hi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vis .vis-kind{font:500 12px 'Manrope',system-ui,sans-serif;font-style:normal;color:var(--ui-tx-mid)}
+.vis .vis-card.busy{cursor:default}
+.vis .vis-card.busy::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.08) 50%,transparent 70%);transform:translateX(-100%);animation:visShim 1.6s ease-in-out infinite}
+@keyframes visShim{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.vis .vis-card.busy::after{animation:none}}
+.vis-bar .vis-open{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+</style>
 </head>
 <body>
 <script>
@@ -1642,7 +1714,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 (function(){ try {
   var light = JSON.parse(localStorage.getItem('theme')) === 'light';
   if (light) document.body.classList.add('light-theme');
-  var tg = window.Telegram && Telegram.WebApp, c = light ? '#F7F7F8' : '#1E1F22';
+  var tg = window.Telegram && Telegram.WebApp, c = light ? '#F7F7F8' : '#0E0E10';
   if (tg) { try { tg.setHeaderColor(c); tg.setBackgroundColor(c); } catch(e) {} }
 } catch(e) {} })();
 </script>
@@ -1698,15 +1770,24 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 <button class="ibtn" id="hist-btn" aria-label="История"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>
 <div id="hist-bg"></div>
 <aside id="hist-panel" aria-label="Чаты">
-  <div class="hp-top"><div class="hp-brand">Holo Friend</div><button type="button" class="hp-gear" id="hp-gear" aria-label="Настройки"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
-  <div class="hp-nav">
-    <button type="button" class="hp-item" id="hn-invite"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg><span>Пригласить друга</span></button>
-    <button type="button" class="hp-item" id="hn-pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span>Premium</span></button>
-    <button type="button" class="hp-item" id="hn-privacy"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg><span>Политика конфиденциальности</span></button>
+  <div class="sb-top">
+    <span class="sb-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="28" height="25" fill="none"><defs><clipPath id="sbc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#sbc)"><rect x="15" y="5" width="21" height="42" fill="currentColor"/></g><circle cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+    <span class="sb-lb sb-brand">Holo Friend</span>
+    <button type="button" class="sb-col" id="sb-col" aria-label="Свернуть панель" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg></button>
   </div>
-  <div class="hp-sec">Недавние</div>
-  <div id="hist-list"></div>
-  <div class="hp-foot"><button type="button" class="hp-new" id="hist-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Новый чат</span></button></div>
+  <nav class="sb-list" id="sb-list" aria-label="Разделы">
+    <span class="sb-hl" id="sb-hl"></span>
+    <button type="button" class="sb-it on" data-t="chats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z"/></svg><span class="sb-lb">Чаты</span></button>
+    <button type="button" class="sb-it" data-t="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg><span class="sb-lb">Профиль</span></button>
+    <button type="button" class="sb-it" data-t="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6"/></svg><span class="sb-lb">Настройки</span></button>
+    <button type="button" class="sb-it" data-t="pro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span class="sb-lb">Pro</span></button>
+  </nav>
+  <div class="sb-body" id="sb-body">
+    <div class="hp-sec">Недавние</div>
+    <div id="hist-list"></div>
+    <div class="hp-foot"><button type="button" class="hp-new" id="hist-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Новый чат</span></button></div>
+    <div class="sb-links"><button type="button" class="sb-link" id="hn-invite">Пригласить друга</button><button type="button" class="sb-link" id="hn-privacy">Политика конфиденциальности</button></div>
+  </div>
 </aside>
 <div id="topbar">
   <button class="ibtn" id="menu-btn" aria-label="Меню"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -1819,15 +1900,18 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
     <div id="hud-status"><span id="net"></span><span id="cnt">0 / 2000</span></div>
 </div>
 <div id="invite" class="overlay">
-  <div class="dialog ios-alert" role="dialog" aria-labelledby="inv-title">
-    <div class="ia-body">
-      <h3 id="inv-title">Пригласить друга</h3>
-      <p>За каждого друга, который зайдет и начнёт общаться, ты получишь +10 запросов к текстовой модели</p>
-      <p id="inv-stat" style="font-weight:600;color:var(--ui-tx-hi)"></p>
+  <div class="inv-sheet" role="dialog" aria-modal="true" aria-labelledby="inv-title">
+    <span class="inv-grab" aria-hidden="true"></span>
+    <button type="button" class="inv-x" id="inv-close" aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></button>
+    <div class="inv-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div>
+    <h3 id="inv-title">Пригласить друга</h3>
+    <p class="inv-sub">За каждого друга, который зайдёт и начнёт общаться, ты получишь <b id="inv-per">+10</b> запросов к текстовой модели</p>
+    <div class="inv-stats">
+      <div class="inv-stat"><b id="inv-friends">0</b><span>Друзей приглашено</span></div>
+      <div class="inv-stat"><b id="inv-bonus">+0</b><span>Бонусных запросов</span></div>
     </div>
-    <div class="ia-btns">
-      <button type="button" class="ia-btn" id="inv-share">Пригласить друга</button>
-    </div>
+    <button type="button" class="inv-main" id="inv-share">Поделиться ссылкой</button>
+    <button type="button" class="inv-sec" id="inv-copy">Скопировать ссылку</button>
   </div>
 </div>
 <div id="confirm" class="overlay">
@@ -1975,7 +2059,7 @@ let isFirstLoad = true;
 if (tg) {
     tg.ready();
     tg.expand();
-    try { tg.setHeaderColor('#1E1F22'); tg.setBackgroundColor('#1E1F22'); } catch(e) {}
+    try { tg.setHeaderColor('#0E0E10'); tg.setBackgroundColor('#0E0E10'); } catch(e) {}
     try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch(e) {}
     tg.onEvent('viewportChanged', e => { onViewportLive(!!(e && e.isStateStable)); });
 }
@@ -2363,19 +2447,31 @@ function revealAnimate(root, row){
     requestAnimationFrame(tick);
 }
 const MORE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+const CODE_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>';
+function visTitle(visual){
+    if (visual && visual.type === 'svg') return 'Иллюстрация';
+    const m = /<title[^>]*>([^<]{1,60})<\/title>/i.exec((visual && visual.code) || '');
+    return m && m[1].trim() ? m[1].trim() : 'Сайт';
+}
+function visCardFill(vis, visual){
+    if (!vis._name) return;
+    vis._card.classList.remove('busy');
+    vis._name.textContent = visTitle(visual);
+    vis._kind.textContent = visual && visual.type === 'svg' ? 'SVG · нажми, чтобы открыть' : 'Сайт · нажми, чтобы открыть';
+}
 function attachVis(row, msg, visual, opts){
     opts = opts || {};
-        row.classList.add('has-vis'); msg.classList.add('has-vis');
-        const vis = document.createElement('div'); vis.className = 'vis'; if (!opts.live) vis._v = visual;
-        const fr = document.createElement('div'); fr.className = 'vis-frame';
-        const ifr = document.createElement('iframe'); ifr.setAttribute('sandbox', 'allow-scripts'); ifr.setAttribute('title', 'Иллюстрация'); ifr.srcdoc = opts.doc || visDoc(visual);
-        fr.appendChild(ifr); vis._ifr = ifr;
-        const bar = document.createElement('div'); bar.className = 'vis-bar';
-        bar.innerHTML = '<button type="button" class="txtbtn vis-open" data-vis="open">Открыть</button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править</button>' : '') + '<button type="button" class="txtbtn vis-more" data-vis="more" aria-label="Ещё" aria-haspopup="true">' + MORE_ICON + '</button>';
-        if (opts.live) bar.style.display = 'none';
-        vis.appendChild(fr); vis.appendChild(bar); msg.appendChild(vis); vis._bar = bar;
-        const fit = () => { const w = fr.clientWidth; const f = vis._ifr || ifr; if (w) f.style.transform = 'scale(' + (w / 800) + ')'; };
-        requestAnimationFrame(fit); if (window.ResizeObserver) new ResizeObserver(fit).observe(fr);
+    row.classList.add('has-vis'); msg.classList.add('has-vis');
+    const vis = document.createElement('div'); vis.className = 'vis'; if (!opts.live) vis._v = visual;
+    const card = document.createElement('div'); card.className = 'vis-card' + (opts.live ? ' busy' : '');
+    card.innerHTML = '<span class="vis-ico">' + CODE_ICON + '</span><span class="vis-meta"><b class="vis-name"></b><i class="vis-kind"></i></span>';
+    vis._card = card; vis._name = card.querySelector('.vis-name'); vis._kind = card.querySelector('.vis-kind');
+    if (opts.live){ vis._name.textContent = 'Собираю сайт…'; vis._kind.textContent = 'Пишу код'; }
+    else visCardFill(vis, visual);
+    const bar = document.createElement('div'); bar.className = 'vis-bar';
+    bar.innerHTML = '<button type="button" class="txtbtn vis-open" data-vis="open">' + CODE_ICON.replace('width="22" height="22"', 'width="18" height="18"') + '<span>Открыть</span></button>' + (visual.type === 'html' ? '<button type="button" class="txtbtn vis-edit" data-vis="edit">Править</button>' : '') + '<button type="button" class="txtbtn vis-more" data-vis="more" aria-label="Ещё" aria-haspopup="true">' + MORE_ICON + '</button>';
+    if (opts.live) bar.style.display = 'none';
+    vis.appendChild(card); vis.appendChild(bar); msg.appendChild(vis); vis._bar = bar;
     return vis;
 }
 let bulkLoad = false, smoothUntil = 0;
@@ -2543,13 +2639,11 @@ function livePost(live){
 }
 function liveHtml(live, d){
     if (!live.vis){
-        live.vis = attachVis(live.row, live.msg, { type: 'html', code: '' }, { doc: LIVE_SHELL, live: true });
-        live.ifr = live.vis._ifr;
-        live.ifr.addEventListener('load', () => livePost(live));
+        live.vis = attachVis(live.row, live.msg, { type: 'html', code: '' }, { live: true });
         liveFollow();
     }
     live.html += d;
-    livePost(live);
+    if (live.vis._kind) live.vis._kind.textContent = 'Пишу код · ' + Math.max(1, Math.round(live.html.length / 1024)) + ' КБ';
 }
 // Подмена iframe на финальную версию без белой вспышки: новый грузится скрытым, потом занимает место старого
 function swapFrame(vis, doc){
@@ -2577,7 +2671,7 @@ function liveFinish(live, text, vis){
     if (vis && live.vis){
         live.vis._v = vis;
         if (live.vis._bar) live.vis._bar.style.display = '';
-        swapFrame(live.vis, visDoc(vis));
+        visCardFill(live.vis, vis);
     }
     pinBottom();
 }
@@ -3700,7 +3794,7 @@ chatHistory.addEventListener('click', e => {
     }
     if (b && b.dataset.vis === 'dl'){ curVis = { v: vis._v, el: vis }; dlVis(); curVis = null; return; }
     if (b && b.dataset.vis === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); return; }
-    if (b || e.target.closest('.vis-frame')) openVis(vis._v, vis);
+    if (b || e.target.closest('.vis-card')) openVis(vis._v, vis);
 });
 const COPY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
@@ -4874,7 +4968,7 @@ const Quest = { add(){} };  // квесты и звёзды убраны; заг
 const toastEl = $('toast'); let toastT;
 function toast(s){ toastEl.textContent = s; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2800); }
 let REF = { loaded: false, link: '', invited: 0, active: 0, bonus: { per: 10, earned: 0, left: 0 } };
-function renderInviteStat(){ $('inv-stat').textContent = `Приглашено друзей: ${REF.active}. Бонусных запросов: +${REF.bonus.earned}`; }
+function renderInviteStat(){ $('inv-friends').textContent = REF.active; $('inv-bonus').textContent = '+' + REF.bonus.earned; $('inv-per').textContent = '+' + REF.bonus.per; }
 function setRefBonus(b){
     if (!b) return;
     REF.bonus = { per: b.per_friend, earned: b.earned, left: b.left };
@@ -4929,6 +5023,18 @@ $('inv-share').addEventListener('click', async () => {
     refShare();
 });
 $('invite-btn').addEventListener('click', openInvite);
+$('inv-close').addEventListener('click', closeInvite);
+$('inv-copy').addEventListener('click', async () => {
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    if (!REF.link) await refreshRef();
+    if (!REF.link){ toast('Ссылка пока недоступна'); return; }
+    let ok = false;
+    try { await navigator.clipboard.writeText(REF.link); ok = true; } catch(e) {}
+    if (!ok){
+        try { const ta = document.createElement('textarea'); ta.value = REF.link; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch(e) {}
+    }
+    toast(ok ? 'Ссылка скопирована' : 'Не удалось скопировать');
+});
 // Drawer
 function drTab(t){ $('dr-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.dt === t)); $('dr-menu').classList.toggle('on', t === 'menu'); $('dr-prof').classList.toggle('on', t === 'prof'); renderProfile(); }
 // --- ИСТОРИЯ ЧАТОВ (localStorage: holo_chats = массив архивных чатов) ---
@@ -5089,7 +5195,7 @@ function sysLight(){ return (tg && tg.colorScheme) ? tg.colorScheme === 'light' 
 function applyTheme(){
     const m = themeMode(), light = m === 'light' || (m === 'system' && sysLight());
     document.body.classList.toggle('light-theme', light);
-    const c = light ? '#F7F7F8' : '#1E1F22';
+    const c = light ? '#F7F7F8' : '#0E0E10';
     if (tg) try { tg.setHeaderColor(c); tg.setBackgroundColor(c); } catch(e) {}
     document.querySelectorAll('.th-opt').forEach(b => b.classList.toggle('on', b.dataset.th === m));
 }
@@ -5102,9 +5208,99 @@ applyTheme();
 
 // ПАНЕЛИ: навигация
 $('hn-invite').addEventListener('click', () => { closeHist(); openInvite(); });
-$('hn-pro').addEventListener('click', () => { closeHist(); $('pro-btn').click(); });
 $('hn-privacy').addEventListener('click', () => { closeHist(); openPrivacy(); });
-$('hp-gear').addEventListener('click', () => { closeHist(); openDrawer(); });
+
+// ---------- Боковая панель: вкладки Чаты / Профиль / Настройки / Pro ----------
+(function sidebar(){
+    const panel = $('hist-panel'), col = $('sb-col'), hl = $('sb-hl'), body = $('sb-body');
+    if (!panel || !col || !hl) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const its = [...panel.querySelectorAll('.sb-it')];
+    const labels = [...panel.querySelectorAll('.sb-lb')].map(el => ({ el, s: sp(1, 300, 26) }));
+    const logo = panel.querySelector('.sb-logo'), arrow = col.firstElementChild;
+    const RAIL = 76, expW = () => Math.min(innerWidth * .84, 320);
+    function sp(x, k, c){ return { x, v: 0, t: x, k, c: reduce ? 2 * Math.sqrt(k) : c }; }
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    let rail = !!store.get('sb_rail', false);
+    const W = sp(rail ? RAIL : expW(), 260, 24), R = sp(rail ? 1 : 0, 300, 22), Y = sp(0, 380, 28), B = sp(rail ? 0 : 1, 300, 28);
+    let raf = 0, last = 0, timers = [];
+
+    function later(ms, fn){ const t = setTimeout(fn, ms); timers.push(t); return t; }
+    function clearLater(){ timers.forEach(clearTimeout); timers = []; }
+    function stepS(o, dt){ const a = -o.k * (o.x - o.t) - o.c * o.v; o.v += a * dt; o.x += o.v * dt; }
+    function settled(o){ return Math.abs(o.x - o.t) < .01 && Math.abs(o.v) < .01; }
+    function allSprings(){ return [W, R, Y, B].concat(labels.map(l => l.s)); }
+
+    function render(){
+        const b = document.body;
+        if (W.x !== expW() || rail) { b.style.setProperty('--pw', W.x.toFixed(2) + 'px'); }
+        arrow.style.transform = 'rotate(' + (180 * R.x).toFixed(2) + 'deg)';
+        col.style.right = (clamp(R.x, 0, 1) * 8).toFixed(2) + 'px';
+        logo.style.opacity = clamp(1 - R.x * 2, 0, 1).toFixed(3);
+        body.style.opacity = clamp(B.x, 0, 1).toFixed(3);
+        body.style.pointerEvents = B.x < .5 ? 'none' : '';
+        labels.forEach(l => { const o = clamp(l.s.x, 0, 1); l.el.style.opacity = o.toFixed(3); l.el.style.transform = 'translateX(' + ((1 - o) * -10).toFixed(2) + 'px)'; });
+        hl.style.transform = 'translateY(' + Y.x.toFixed(2) + 'px)';
+    }
+    function frame(now){
+        const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
+        for (let k = 0; k < 4; k++) allSprings().forEach(o => stepS(o, dt / 4));
+        render();
+        if (allSprings().every(settled)) {
+            allSprings().forEach(o => { o.x = o.t; o.v = 0; });
+            render(); raf = 0;
+            document.body.style.removeProperty('--pdur');
+            if (!rail) document.body.style.removeProperty('--pw');   // развёрнутая панель снова живёт на штатной ширине
+            return;
+        }
+        raf = requestAnimationFrame(frame);
+    }
+    function run(){ if (raf) return; last = performance.now(); raf = requestAnimationFrame(frame); }
+
+    function setRail(r, instant){
+        rail = r; store.set('sb_rail', r);
+        col.setAttribute('aria-expanded', r ? 'false' : 'true');
+        col.setAttribute('aria-label', r ? 'Развернуть панель' : 'Свернуть панель');
+        clearLater();
+        W.t = r ? RAIL : expW(); R.t = r ? 1 : 0; B.t = r ? 0 : 1;
+        document.body.style.setProperty('--pdur', '0s');   // контент справа двигается синхронно с шириной панели
+        if (r) labels.forEach(l => { l.s.t = 0; });
+        else labels.forEach((l, i) => later(60 + i * 40, () => { l.s.t = 1; run(); }));
+        if (instant) { allSprings().forEach(o => { o.x = o.t; o.v = 0; }); render(); document.body.style.removeProperty('--pdur'); if (!r) document.body.style.removeProperty('--pw'); }
+        else run();
+    }
+    function pick(i, instant){
+        its.forEach((b, k) => { b.classList.toggle('on', k === i); });
+        Y.t = its[i].offsetTop; if (instant) { Y.x = Y.t; Y.v = 0; render(); } else run();
+    }
+
+    col.addEventListener('click', () => { tap(); setRail(!rail); });
+    its.forEach((b, i) => b.addEventListener('click', () => {
+        const t = b.dataset.t;
+        if (t === 'chats') { if (rail) setRail(false); else pick(0); return; }
+        pick(i);
+        later(200, () => {                       // даём плашке доехать, потом открываем раздел
+            if (t === 'pro') { closeHist(); $('pro-btn').click(); }
+            else { closeHist(); openDrawer(); if (t === 'profile') drTab('prof'); }
+        });
+    }));
+
+    // при каждом открытии панели: плашка на «Чаты», подписи выезжают по очереди
+    let wasOpen = false;
+    new MutationObserver(() => {
+        const open = document.body.classList.contains('hp');
+        if (open === wasOpen) return; wasOpen = open;
+        clearLater();
+        if (open) {
+            pick(0, true);
+            if (!rail) labels.forEach((l, i) => { l.s.x = 0; l.s.v = 0; l.s.t = 0; later(60 + i * 40, () => { l.s.t = 1; run(); }); });
+            render(); run();
+        } else { pick(0, true); }
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    if (rail) { labels.forEach(l => { l.s.x = l.s.t = 0; }); render(); document.body.style.setProperty('--pw', RAIL + 'px'); }
+    addEventListener('resize', () => { if (!rail) { W.x = W.t = expW(); } });
+})();
 $('st-close').addEventListener('click', closeDrawer);
 $('st-acc').addEventListener('click', () => drTab('prof'));
 $('st-prof-row').addEventListener('click', () => drTab('prof'));
