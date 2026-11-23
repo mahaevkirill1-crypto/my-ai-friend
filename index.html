@@ -84,22 +84,29 @@
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     /* ПАНЕЛЬ ВВОДА ПОВЕРХ ВСЕГО: едет вверх вместе с клавиатурой, чат под ней не двигается */
-    #cmp { position: fixed; inset: 0; z-index: 700; display: none; touch-action: none; }
+    #cmp { position: fixed; inset: 0; z-index: 700; display: none; pointer-events: none; }
     #cmp.open { display: block; }
-    #cmp .cmp-bg { position: absolute; inset: 0; background: transparent; }
     #cmp .cmp-wrap { position: absolute; left: 0; right: 0; top: var(--cmp-top, 0px); transform: translateY(-100%); padding: 0 16px; pointer-events: none; }
     #cmp.adj .cmp-wrap { transition: top .2s ease; }
-    #cmp .cmp-pill { max-width: 450px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 18px; border-radius: 26px; background: var(--ui-bg-1); border: 1px solid var(--ui-line-hi); box-shadow: 0 10px 30px -12px rgba(0,0,0,.65); pointer-events: auto; }
+    #cmp .cmp-pill { max-width: 450px; margin: 0 auto; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 6px; border-radius: 26px; background: var(--ui-bg-1); border: 1px solid var(--ui-line-hi); box-shadow: 0 10px 30px -12px rgba(0,0,0,.65); pointer-events: auto; }
     #cmp-real { opacity: 0; }
     #cmp-real.live { opacity: 1; }
+    #cmp .cmp-pill.multi { align-items: flex-end; }
     #cmp .cmp-wrap.gh { pointer-events: none; transform: translateY(calc(-100% + var(--cmp-d, 0px))); transition: transform .3s cubic-bezier(.2,.9,.25,1); }
     #cmp .cmp-wrap.gh .cmp-pill { pointer-events: none; }
     #cmp .cmp-wrap.gh.go { transform: translateY(-100%); }
     #cmp .cmp-wrap.gh.out { opacity: 0; transition: opacity .1s linear; }
-    #cmp-input { flex: 1; min-width: 0; display: block; height: 40px; max-height: 132px; resize: none; border: none; outline: none; background: transparent; color: var(--ui-tx-hi); caret-color: var(--ui-cyan); font: 500 16px/20px 'Manrope', system-ui, sans-serif; padding: 10px 0; overflow-y: auto; scrollbar-width: none; -webkit-text-fill-color: var(--ui-tx-hi); }
-    #cmp-input::-webkit-scrollbar { display: none; }
-    #cmp-input::placeholder { color: var(--ui-tx-lo); -webkit-text-fill-color: var(--ui-tx-lo); }
-    #cmp-send { width: 40px; height: 40px; flex: none; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--cl-acc, var(--ui-cyan)); color: var(--cl-acc-fg, #051018); }
+    #cmp .cmp-att { width: 40px; height: 40px; flex: none; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; background: transparent; color: var(--ui-tx-mid); }
+    #cmp .cmp-att:active { transform: scale(.92); color: var(--ui-cyan); }
+    #cmp .cmp-chip { display: none; max-width: 450px; margin: 0 auto 8px; align-items: center; gap: 10px; padding: 6px 8px 6px 10px; border-radius: 18px; background: var(--ui-bg-1); border: 1px solid var(--ui-line-hi); pointer-events: auto; }
+    #cmp .cmp-chip.on { display: flex; }
+    #cmp .cmp-chip img { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; flex: none; }
+    #cmp .cmp-chip .n { flex: 1; min-width: 0; font-size: 13px; color: var(--ui-tx-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #cmp .cmp-chip .x { background: none; border: none; color: var(--ui-tx-lo); font-size: 16px; padding: 6px 8px; cursor: pointer; }
+    #cmp .cmp-ta { flex: 1; min-width: 0; display: block; height: 40px; max-height: 132px; resize: none; border: none; outline: none; background: transparent; color: var(--ui-tx-hi); caret-color: var(--ui-cyan); font: 500 16px/20px 'Manrope', system-ui, sans-serif; margin: 0; overflow-y: auto; scrollbar-width: none; -webkit-text-fill-color: var(--ui-tx-hi); }
+    #cmp .cmp-ta::-webkit-scrollbar { display: none; }
+    #cmp .cmp-ta::placeholder { color: var(--ui-tx-lo); -webkit-text-fill-color: var(--ui-tx-lo); }
+    #cmp .cmp-send { width: 40px; height: 40px; flex: none; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--cl-acc, var(--ui-cyan)); color: var(--cl-acc-fg, #051018); }
     body.cmp-on #hud-panel { opacity: 0 !important; pointer-events: none !important; transition: none !important; }
     
     html, body {
@@ -1918,11 +1925,12 @@ body.light-theme{background:var(--ui-bg-0)}
     <div id="hud-status"><span id="net"></span><span id="cnt">0 / 2000</span></div>
 </div>
 <div id="cmp" aria-hidden="true">
-    <div class="cmp-bg" id="cmp-bg"></div>
     <div class="cmp-wrap" id="cmp-real">
+        <div class="cmp-chip" id="cmp-chip"></div>
         <div class="cmp-pill">
-            <textarea id="cmp-input" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="2000" enterkeyhint="send"></textarea>
-            <button id="cmp-send" type="button" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+            <button id="cmp-att" class="cmp-att" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+            <textarea id="cmp-input" class="cmp-ta" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="2000" enterkeyhint="send"></textarea>
+            <button id="cmp-send" class="cmp-send" type="button" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         </div>
     </div>
 </div>
@@ -2212,7 +2220,7 @@ setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
 
-let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false, cmpOpen = false, cmpMeasureFn = null;
+let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false, cmpOpen = false, cmpMeasureFn = null, cmpQuietUntil = 0;
 function scrollChat(){ const c = $('chat-history'); c.scrollTop = c.scrollHeight; }
 function syncBody(){
     const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
@@ -2253,7 +2261,7 @@ function layout(){
 }
 function onViewport(){ syncBody(); layout(); scrollChat(); }
 let vpT = 0;
-function onViewportLive(stable){ if (cmpOpen){ if (stable && cmpMeasureFn) cmpMeasureFn(); return; } syncBody(); clearTimeout(vpT); const apply = () => { layout(); scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
+function onViewportLive(stable){ if (cmpOpen){ if (stable && cmpMeasureFn) cmpMeasureFn(); return; } syncBody(); clearTimeout(vpT); const apply = () => { layout(); if (!cmpOpen && Date.now() > cmpQuietUntil) scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
 addEventListener('resize', () => onViewportLive(false));
 addEventListener('scroll', () => { if (scrollY) scrollTo(0, 0); });
 syncBody();
@@ -4956,10 +4964,47 @@ input.addEventListener('input', autoGrow);
 input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
 // ===== Панель ввода поверх всего: едет вверх вместе с клавиатурой, чат и голограмма под ней стоят =====
 const cmp = $('cmp'), cmpReal = $('cmp-real'), cmpIn = $('cmp-input');
-let kbEst = Number(store.get('kbh', 335)) || 335, cmpHtop = 0, cmpHm = 0, cmpD = 0, cmpTimers = [];
+let cmpMinH = 40, kbEst = Number(store.get('kbh', 335)) || 335, cmpHtop = 0, cmpHm = 0, cmpD = 0, cmpTimers = [];
 function cmpClear(){ cmpTimers.forEach(clearTimeout); cmpTimers = []; }
 function cmpLater(fn, ms){ cmpTimers.push(setTimeout(fn, ms)); }
-function cmpGrow(){ cmpIn.style.height = 'auto'; cmpIn.style.height = Math.min(Math.max(cmpIn.scrollHeight, 40), 132) + 'px'; }
+function cmpGrow(){ cmpIn.style.height = 'auto'; const h = Math.min(Math.max(cmpIn.scrollHeight, cmpMinH), 132); cmpIn.style.height = h + 'px'; const pl = cmpIn.parentNode; if (pl) pl.classList.toggle('multi', h > cmpMinH + 4); }
+// Панель берёт вид с настоящего нижнего поля (цвета, скругления, размеры, состояние кнопки)
+function cmpSyncStyle(geo){
+    const ct = document.querySelector('#hud-panel .input-container'); if (!ct) return;
+    const inn = ct.querySelector('.input-inner'); if (!inn) return;
+    const cc = getComputedStyle(ct), ci = getComputedStyle(inn);
+    const sb = getComputedStyle($('send-btn')), ab = getComputedStyle($('att-btn')), ta = getComputedStyle(input);
+    const pill = cmpReal.querySelector('.cmp-pill'), set = (el, o) => { for (const k in o) el.style[k] = o[k]; };
+    const framed = parseFloat(cc.paddingTop) > 0 && cc.backgroundColor !== 'rgba(0, 0, 0, 0)';
+    set(pill, {
+        backgroundColor: ci.backgroundColor, backgroundImage: ci.backgroundImage,
+        borderRadius: framed ? cc.borderRadius : ci.borderRadius,
+        gap: '0', boxShadow: cc.boxShadow,
+        border: framed ? cc.paddingTop + ' solid ' + cc.backgroundColor : '0',
+        maxWidth: ct.getBoundingClientRect().width + 'px'
+    });
+    if (geo){
+        const R = el => el.getBoundingClientRect();
+        const rc = R(ct), ra = R($('att-btn')), rs = R($('send-btn')), rt = R(input);
+        const lh = parseFloat(ta.lineHeight), single = (lh > 0 ? lh : 0) + parseFloat(ta.paddingTop) + parseFloat(ta.paddingBottom);
+        cmpMinH = single > 8 ? Math.round(single * 10) / 10 : rt.height;
+        const vpad = Math.max(0, (rc.height - Math.max(rt.height, ra.height, rs.height)) / 2);
+        set(pill, { padding: vpad + 'px ' + Math.max(0, rc.right - rs.right) + 'px ' + vpad + 'px ' + Math.max(0, ra.left - rc.left) + 'px' });
+        set(cmpIn, { marginLeft: (rt.left - ra.right) + 'px', marginRight: (rs.left - rt.right) + 'px' });
+    }
+    const chip = $('cmp-chip'); if (chip) chip.style.maxWidth = ct.getBoundingClientRect().width + 'px';
+    set($('cmp-send'), { backgroundColor: sb.backgroundColor, backgroundImage: sb.backgroundImage, color: sb.color, borderRadius: sb.borderRadius, width: sb.width, height: sb.height, boxShadow: sb.boxShadow, opacity: sb.opacity });
+    set($('cmp-att'), { backgroundColor: ab.backgroundColor, color: ab.color, borderRadius: ab.borderRadius, width: ab.width, height: ab.height });
+    set(cmpIn, { color: ta.color, webkitTextFillColor: ta.webkitTextFillColor, caretColor: ta.caretColor, fontFamily: ta.fontFamily, fontSize: ta.fontSize, fontWeight: ta.fontWeight, letterSpacing: ta.letterSpacing, lineHeight: ta.lineHeight, paddingTop: ta.paddingTop, paddingBottom: ta.paddingBottom, paddingLeft: ta.paddingLeft, paddingRight: ta.paddingRight });
+}
+function cmpChip(){
+    const c = $('cmp-chip');
+    if (!ATT){ c.className = 'cmp-chip'; c.innerHTML = ''; return; }
+    c.className = 'cmp-chip on';
+    c.innerHTML = (ATT.kind === 'image' ? `<img src="${ATT.preview}" alt="">` : '<span>📎</span>') + '<span class="n"></span><button type="button" class="x" aria-label="Убрать">✕</button>';
+    c.querySelector('.n').textContent = ATT.name;
+}
+function cmpPad(){ document.documentElement.style.setProperty('--hud-h', ($('hud-panel').offsetHeight + 8 + kbEst + 60) + 'px'); }
 function cmpTop(){ cmp.style.setProperty('--cmp-top', (cmpHtop - kbEst - 8) + 'px'); }
 function cmpGhost(down){
     const g = cmpReal.cloneNode(true);
@@ -4979,8 +5024,9 @@ function openCmp(){
     const bar = document.querySelector('#hud-panel .input-container');
     const br = bar ? bar.getBoundingClientRect() : { bottom: innerHeight - 12 };
     cmpHtop = innerHeight; cmpHm = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
-    cmpIn.value = input.value; cmpGrow();
-    cmpTop();
+    cmpIn.value = input.value; cmpSyncStyle(true); cmpGrow();
+    cmpChip();
+    cmpTop(); cmpPad();
     cmpD = Math.max(0, Math.round(br.bottom - (cmpHtop - kbEst - 8)));
     cmp.style.setProperty('--cmp-d', cmpD + 'px');
     cmpReal.classList.remove('live');
@@ -4999,12 +5045,14 @@ cmpMeasureFn = function(){
     const real = Math.round(cmpHm - cur);
     if (real > 150 && real < 520 && Math.abs(real - kbEst) > 6){
         kbEst = real; store.set('kbh', real);
-        cmp.classList.add('adj'); cmpTop(); cmpLater(() => cmp.classList.remove('adj'), 260);
+        cmp.classList.add('adj'); cmpTop(); cmpPad(); cmpLater(() => cmp.classList.remove('adj'), 260);
     }
 };
 function closeCmp(){
     if (!cmpOpen) return;
     cmpOpen = false; cmpClear();
+    const keepTop = chatHistory.scrollTop;
+    cmpQuietUntil = Date.now() + 2000;
     input.value = cmpIn.value; autoGrow(); $('cnt').textContent = input.value.length + ' / 2000'; syncHud();
     cmp.querySelectorAll('.gh').forEach(n => n.remove());
     const g = cmpGhost(true);
@@ -5016,9 +5064,10 @@ function closeCmp(){
     cmpLater(() => {
         cmp.classList.remove('open'); g.remove();
         document.body.classList.remove('cmp-on');
-        onViewportLive(true); scrollChat();
+        renderAtt(); syncBody(); layout();
+        chatHistory.scrollTop = keepTop;            // остаёмся там, где были
     }, 340);
-    cmpLater(() => { onViewportLive(true); scrollChat(); }, 700);
+    cmpLater(() => { syncBody(); layout(); }, 700);
 }
 function cmpSend(){
     const t = cmpIn.value.trim();
@@ -5026,10 +5075,28 @@ function cmpSend(){
     cmpIn.value = ''; closeCmp();
     sendMessage(t);
 }
-cmpIn.addEventListener('input', cmpGrow);
+cmpIn.addEventListener('input', () => { input.value = cmpIn.value; cmpGrow(); cmpSyncStyle(); });
+$('cmp-chip').addEventListener('click', e => { if (e.target.closest('.x')){ ATT = null; cmpChip(); } });
+$('cmp-att').addEventListener('click', () => { closeCmp(); attInput.click(); });   // закрываем панель и сразу открываем выбор файла
 cmpIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); cmpSend(); } else if (e.key === 'Escape') closeCmp(); });
 $('cmp-send').addEventListener('click', cmpSend);
-$('cmp-bg').addEventListener('click', closeCmp);
+// Касание чата без движения закрывает панель, прокрутка — нет (клавиатура остаётся)
+let cmpTx = 0, cmpTy = null, cmpMoved = false;
+document.addEventListener('touchstart', e => {
+    if (!cmpOpen) return;
+    if (e.target.closest && e.target.closest('#cmp .cmp-pill')){ cmpTy = null; return; }
+    const t = e.touches[0]; cmpTx = t.clientX; cmpTy = t.clientY; cmpMoved = false;
+}, { passive: true, capture: true });
+document.addEventListener('touchmove', e => {
+    if (!cmpOpen || cmpTy === null) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientY - cmpTy) > 8 || Math.abs(t.clientX - cmpTx) > 8) cmpMoved = true;
+}, { passive: true, capture: true });
+document.addEventListener('touchend', () => {
+    if (!cmpOpen || cmpTy === null) return;
+    if (!cmpMoved) closeCmp();
+    cmpTy = null;
+}, { passive: true, capture: true });
 // Нажатие на старое поле не даёт ему фокус — открывается панель поверх
 ['touchstart', 'mousedown'].forEach(ev => input.addEventListener(ev, e => e.preventDefault(), { passive: false }));
 input.addEventListener('touchend', e => { e.preventDefault(); openCmp(); }, { passive: false });
