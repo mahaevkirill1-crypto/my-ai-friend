@@ -108,6 +108,7 @@
     #cmp .cmp-ta::placeholder { color: var(--ui-tx-lo); -webkit-text-fill-color: var(--ui-tx-lo); }
     #cmp .cmp-send { width: 40px; height: 40px; flex: none; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--cl-acc, var(--ui-cyan)); color: var(--cl-acc-fg, #051018); }
     body.cmp-on #hud-panel { opacity: 0 !important; pointer-events: none !important; transition: none !important; }
+    body.cmp-on #down-btn { opacity: 0 !important; pointer-events: none !important; transition: none !important; }   /* при открытой клавиатуре --hud-h растёт на высоту клавиатуры, стрелка улетала вверх */
     
     html, body {
         margin: 0; height: 100%; color: var(--ui-tx-hi);
@@ -4964,7 +4965,7 @@ input.addEventListener('input', autoGrow);
 input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
 // ===== Панель ввода поверх всего: едет вверх вместе с клавиатурой, чат и голограмма под ней стоят =====
 const cmp = $('cmp'), cmpReal = $('cmp-real'), cmpIn = $('cmp-input');
-let cmpMinH = 40, kbEst = Number(store.get('kbh', 335)) || 335, cmpHtop = 0, cmpHm = 0, cmpD = 0, cmpTimers = [];
+let cmpMinH = 40, kbEst = Number(store.get('kbh', 335)) || 335, cmpHtop = 0, cmpHm = 0, cmpD = 0, cmpTimers = [], cmpOpenedAt = 0;
 function cmpClear(){ cmpTimers.forEach(clearTimeout); cmpTimers = []; }
 function cmpLater(fn, ms){ cmpTimers.push(setTimeout(fn, ms)); }
 function cmpGrow(){ cmpIn.style.height = 'auto'; const h = Math.min(Math.max(cmpIn.scrollHeight, cmpMinH), 132); cmpIn.style.height = h + 'px'; const pl = cmpIn.parentNode; if (pl) pl.classList.toggle('multi', h > cmpMinH + 4); }
@@ -5020,13 +5021,15 @@ function openCmp(){
     if (cmpOpen || isSending) return;
     cmpClear();
     cmp.querySelectorAll('.gh').forEach(n => n.remove());
-    cmpOpen = true;
+    cmpOpen = true; cmpOpenedAt = Date.now(); cmpTy = null;
+    const wasBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 60;
     const bar = document.querySelector('#hud-panel .input-container');
     const br = bar ? bar.getBoundingClientRect() : { bottom: innerHeight - 12 };
     cmpHtop = innerHeight; cmpHm = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
     cmpIn.value = input.value; cmpSyncStyle(true); cmpGrow();
     cmpChip();
     cmpTop(); cmpPad();
+    if (wasBottom){ smoothUntil = Date.now() + 700; chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }); }   // низ чата поднимается над полем ввода вместе с клавиатурой
     cmpD = Math.max(0, Math.round(br.bottom - (cmpHtop - kbEst - 8)));
     cmp.style.setProperty('--cmp-d', cmpD + 'px');
     cmpReal.classList.remove('live');
@@ -5052,6 +5055,9 @@ function closeCmp(){
     if (!cmpOpen) return;
     cmpOpen = false; cmpClear();
     const keepTop = chatHistory.scrollTop;
+    const maxAfter = Math.max(0, chatHistory.scrollHeight - (kbEst + 60) - chatHistory.clientHeight);   // максимум скролла после снятия запаса под клавиатуру
+    const target = Math.min(keepTop, maxAfter);
+    if (target < keepTop - 1){ smoothUntil = Date.now() + 700; chatHistory.scrollTo({ top: target, behavior: 'smooth' }); }   // едет вниз синхронно с клавиатурой
     cmpQuietUntil = Date.now() + 2000;
     input.value = cmpIn.value; autoGrow(); $('cnt').textContent = input.value.length + ' / 2000'; syncHud();
     cmp.querySelectorAll('.gh').forEach(n => n.remove());
@@ -5065,7 +5071,7 @@ function closeCmp(){
         cmp.classList.remove('open'); g.remove();
         document.body.classList.remove('cmp-on');
         renderAtt(); syncBody(); layout();
-        chatHistory.scrollTop = keepTop;            // остаёмся там, где были
+        chatHistory.scrollTop = target;             // остаёмся там, где были (без скачка)
     }, 340);
     cmpLater(() => { syncBody(); layout(); }, 700);
 }
@@ -5076,6 +5082,11 @@ function cmpSend(){
     sendMessage(t);
 }
 cmpIn.addEventListener('input', () => { input.value = cmpIn.value; cmpGrow(); cmpSyncStyle(); });
+// После системного окна выбора файла iOS может сразу снять фокус — возвращаем его (в пределах 1 с от касания iOS это разрешает)
+cmpIn.addEventListener('blur', () => {
+    if (!cmpOpen || Date.now() - cmpOpenedAt > 1200) return;
+    setTimeout(() => { if (cmpOpen && document.activeElement !== cmpIn){ try { cmpIn.focus({ preventScroll: true }); } catch (e) {} } }, 30);
+});
 $('cmp-chip').addEventListener('click', e => { if (e.target.closest('.x')){ ATT = null; cmpChip(); } });
 $('cmp-att').addEventListener('click', () => { closeCmp(); attInput.click(); });   // закрываем панель и сразу открываем выбор файла
 cmpIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); cmpSend(); } else if (e.key === 'Escape') closeCmp(); });
@@ -5094,9 +5105,10 @@ document.addEventListener('touchmove', e => {
 }, { passive: true, capture: true });
 document.addEventListener('touchend', () => {
     if (!cmpOpen || cmpTy === null) return;
-    if (!cmpMoved) closeCmp();
+    if (!cmpMoved && Date.now() - cmpOpenedAt > 500) closeCmp();   // случайное касание сразу после открытия не закрывает панель
     cmpTy = null;
 }, { passive: true, capture: true });
+document.addEventListener('touchcancel', () => { cmpTy = null; }, { passive: true, capture: true });
 // Нажатие на старое поле не даёт ему фокус — открывается панель поверх
 ['touchstart', 'mousedown'].forEach(ev => input.addEventListener(ev, e => e.preventDefault(), { passive: false }));
 input.addEventListener('touchend', e => { e.preventDefault(); openCmp(); }, { passive: false });
