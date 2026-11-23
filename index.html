@@ -83,6 +83,9 @@
     body.light-theme .message::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    /* iOS: плавающее поле ввода без прыжков при открытии клавиатуры */
+    :root:root body #hud-panel { transform: translate3d(0, var(--kb-shift, 0px), 0); will-change: transform; }
+    :root:root body #stage { transition: translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1) !important; }
     
     html, body {
         margin: 0; height: 100%; color: var(--ui-tx-hi);
@@ -2226,9 +2229,17 @@ function layout(){
 }
 function onViewport(){ syncBody(); layout(); scrollChat(); }
 let vpT = 0;
-function onViewportLive(stable){ syncBody(); clearTimeout(vpT); const apply = () => { layout(); scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function onViewportLive(stable){ syncBody(); clearTimeout(vpT); const apply = () => { layout(); scrollChat(); }; if (stable || IOS) apply(); else vpT = setTimeout(apply, 180); }
+// Поле ввода едет вместе с клавиатурой, не дожидаясь события Telegram
+const vv = window.visualViewport;
+function kbShift(){
+    if (!vv) return;
+    const gap = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb-shift', (-gap) + 'px');
+}
+if (vv){ vv.addEventListener('resize', () => { kbShift(); onViewportLive(true); }); vv.addEventListener('scroll', kbShift); }
 addEventListener('resize', () => onViewportLive(false));
-addEventListener('scroll', () => { if (scrollY) scrollTo(0, 0); });
 syncBody();
 layout();
 
@@ -4926,8 +4937,8 @@ function autoGrow(){   // высота поля растёт на пружине
 }
 input.addEventListener('input', autoGrow);
 [sendBtn, $('att-btn')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
-input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
-input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); focusT = setTimeout(() => { inFocus = false; layout(); }, 900); onViewportLive(false); [0, 120, 350, 600].forEach(ms => setTimeout(() => { scrollTo(0, 0); scrollChat(); }, ms)); });
+input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); kbShift(); onViewportLive(true); });
+input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); kbShift(); onViewportLive(true); });
 function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? '' : 'Нет соединения'; el.style.color = on ? '' : '#FF9E9E'; }
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
 function syncHud(){ const h = $('hud-status'); if (!h) return; const near = input.value.length > 400, off = !navigator.onLine; h.classList.toggle('near', near); h.classList.toggle('on', near || off); }
