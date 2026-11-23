@@ -1413,6 +1413,7 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 :root:root:root:root body #send-btn{width:32px;height:32px;padding:0;position:relative;border-radius:50%;background:var(--cl-acc);color:var(--cl-acc-fg);box-shadow:none;transition:background .2s ease,color .2s ease,transform .15s ease}
 :root:root:root:root body #user-input:placeholder-shown + #send-btn:not(.stop){background:var(--ui-line-hi);color:var(--ui-tx-lo)}
 /* Без теней у поля ввода (нижняя панель и панель над клавиатурой) */
+:root:root body #hud-panel, :root:root body.light-theme #hud-panel { background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 #hud-panel .input-container, #hud-panel .input-inner, #hud-panel #send-btn, #hud-panel #att-btn,
 #cmp .cmp-pill, #cmp .cmp-wrap, #cmp .cmp-send, #cmp .cmp-att, #cmp .cmp-chip { box-shadow: none !important; filter: none !important; text-shadow: none !important; }
 #send-btn i{position:absolute;inset:0;display:grid;place-items:center;will-change:transform;transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
@@ -2227,9 +2228,12 @@ function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color
 let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false, cmpOpen = false, cmpClosing = false, cmpMeasureFn = null, cmpQuietUntil = 0;
 function scrollChat(){ const c = $('chat-history'); c.scrollTop = c.scrollHeight; }
 function syncBody(){
-    const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
-    document.documentElement.style.setProperty('--app-h', vh + 'px');
-    document.documentElement.style.setProperty('--hud-h', ($('hud-panel').offsetHeight + 8) + 'px');
+    // пока панель ввода открыта или уезжает вниз, клавиатура уменьшает viewport — высоту приложения не трогаем (иначе чат «прыгает»)
+    if (!cmpOpen && !cmpClosing){
+        const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
+        document.documentElement.style.setProperty('--app-h', vh + 'px');
+    }
+    if (!cmpOpen) document.documentElement.style.setProperty('--hud-h', ($('hud-panel').offsetHeight + 8) + 'px');
 }
 function layout(){
     const w = innerWidth;
