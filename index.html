@@ -83,9 +83,24 @@
     body.light-theme .message::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    /* iOS: плавающее поле ввода без прыжков при открытии клавиатуры */
-    :root:root body #hud-panel { transform: translate3d(0, var(--kb-shift, 0px), 0); will-change: transform; }
-    :root:root body #stage { transition: translate var(--pdur,.32s) cubic-bezier(.2,.8,.2,1) !important; }
+    /* ПАНЕЛЬ ВВОДА ПОВЕРХ ВСЕГО: едет вверх вместе с клавиатурой, чат под ней не двигается */
+    #cmp { position: fixed; inset: 0; z-index: 700; display: none; touch-action: none; }
+    #cmp.open { display: block; }
+    #cmp .cmp-bg { position: absolute; inset: 0; background: transparent; }
+    #cmp .cmp-wrap { position: absolute; left: 0; right: 0; top: var(--cmp-top, 0px); transform: translateY(-100%); padding: 0 16px; pointer-events: none; }
+    #cmp.adj .cmp-wrap { transition: top .2s ease; }
+    #cmp .cmp-pill { max-width: 450px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 18px; border-radius: 26px; background: var(--ui-bg-1); border: 1px solid var(--ui-line-hi); box-shadow: 0 10px 30px -12px rgba(0,0,0,.65); pointer-events: auto; }
+    #cmp-real { opacity: 0; }
+    #cmp-real.live { opacity: 1; }
+    #cmp .cmp-wrap.gh { pointer-events: none; transform: translateY(calc(-100% + var(--cmp-d, 0px))); transition: transform .3s cubic-bezier(.2,.9,.25,1); }
+    #cmp .cmp-wrap.gh .cmp-pill { pointer-events: none; }
+    #cmp .cmp-wrap.gh.go { transform: translateY(-100%); }
+    #cmp .cmp-wrap.gh.out { opacity: 0; transition: opacity .1s linear; }
+    #cmp-input { flex: 1; min-width: 0; display: block; height: 40px; max-height: 132px; resize: none; border: none; outline: none; background: transparent; color: var(--ui-tx-hi); caret-color: var(--ui-cyan); font: 500 16px/20px 'Manrope', system-ui, sans-serif; padding: 10px 0; overflow-y: auto; scrollbar-width: none; -webkit-text-fill-color: var(--ui-tx-hi); }
+    #cmp-input::-webkit-scrollbar { display: none; }
+    #cmp-input::placeholder { color: var(--ui-tx-lo); -webkit-text-fill-color: var(--ui-tx-lo); }
+    #cmp-send { width: 40px; height: 40px; flex: none; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--cl-acc, var(--ui-cyan)); color: var(--cl-acc-fg, #051018); }
+    body.cmp-on #hud-panel { opacity: 0 !important; pointer-events: none !important; transition: none !important; }
     
     html, body {
         margin: 0; height: 100%; color: var(--ui-tx-hi);
@@ -1902,6 +1917,15 @@ body.light-theme{background:var(--ui-bg-0)}
     </div>
     <div id="hud-status"><span id="net"></span><span id="cnt">0 / 2000</span></div>
 </div>
+<div id="cmp" aria-hidden="true">
+    <div class="cmp-bg" id="cmp-bg"></div>
+    <div class="cmp-wrap" id="cmp-real">
+        <div class="cmp-pill">
+            <textarea id="cmp-input" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="2000" enterkeyhint="send"></textarea>
+            <button id="cmp-send" type="button" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        </div>
+    </div>
+</div>
 <div id="invite" class="overlay">
   <div class="inv-sheet" role="dialog" aria-modal="true" aria-labelledby="inv-title">
     <span class="inv-grab" aria-hidden="true"></span>
@@ -2188,7 +2212,7 @@ setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
 
-let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false;
+let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false, cmpOpen = false, cmpMeasureFn = null;
 function scrollChat(){ const c = $('chat-history'); c.scrollTop = c.scrollHeight; }
 function syncBody(){
     const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
@@ -2229,17 +2253,9 @@ function layout(){
 }
 function onViewport(){ syncBody(); layout(); scrollChat(); }
 let vpT = 0;
-const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-function onViewportLive(stable){ syncBody(); clearTimeout(vpT); const apply = () => { layout(); scrollChat(); }; if (stable || IOS) apply(); else vpT = setTimeout(apply, 180); }
-// Поле ввода едет вместе с клавиатурой, не дожидаясь события Telegram
-const vv = window.visualViewport;
-function kbShift(){
-    if (!vv) return;
-    const gap = Math.max(0, innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty('--kb-shift', (-gap) + 'px');
-}
-if (vv){ vv.addEventListener('resize', () => { kbShift(); onViewportLive(true); }); vv.addEventListener('scroll', kbShift); }
+function onViewportLive(stable){ if (cmpOpen){ if (stable && cmpMeasureFn) cmpMeasureFn(); return; } syncBody(); clearTimeout(vpT); const apply = () => { layout(); scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
 addEventListener('resize', () => onViewportLive(false));
+addEventListener('scroll', () => { if (scrollY) scrollTo(0, 0); });
 syncBody();
 layout();
 
@@ -4937,8 +4953,88 @@ function autoGrow(){   // высота поля растёт на пружине
 }
 input.addEventListener('input', autoGrow);
 [sendBtn, $('att-btn')].forEach(el => el.addEventListener('pointerdown', e => { if (document.activeElement === input) e.preventDefault(); }));
-input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); kbShift(); onViewportLive(true); });
-input.addEventListener('focus', () => { inFocus = true; clearTimeout(focusT); kbShift(); onViewportLive(true); });
+input.addEventListener('blur', () => { inFocus = false; clearTimeout(focusT); onViewportLive(false); });
+// ===== Панель ввода поверх всего: едет вверх вместе с клавиатурой, чат и голограмма под ней стоят =====
+const cmp = $('cmp'), cmpReal = $('cmp-real'), cmpIn = $('cmp-input');
+let kbEst = Number(store.get('kbh', 335)) || 335, cmpHtop = 0, cmpHm = 0, cmpD = 0, cmpTimers = [];
+function cmpClear(){ cmpTimers.forEach(clearTimeout); cmpTimers = []; }
+function cmpLater(fn, ms){ cmpTimers.push(setTimeout(fn, ms)); }
+function cmpGrow(){ cmpIn.style.height = 'auto'; cmpIn.style.height = Math.min(Math.max(cmpIn.scrollHeight, 40), 132) + 'px'; }
+function cmpTop(){ cmp.style.setProperty('--cmp-top', (cmpHtop - kbEst - 8) + 'px'); }
+function cmpGhost(down){
+    const g = cmpReal.cloneNode(true);
+    g.removeAttribute('id'); g.classList.add('gh');
+    g.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    const ta = g.querySelector('textarea'); if (ta){ ta.value = cmpIn.value; ta.style.height = cmpIn.style.height; ta.removeAttribute('name'); }
+    if (!down) g.classList.remove('live');
+    if (down) g.classList.add('go');
+    cmp.appendChild(g);
+    return g;
+}
+function openCmp(){
+    if (cmpOpen || isSending) return;
+    cmpClear();
+    cmp.querySelectorAll('.gh').forEach(n => n.remove());
+    cmpOpen = true;
+    const bar = document.querySelector('#hud-panel .input-container');
+    const br = bar ? bar.getBoundingClientRect() : { bottom: innerHeight - 12 };
+    cmpHtop = innerHeight; cmpHm = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
+    cmpIn.value = input.value; cmpGrow();
+    cmpTop();
+    cmpD = Math.max(0, Math.round(br.bottom - (cmpHtop - kbEst - 8)));
+    cmp.style.setProperty('--cmp-d', cmpD + 'px');
+    cmpReal.classList.remove('live');
+    const g = cmpGhost(false);
+    cmp.classList.add('open'); cmp.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('cmp-on');
+    void cmp.offsetWidth;
+    g.classList.add('go');                          // панель плывёт вверх, как клавиатура
+    cmpIn.focus({ preventScroll: true });           // сразу в жесте, чтобы iOS показал клавиатуру
+    const L = cmpIn.value.length; try { cmpIn.setSelectionRange(L, L); } catch (e) {}
+    cmpLater(() => { cmpReal.classList.add('live'); g.classList.add('out'); cmpLater(() => g.remove(), 140); }, 300);
+    cmpLater(() => { if (cmpOpen && cmpMeasureFn) cmpMeasureFn(); }, 750);
+}
+cmpMeasureFn = function(){
+    const cur = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
+    const real = Math.round(cmpHm - cur);
+    if (real > 150 && real < 520 && Math.abs(real - kbEst) > 6){
+        kbEst = real; store.set('kbh', real);
+        cmp.classList.add('adj'); cmpTop(); cmpLater(() => cmp.classList.remove('adj'), 260);
+    }
+};
+function closeCmp(){
+    if (!cmpOpen) return;
+    cmpOpen = false; cmpClear();
+    input.value = cmpIn.value; autoGrow(); $('cnt').textContent = input.value.length + ' / 2000'; syncHud();
+    cmp.querySelectorAll('.gh').forEach(n => n.remove());
+    const g = cmpGhost(true);
+    cmpReal.classList.remove('live');
+    cmpIn.blur();
+    void cmp.offsetWidth;
+    g.classList.remove('go');                       // панель уезжает вниз вместе с клавиатурой
+    cmp.setAttribute('aria-hidden', 'true');
+    cmpLater(() => {
+        cmp.classList.remove('open'); g.remove();
+        document.body.classList.remove('cmp-on');
+        onViewportLive(true); scrollChat();
+    }, 340);
+    cmpLater(() => { onViewportLive(true); scrollChat(); }, 700);
+}
+function cmpSend(){
+    const t = cmpIn.value.trim();
+    if (!t && !ATT) return;
+    cmpIn.value = ''; closeCmp();
+    sendMessage(t);
+}
+cmpIn.addEventListener('input', cmpGrow);
+cmpIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); cmpSend(); } else if (e.key === 'Escape') closeCmp(); });
+$('cmp-send').addEventListener('click', cmpSend);
+$('cmp-bg').addEventListener('click', closeCmp);
+// Нажатие на старое поле не даёт ему фокус — открывается панель поверх
+['touchstart', 'mousedown'].forEach(ev => input.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+input.addEventListener('touchend', e => { e.preventDefault(); openCmp(); }, { passive: false });
+input.addEventListener('click', openCmp);
+input.addEventListener('focus', () => { input.blur(); openCmp(); });   // на случай программного input.focus()
 function drawNet(){ const on = navigator.onLine; const el = $('net'); el.textContent = on ? '' : 'Нет соединения'; el.style.color = on ? '' : '#FF9E9E'; }
 addEventListener('online', drawNet); addEventListener('offline', drawNet); drawNet();
 function syncHud(){ const h = $('hud-status'); if (!h) return; const near = input.value.length > 400, off = !navigator.onLine; h.classList.toggle('near', near); h.classList.toggle('on', near || off); }
