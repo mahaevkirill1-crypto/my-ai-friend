@@ -1412,6 +1412,9 @@ body.logo-play #empty-logo .el-pl { animation: elPl .5s ease 1s both; }
 :root:root:root:root body #att-btn svg{width:18px;height:18px}
 :root:root:root:root body #send-btn{width:32px;height:32px;padding:0;position:relative;border-radius:50%;background:var(--cl-acc);color:var(--cl-acc-fg);box-shadow:none;transition:background .2s ease,color .2s ease,transform .15s ease}
 :root:root:root:root body #user-input:placeholder-shown + #send-btn:not(.stop){background:var(--ui-line-hi);color:var(--ui-tx-lo)}
+/* Без теней у поля ввода (нижняя панель и панель над клавиатурой) */
+#hud-panel .input-container, #hud-panel .input-inner, #hud-panel #send-btn, #hud-panel #att-btn,
+#cmp .cmp-pill, #cmp .cmp-wrap, #cmp .cmp-send, #cmp .cmp-att, #cmp .cmp-chip { box-shadow: none !important; filter: none !important; text-shadow: none !important; }
 #send-btn i{position:absolute;inset:0;display:grid;place-items:center;will-change:transform;transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
 #send-btn .sb-a svg{width:16px;height:16px}
 #send-btn .sb-s{transform:scale(0)}
@@ -5049,13 +5052,16 @@ cmpMeasureFn = function(){
         cmp.classList.add('adj'); cmpTop(); cmpPad(); cmpLater(() => cmp.classList.remove('adj'), 260);
     }
 };
-function closeCmp(){
+function closeCmp(sending){
     if (!cmpOpen) return;
     cmpOpen = false; cmpClosing = true; cmpClear();
     const keepTop = chatHistory.scrollTop;
     const maxAfter = Math.max(0, chatHistory.scrollHeight - (kbEst + 60) - chatHistory.clientHeight);   // максимум скролла после снятия запаса под клавиатуру
     const target = Math.min(keepTop, maxAfter);
-    if (target < keepTop - 1){ smoothUntil = Date.now() + 700; chatHistory.scrollTo({ top: target, behavior: 'smooth' }); }   // едет вниз синхронно с клавиатурой
+    if (sending){
+        // при отправке запас под клавиатуру убираем сразу (под уезжающей панелью), иначе новое сообщение прокручивается до «большого» низа и потом откатывается
+        document.documentElement.style.setProperty('--hud-h', ($('hud-panel').offsetHeight + 8) + 'px');
+    } else if (target < keepTop - 1){ smoothUntil = Date.now() + 700; chatHistory.scrollTo({ top: target, behavior: 'smooth' }); }   // едет вниз синхронно с клавиатурой
     cmpQuietUntil = Date.now() + 2000;
     input.value = cmpIn.value; autoGrow(); $('cnt').textContent = input.value.length + ' / 2000'; syncHud();
     cmp.querySelectorAll('.gh').forEach(n => n.remove());
@@ -5069,14 +5075,14 @@ function closeCmp(){
         cmp.classList.remove('open'); g.remove();
         document.body.classList.remove('cmp-on');
         renderAtt(); syncBody(); layout();
-        chatHistory.scrollTop = target;             // остаёмся там, где были (без скачка)
+        if (!sending) chatHistory.scrollTop = target;   // остаёмся там, где были (без скачка); при отправке чат сам едет вниз к новому сообщению
     }, 340);
     cmpLater(() => { cmpClosing = false; syncBody(); layout(); }, 700);
 }
 function cmpSend(){
     const t = cmpIn.value.trim();
     if (!t && !ATT) return;
-    cmpIn.value = ''; closeCmp();
+    cmpIn.value = ''; closeCmp(true);
     sendMessage(t);
 }
 cmpIn.addEventListener('input', () => { input.value = cmpIn.value; cmpGrow(); cmpSyncStyle(); });
