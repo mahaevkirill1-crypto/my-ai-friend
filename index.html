@@ -2221,7 +2221,7 @@ setTargets(EMOTIONS.happy); setTargets(POSES.idle);
 function applyTint(){ const e = EMOTIONS[curEmo]; const sk = (curEmo === 'happy' && skin && !skin.rainbow) ? skin : e; tgC = hex(sk.c); tgS = hex(sk.s); }
 function applyOutfit(){ dress('m', EQUIP); skin = EQUIP.color ? byId[EQUIP.color] : null; applyTint(); }
 
-let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false, cmpOpen = false, cmpMeasureFn = null, cmpQuietUntil = 0;
+let baseW = 0, baseH = 0, kb = false, inFocus = false, SCt = .5, layoutDone = false, cmpOpen = false, cmpClosing = false, cmpMeasureFn = null, cmpQuietUntil = 0;
 function scrollChat(){ const c = $('chat-history'); c.scrollTop = c.scrollHeight; }
 function syncBody(){
     const vh = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
@@ -2262,7 +2262,7 @@ function layout(){
 }
 function onViewport(){ syncBody(); layout(); scrollChat(); }
 let vpT = 0;
-function onViewportLive(stable){ if (cmpOpen){ if (stable && cmpMeasureFn) cmpMeasureFn(); return; } syncBody(); clearTimeout(vpT); const apply = () => { layout(); if (!cmpOpen && Date.now() > cmpQuietUntil) scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
+function onViewportLive(stable){ if (cmpOpen){ if (stable && cmpMeasureFn) cmpMeasureFn(); return; } if (cmpClosing) return; syncBody(); clearTimeout(vpT); const apply = () => { layout(); if (!cmpOpen && Date.now() > cmpQuietUntil) scrollChat(); }; if (stable) apply(); else vpT = setTimeout(apply, 180); }
 addEventListener('resize', () => onViewportLive(false));
 addEventListener('scroll', () => { if (scrollY) scrollTo(0, 0); });
 syncBody();
@@ -5021,15 +5021,13 @@ function openCmp(){
     if (cmpOpen || isSending) return;
     cmpClear();
     cmp.querySelectorAll('.gh').forEach(n => n.remove());
-    cmpOpen = true; cmpOpenedAt = Date.now(); cmpTy = null;
-    const wasBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 60;
+    cmpOpen = true; cmpClosing = false; cmpOpenedAt = Date.now(); cmpTy = null;
     const bar = document.querySelector('#hud-panel .input-container');
     const br = bar ? bar.getBoundingClientRect() : { bottom: innerHeight - 12 };
     cmpHtop = innerHeight; cmpHm = (tg && tg.viewportHeight) ? tg.viewportHeight : innerHeight;
     cmpIn.value = input.value; cmpSyncStyle(true); cmpGrow();
     cmpChip();
     cmpTop(); cmpPad();
-    if (wasBottom){ smoothUntil = Date.now() + 700; chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior: 'smooth' }); }   // низ чата поднимается над полем ввода вместе с клавиатурой
     cmpD = Math.max(0, Math.round(br.bottom - (cmpHtop - kbEst - 8)));
     cmp.style.setProperty('--cmp-d', cmpD + 'px');
     cmpReal.classList.remove('live');
@@ -5053,7 +5051,7 @@ cmpMeasureFn = function(){
 };
 function closeCmp(){
     if (!cmpOpen) return;
-    cmpOpen = false; cmpClear();
+    cmpOpen = false; cmpClosing = true; cmpClear();
     const keepTop = chatHistory.scrollTop;
     const maxAfter = Math.max(0, chatHistory.scrollHeight - (kbEst + 60) - chatHistory.clientHeight);   // максимум скролла после снятия запаса под клавиатуру
     const target = Math.min(keepTop, maxAfter);
@@ -5073,7 +5071,7 @@ function closeCmp(){
         renderAtt(); syncBody(); layout();
         chatHistory.scrollTop = target;             // остаёмся там, где были (без скачка)
     }, 340);
-    cmpLater(() => { syncBody(); layout(); }, 700);
+    cmpLater(() => { cmpClosing = false; syncBody(); layout(); }, 700);
 }
 function cmpSend(){
     const t = cmpIn.value.trim();
