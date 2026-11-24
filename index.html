@@ -1757,8 +1757,8 @@ body.light-theme{background:var(--ui-bg-0)}
 #welcome .wl-stage{overflow-y:auto}
 :root:root body #empty-logo .el-logo{width:200px;height:170px;color:var(--ui-tx-hi)}
 .msg-row.stp{align-items:flex-start}
-.hs-th{position:relative;flex:none;width:36px;height:36px;transition:width .3s ease,opacity .3s ease,margin .3s ease}
-.hs-th canvas{position:absolute;left:-42px;top:-42px;width:120px;height:120px;pointer-events:none;color:var(--ui-tx-hi)}
+.hs-th{position:relative;flex:none;width:30px;height:30px;transition:width .3s ease,opacity .3s ease,margin .3s ease}
+.hs-th canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:120px;height:120px;pointer-events:none;color:var(--ui-tx-hi)}
 .hs-th.gone{width:0;opacity:0;margin-right:-6px}
 </style>
 </head>
@@ -1804,12 +1804,8 @@ body.light-theme{background:var(--ui-bg-0)}
 </div>
 </div>
 <div class="wl-bottom">
-    <div class="wl-consent" id="wl-consent">
-      <button type="button" class="wl-check" id="wl-check" role="checkbox" aria-checked="false" aria-labelledby="wl-consent-tx"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg></button>
-      <span class="wl-consent-tx" id="wl-consent-tx">Я согласен с <a href="#" id="wl-policy">политикой конфиденциальности</a></span>
-    </div>
     <button class="welcome-btn wl-btn" id="welcome-start" type="button">Начать <svg class="wl-arr" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-    <div class="wl-hint" id="wl-hint" role="alert" aria-live="polite">Сначала примите политику конфиденциальности</div>
+    
   </div>
 </div>
 
@@ -5848,21 +5844,9 @@ function showConsent(){
     const el = $('welcome');
     if (!el || store.get(KEY, false)) return;
     el.classList.add('open');   // открываем под заставкой splash
-    const chk = $('wl-check'), btn = $('welcome-start'), hint = $('wl-hint');
-    const haptic = fn => { try { if (tg && tg.HapticFeedback) fn(tg.HapticFeedback); } catch (_) {} };
-    const clearErr = () => { chk.classList.remove('wl-err'); btn.classList.remove('wl-err'); hint.classList.remove('show'); };
-    const setOn = v => { chk.classList.toggle('on', v); chk.setAttribute('aria-checked', v ? 'true' : 'false'); if (v) clearErr(); };
-    chk.addEventListener('click', () => setOn(!chk.classList.contains('on')));
-    $('wl-consent-tx').addEventListener('click', e => { if (e.target.closest('a')) return; setOn(!chk.classList.contains('on')); });
-    $('wl-policy').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPrivacy(); });
-    btn.addEventListener('click', () => {
-        if (!chk.classList.contains('on')){
-            chk.classList.add('wl-err'); btn.classList.add('wl-err'); hint.classList.add('show');
-            haptic(h => h.notificationOccurred('error'));
-            setTimeout(clearErr, 2000); return;
-        }
-        haptic(h => h.impactOccurred('light'));
-        store.set(PRIVACY_KEY, true);   // согласие принято здесь
+    $('welcome-start').addEventListener('click', () => {
+        try { if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light'); } catch (_) {}
+        store.set(PRIVACY_KEY, true);
         store.set(KEY, true);
         el.style.opacity = 0;
         setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; }, 500);
@@ -6188,6 +6172,9 @@ function hsThinkStart(row){
   const h=document.createElement('div');h.className='hs-th';const cv=document.createElement('canvas');h.appendChild(cv);
   row.insertBefore(h,row.firstChild);
   row._hs=HoloSphere(cv,{N:420,base:34,calm:.35});row._hsEl=h;
+  const fit=()=>{const hd=row.querySelector('.ail-h');if(!hd||!h.isConnected)return;const a=hd.getBoundingClientRect(),b=row.getBoundingClientRect();
+    if(a.height){h.style.marginTop=(a.top-b.top)+'px';h.style.height=a.height+'px';h.style.width=a.height+'px'}};
+  [50,200,600].forEach(ms=>setTimeout(fit,ms));
 }
 function hsThinkDone(row){
   if(!row._hs||row._hsDone)return;row._hsDone=1;
