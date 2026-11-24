@@ -1737,6 +1737,30 @@ body.light-theme{background:var(--ui-bg-0)}
 @media (prefers-reduced-motion:reduce){.vis .vis-card.busy::after{animation:none}}
 .vis-bar .vis-open{display:inline-flex;align-items:center;justify-content:center;gap:8px}
 </style>
+<style id="hs-css">
+:root:root body #welcome .wl-logo{width:150px;height:130px;margin:0 0 4px;color:var(--ui-tx-hi)}
+.wl-logo canvas,#empty-logo .el-logo canvas{width:100%;height:100%;display:block;color:var(--ui-tx-hi);touch-action:none}
+.wl-brand{font:500 24px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-hi);margin-bottom:22px}
+:root:root body #welcome h1{font-size:28px;line-height:1.18;margin:0 0 10px;font-weight:600}
+:root:root body #welcome .wl-tag{font-size:15px;line-height:1.45;max-width:300px;color:var(--ui-tx-mid)}
+#welcome .welcome-slide{max-width:380px;width:100%}
+.wl-cards{width:100%;margin-top:22px;display:flex;flex-direction:column;gap:9px}
+.wl-card{display:flex;align-items:center;gap:13px;padding:10px 14px 10px 10px;border-radius:20px;background:rgba(127,127,127,.12);text-align:left}
+.wl-ci{width:44px;height:44px;border-radius:13px;background:rgba(127,127,127,.14);display:grid;place-items:center;flex:none}
+.wl-ci svg{width:22px;height:22px;fill:none;stroke:var(--ui-tx-hi);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.wl-ct{flex:1;min-width:0}
+.wl-ct b{display:block;font:500 15.5px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-hi)}
+.wl-ct span{font:400 13px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-mid)}
+.wl-card>svg{width:17px;height:17px;fill:none;stroke:var(--ui-tx-lo);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#welcome .wl-btn{display:flex;align-items:center;justify-content:center;gap:10px;border-radius:999px}
+.wl-arr{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#welcome .wl-stage{overflow-y:auto}
+:root:root body #empty-logo .el-logo{width:200px;height:170px;color:var(--ui-tx-hi)}
+.msg-row.stp{align-items:flex-start}
+.hs-th{position:relative;flex:none;width:36px;height:36px;transition:width .3s ease,opacity .3s ease,margin .3s ease}
+.hs-th canvas{position:absolute;left:-42px;top:-42px;width:120px;height:120px;pointer-events:none;color:var(--ui-tx-hi)}
+.hs-th.gone{width:0;opacity:0;margin-right:-6px}
+</style>
 </head>
 <body>
 <script>
@@ -1772,16 +1796,19 @@ body.light-theme{background:var(--ui-bg-0)}
 <div id="welcome">
   <div class="wl-stage">
     <div class="welcome-slide" data-slide="1">
-      <div class="wl-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="wlc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#wlc)"><rect x="15" y="5" width="21" height="42" fill="currentColor"/></g><circle cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-      <p class="wl-tag">Инструмент для создания ваших проектов</p>
-    </div>
-  </div>
-  <div class="wl-bottom">
+<div class="wl-logo" aria-hidden="true"><canvas id="wlCv"></canvas></div>
+<div class="wl-brand">Holo Friend</div>
+<h1>Добро пожаловать<br>в Holo Friend!</h1>
+<p class="wl-tag">Твоя идея — наш результат.<br>Создавай сайты, общаясь с AI.</p>
+<div class="wl-cards"><div class="wl-card"><div class="wl-ci"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div><div class="wl-ct"><b>Создавай сайты</b><span>по обычному описанию</span></div><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div><div class="wl-card"><div class="wl-ci"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H10l-4 3v-3H4z"/><path d="M8 9h8M8 12h5"/></svg></div><div class="wl-ct"><b>Дорабатывай результат</b><span>просто общаясь с AI</span></div><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div><div class="wl-card"><div class="wl-ci"><svg viewBox="0 0 24 24"><path d="M10 4c.8 4.2 2.8 6.2 7 7-4.2.8-6.2 2.8-7 7-.8-4.2-2.8-6.2-7-7 4.2-.8 6.2-2.8 7-7z"/><path d="M19 3v4M17 5h4"/></svg></div><div class="wl-ct"><b>Воплощай идеи</b><span>в готовые проекты</span></div><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div></div>
+</div>
+</div>
+<div class="wl-bottom">
     <div class="wl-consent" id="wl-consent">
       <button type="button" class="wl-check" id="wl-check" role="checkbox" aria-checked="false" aria-labelledby="wl-consent-tx"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg></button>
       <span class="wl-consent-tx" id="wl-consent-tx">Я согласен с <a href="#" id="wl-policy">политикой конфиденциальности</a></span>
     </div>
-    <button class="welcome-btn wl-btn" id="welcome-start" type="button">Начать</button>
+    <button class="welcome-btn wl-btn" id="welcome-start" type="button">Начать <svg class="wl-arr" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     <div class="wl-hint" id="wl-hint" role="alert" aria-live="polite">Сначала примите политику конфиденциальности</div>
   </div>
 </div>
@@ -1816,7 +1843,7 @@ body.light-theme{background:var(--ui-bg-0)}
     <div class="hp-sec">Недавние</div>
     <div id="hist-list"></div>
     <div class="hp-foot"><button type="button" class="hp-new" id="hist-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Новый чат</span></button></div>
-    <div class="sb-links"><button type="button" class="sb-link" id="hn-invite">Пригласить друга</button><button type="button" class="sb-link" id="hn-privacy">Политика конфиденциальности</button></div>
+    <div class="sb-links"><button type="button" class="sb-link" id="hn-invite">Пригласить друга</button></div>
   </div>
 </aside>
 <div id="topbar">
@@ -1914,7 +1941,7 @@ body.light-theme{background:var(--ui-bg-0)}
   <g id="fx2"></g>
 </svg>
 <div id="bub"></div>
-<div id="empty-logo"><div class="el-logo" aria-hidden="true"><svg viewBox="0 0 72 64" width="72" height="64" fill="none"><defs><clipPath id="elc"><circle cx="36" cy="26" r="21"/></clipPath></defs><g clip-path="url(#elc)"><rect class="el-f" x="15" y="5" width="42" height="42" fill="currentColor"/></g><circle class="el-o" cx="36" cy="26" r="21" stroke="currentColor" stroke-width="1.8"/><line class="el-pl" x1="24" y1="58" x2="48" y2="58" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="el-txt"><div class="el-word">HOLO FRIEND</div><div class="el-hint">Опиши идею</div></div></div>
+<div id="empty-logo"><div class="el-logo" aria-hidden="true"><canvas id="elCv"></canvas></div><div class="el-txt"><div class="el-word">HOLO FRIEND</div><div class="el-hint">Опиши идею</div></div></div>
 <div id="chat-history"></div>
 <button id="down-btn" type="button" aria-label="Вниз"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
 <div id="hud-panel">
@@ -3876,6 +3903,7 @@ function showTyping(stages, ms, slowText){
     row.innerHTML = '<div class="col"><div class="ail-host"></div></div>';
     chatHistory.appendChild(row); typingRow = row;
     aiL = (window.AIUI_READY ? AIUI : AILoading).mount(row.querySelector('.ail-host'));   // React-версия, если загрузилась; иначе лёгкая
+    hsThinkStart(row);
     aiSteps = list.map((l, i) => ({ id: 'f' + i, label: aiLabel(l), status: i === 0 ? 'running' : 'pending' }));
     aiPaint();
     let n = 0;
@@ -3898,7 +3926,7 @@ function showTyping(stages, ms, slowText){
 function hideTyping(){
     clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; stepsMode = false;
     if (aiL){ aiL.destroy(); aiL = null; } aiSteps = [];
-    if (typingRow){ typingRow.remove(); typingRow = null; }
+    if (typingRow){ hsThinkEnd(typingRow); typingRow = null; }
 }
 // ---- реальные этапы от сервера: список шагов, выполненные с галочкой ----
 function setTypingStatus(s){
@@ -3916,6 +3944,7 @@ function finishSteps(){   // успех: все шаги с галочкой, с
     const row = typingRow;
     clearInterval(typingT); typingSlowT.forEach(clearTimeout); typingSlowT = []; typingRow = null; stepsMode = false;
     if (!row || !aiL) return;
+    hsThinkDone(row);
     const slowEl = row.querySelector('.st-slow'); if (slowEl) slowEl.remove();
     aiSteps.forEach(x => { x.status = 'done'; });
     aiPaint(); aiL = null; aiSteps = [];
@@ -5402,7 +5431,7 @@ applyTheme();
 
 // ПАНЕЛИ: навигация
 $('hn-invite').addEventListener('click', () => { closeHist(); openInvite(); });
-$('hn-privacy').addEventListener('click', () => { closeHist(); openPrivacy(); });
+
 
 // ---------- Боковая панель: вкладки Чаты / Профиль / Настройки / Pro ----------
 (function sidebar(){
@@ -5814,41 +5843,29 @@ function showConsent(){
 })();
 
 (function initWelcome(){
-    // Новое приветствие. Ключ v3 новый, поэтому его увидят ВСЕ один раз: и новые, и старые пользователи, и админ.
-    const KEY = 'welcome_done_v3';
-    const el = $('wl2');
+    // Новое приветствие. Ключ v4 новый, поэтому его увидят ВСЕ один раз: и новые, и старые пользователи, и админ.
+    const KEY = 'welcome_done_v4';
+    const el = $('welcome');
     if (!el || store.get(KEY, false)) return;
-    el.classList.add('open');   // сразу закрываем экран, под заставкой splash
-
-    const WORDS = ['Думаю...', 'Обрабатываю...', 'Анализирую...', 'Вычисляю...', 'Почти готово...'];
-    const INTERVAL = 1500, START_DELAY = 1600;   // старт после того, как уйдёт splash (1,5 с)
-    const wordEl = $('wl2-word'), card = $('wl2-card');
+    el.classList.add('open');   // открываем под заставкой splash
+    const chk = $('wl-check'), btn = $('welcome-start'), hint = $('wl-hint');
     const haptic = fn => { try { if (tg && tg.HapticFeedback) fn(tg.HapticFeedback); } catch (_) {} };
-
-    function renderWord(text){
-        wordEl.classList.remove('out'); wordEl.innerHTML = '';
-        Array.from(text).forEach((ch, i) => {
-            const o = document.createElement('span'); o.className = 'wl2-ch'; o.style.animationDelay = (i * 0.018) + 's';
-            const w = document.createElement('span'); w.textContent = ch; w.style.animationDelay = (i * 0.07) + 's';
-            o.appendChild(w); wordEl.appendChild(o);
-        });
-    }
-    setTimeout(() => {
-        let i = 0; renderWord(WORDS[0]);
-        const timer = setInterval(() => {
-            if (i === WORDS.length - 1) { clearInterval(timer); card.classList.add('show'); return; }
-            wordEl.classList.add('out');
-            setTimeout(() => renderWord(WORDS[++i]), 150);
-        }, INTERVAL);
-    }, START_DELAY);
-
-    $('wl2-policy').addEventListener('click', e => { e.preventDefault(); openPrivacy(); });
-    $('wl2-go').addEventListener('click', () => {
+    const clearErr = () => { chk.classList.remove('wl-err'); btn.classList.remove('wl-err'); hint.classList.remove('show'); };
+    const setOn = v => { chk.classList.toggle('on', v); chk.setAttribute('aria-checked', v ? 'true' : 'false'); if (v) clearErr(); };
+    chk.addEventListener('click', () => setOn(!chk.classList.contains('on')));
+    $('wl-consent-tx').addEventListener('click', e => { if (e.target.closest('a')) return; setOn(!chk.classList.contains('on')); });
+    $('wl-policy').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openPrivacy(); });
+    btn.addEventListener('click', () => {
+        if (!chk.classList.contains('on')){
+            chk.classList.add('wl-err'); btn.classList.add('wl-err'); hint.classList.add('show');
+            haptic(h => h.notificationOccurred('error'));
+            setTimeout(clearErr, 2000); return;
+        }
         haptic(h => h.impactOccurred('light'));
         store.set(PRIVACY_KEY, true);   // согласие принято здесь
         store.set(KEY, true);
-        el.classList.add('fade');
-        setTimeout(() => { el.classList.remove('open'); el.classList.remove('fade'); }, 350);
+        el.style.opacity = 0;
+        setTimeout(() => { el.classList.remove('open'); el.style.opacity = ''; }, 500);
     });
 })();
 
@@ -6083,6 +6100,100 @@ window.adminUnban = adminUnban;
     window.AIUI_READY = true;
   } catch (e) { console.warn('AIUI: React-версия не загрузилась, остаётся лёгкая', e); }
 })();
+</script>
+<script id="hs-js">
+function HoloSphere(cv,o){
+  const gl=cv.getContext('webgl2',{premultipliedAlpha:true});
+  const api={o,set(m){},replay(){}};if(!gl){setTimeout(()=>o.onForm&&o.onForm(),900);return api}
+  const N=o.N,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const sh=(t,s)=>{const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);return x};
+  const p=gl.createProgram();
+  gl.attachShader(p,sh(gl.VERTEX_SHADER,`#version 300 es
+in vec4 a;in float b;uniform vec2 uRes;out float vA;out float vS;
+void main(){vec2 c=a.xy/uRes*2.-1.;gl_Position=vec4(c.x,-c.y,0.,1.);gl_PointSize=a.z;vA=a.w;vS=max(b,1.8/a.z);}`));
+  gl.attachShader(p,sh(gl.FRAGMENT_SHADER,`#version 300 es
+precision highp float;in float vA;in float vS;uniform vec3 uCol;out vec4 o;
+void main(){float r=length(gl_PointCoord-.5)*2.;float e=(1.-smoothstep(1.-vS,1.,r))*vA;o=vec4(uCol*e,e);}`));
+  gl.linkProgram(p);
+  const uRes=gl.getUniformLocation(p,'uRes'),uCol=gl.getUniformLocation(p,'uCol'),S=5,buf=new Float32Array(N*S);
+  const vbo=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,buf.byteLength,gl.DYNAMIC_DRAW);
+  const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+  const la=gl.getAttribLocation(p,'a'),lb=gl.getAttribLocation(p,'b');
+  gl.enableVertexAttribArray(la);gl.vertexAttribPointer(la,4,gl.FLOAT,false,S*4,0);
+  gl.enableVertexAttribArray(lb);gl.vertexAttribPointer(lb,1,gl.FLOAT,false,S*4,16);
+  const F=()=>new Float32Array(N),bx=F(),by=F(),bz=F(),s=F(),v=F(),dl=F(),tx=F(),ty=F(),jx=F(),jy=F(),sw=F();
+  const GA=Math.PI*(3-Math.sqrt(5)),calm=o.calm||1;
+  for(let i=0;i<N;i++){const y=1-i/(N-1)*2,r=Math.sqrt(1-y*y),th=GA*i;bx[i]=Math.cos(th)*r;by[i]=y;bz[i]=Math.sin(th)*r;jx[i]=(Math.random()-.5)*70*calm;jy[i]=(40+Math.random()*60)*calm;sw[i]=.7+Math.random()*.6}
+  let W=0,H=0,dpr=1,minx=0,maxx=1,cx=0,cy=0,R=60,t=0,mode=0,yaw=0,fired=false,T0=0,auto=false,was=false,col=[1,1,1],colAt=-1,last=performance.now();
+  function targets(){
+    if(!W)return;const c=document.createElement('canvas');c.width=Math.ceil(W);c.height=Math.ceil(H);
+    const x=c.getContext('2d');x.fillStyle='#fff';x.strokeStyle='#fff';HoloSphere.logo(x,W,H,o.base);
+    const d=x.getImageData(0,0,c.width,c.height).data;let l=[];
+    for(let g=1;g<5;g+=.08){l=[];for(let y=0;y<c.height;y+=g)for(let xx=0;xx<c.width;xx+=g){if(d[((y|0)*c.width+(xx|0))*4+3]>140)l.push(xx,y)}if(l.length/2<=N)break}
+    const M=l.length/2;if(!M)return;const ix=Array.from({length:M},(_,i)=>i);
+    for(let i=M-1;i>0;i--){const j=Math.random()*(i+1)|0;[ix[i],ix[j]]=[ix[j],ix[i]]}
+    minx=1e9;maxx=-1e9;for(let i=0;i<N;i++){const k=ix[i%M];tx[i]=l[k*2];ty[i]=l[k*2+1];minx=Math.min(minx,tx[i]);maxx=Math.max(maxx,tx[i])}
+  }
+  function resize(){const r=cv.getBoundingClientRect();if(!r.width)return;W=r.width;H=r.height;dpr=Math.min(2,devicePixelRatio||1);cv.width=W*dpr|0;cv.height=H*dpr|0;cx=W/2;cy=H/2;R=(o.base||Math.min(H,W))*.3;targets()}
+  new ResizeObserver(resize).observe(cv);resize();
+  function set(m){mode=m;fired=false;const sp=Math.max(1,maxx-minx);for(let i=0;i<N;i++)dl[i]=m?t+.12+(tx[i]-minx)/sp*.85+Math.random()*.16:t+Math.random()*.4}
+  api.set=set;api.replay=()=>{T0=t;auto=false;if(mode)set(0)};
+  cv.addEventListener('click',()=>{if(o.tap)set(mode?0:1)});
+  const k=72,c=11;
+  function loop(now){
+    if(!cv.isConnected)return;
+    const dt=Math.min((now-last)/1000,1/30);last=now;
+    const act=!o.active||o.active();
+    if(act&&!was){T0=t;auto=false;if(mode)set(0)}was=act;
+    if(!act||!W){requestAnimationFrame(loop);return}
+    t+=dt;yaw+=(.5+2.2*Math.max(0,1-(t-T0)/3.5))*dt;
+    if(o.auto&&!auto&&t-T0>o.auto){auto=true;set(1)}
+    const sz=R/92,cyw=Math.cos(yaw),syw=Math.sin(yaw),pitch=.32,cp=Math.cos(pitch),sp=Math.sin(pitch),gb=.025*Math.sin(t*1.7);
+    for(let i=0;i<N;i++){
+      const px=bx[i],py=by[i],pz=bz[i];
+      const nz=.1*Math.sin(px*2.3+t*.9)*Math.sin(py*2.9-t*.7+1.3)*Math.sin(pz*2.1+t*1.1+.5)+.018*Math.sin(px*5.1-t*1.3+py*3.7);
+      const r=R*(1+nz+gb);let x=(px*cyw-pz*syw)*r,z=(px*syw+pz*cyw)*r,y=py*r;
+      const y2=y*cp-z*sp;z=y*sp+z*cp;y=y2;
+      const sc=520/(520-z),sx=cx+x*sc,sy=cy+y*sc,front=clamp((z/R+1)/2,0,1),blur=clamp(Math.abs(z-R*.75)/(R*1.5),0,1);
+      let size=((1.35+.7*front)*sc+blur*blur*6.5)*Math.max(.7,sz),al=(.16+.84*front)*(1-blur*.45)/(1+blur*blur*2.2),soft=blur;
+      const tg=t>=dl[i]?mode:1-mode;
+      if(s[i]!==tg||v[i]!==0){const h=dt/2;for(let n=0;n<2;n++){v[i]+=(-k*(s[i]-tg)-c*v[i])*h;s[i]+=v[i]*h}
+        if(Math.abs(s[i]-tg)<1e-4&&Math.abs(v[i])<1e-3){s[i]=tg;v[i]=0}}
+      let X=sx,Y=sy;const u=clamp(s[i],0,1);
+      if(s[i]>0){
+        const ox=sx-cx,oy=sy-cy,ol=Math.hypot(ox,oy)+.001,p1x=sx-oy/ol*80*sw[i],p1y=sy+ox/ol*80*sw[i]-20,p2x=tx[i]+jx[i],p2y=ty[i]-jy[i];
+        const e=1-u,b0=e*e*e,b1=3*e*e*u,b2=3*e*u*u,b3=u*u*u;
+        X=b0*sx+b1*p1x+b2*p2x+b3*tx[i];Y=b0*sy+b1*p1y+b2*p2y+b3*ty[i];
+        if(s[i]>1){const q=(s[i]-1)*1.2;X+=(tx[i]-p2x)*q;Y+=(ty[i]-p2y)*q}
+        size=size+(2.1*Math.max(.8,sz*.8)-size)*u+Math.sin(u*Math.PI)*.6;al=al+(1-al)*u;soft*=1-Math.min(1,u*1.6)}
+      const q=i*S;buf[q]=X*dpr;buf[q+1]=Y*dpr;buf[q+2]=size*dpr;buf[q+3]=clamp(al,0,1);buf[q+4]=soft*.85}
+    if(mode&&!fired){let m=0;for(let i=0;i<N;i++)if(dl[i]>m)m=dl[i];if(t>m+.7){fired=true;o.onForm&&o.onForm()}}
+    if(t-colAt>.5){const m=getComputedStyle(cv).color.match(/[\d.]+/g);if(m)col=m.slice(0,3).map(n=>+n/255);colAt=t}
+    gl.viewport(0,0,cv.width,cv.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(p);gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferSubData(gl.ARRAY_BUFFER,0,buf);gl.uniform2f(uRes,cv.width,cv.height);gl.uniform3f(uCol,col[0],col[1],col[2]);gl.drawArrays(gl.POINTS,0,N);
+    requestAnimationFrame(loop)}
+  requestAnimationFrame(loop);
+  return api;
+}
+HoloSphere.logo=function(x,W,H,b){const r=(b||Math.min(W,H))*.34,w=r*.12;x.lineWidth=w;x.beginPath();x.arc(W/2,H/2,r,0,7);x.stroke();
+  x.beginPath();x.arc(W/2,H/2,r-w*.6,Math.PI/2,Math.PI*1.5);x.closePath();x.fill()};
+(function(){
+  const wl=document.getElementById('welcome'),el=document.getElementById('elCv'),wc=document.getElementById('wlCv');
+  if(wc)HoloSphere(wc,{N:1100,auto:2.8,tap:true,active:()=>wl&&wl.classList.contains('open')});
+  if(el)HoloSphere(el,{N:1300,auto:3,tap:true,active:()=>document.body.classList.contains('logo-play')});
+})();
+// «думает»: маленький шар рядом со списком шагов; после ответа рисует логотип и исчезает
+function hsThinkStart(row){
+  const h=document.createElement('div');h.className='hs-th';const cv=document.createElement('canvas');h.appendChild(cv);
+  row.insertBefore(h,row.firstChild);
+  row._hs=HoloSphere(cv,{N:420,base:34,calm:.35});row._hsEl=h;
+}
+function hsThinkDone(row){
+  if(!row._hs||row._hsDone)return;row._hsDone=1;
+  row._hsEl.classList.add('gone');setTimeout(()=>row._hsEl.remove(),450);
+}
+function hsThinkEnd(row){row.remove()}
 </script>
 </body>
 </html>
