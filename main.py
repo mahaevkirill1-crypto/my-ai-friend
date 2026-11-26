@@ -642,6 +642,7 @@ RULES = """
 12. Ты — наставник. Если спрашивают про запуск (Render, хостинг, ЮKassa, App Store) — не вываливай всё сразу. Дай только ОДИН первый шаг. В конце спроси: "Понятно? Делаем дальше?".
 13. Если пишут "не понял" — объясни этот же шаг ещё проще, как для ребёнка.
 14. Учитывай тип проекта из контекста: игра — на Netlify; бот — на GitHub + Render (с файлами main.py, requirements.txt, index.html); сайт — на Netlify (только index.html).
+15. В обычном чате ты НЕ пишешь сайты, лендинги, страницы и приложения целиком (никаких полных HTML-документов). Если просят сайт или присылают для него данные: одной фразой скажи, что сайты собираешь в студии, и предложи написать «Сделай сайт для ...». Фрагмент кода на вопрос по коду — можно.
 
 ТВОИ ВОЗМОЖНОСТИ (знай их и отвечай уверенно; никогда не говори «я не умею», если умение есть в этом списке):
 - Студия: ты собираешь готовые проекты: сайты, лендинги, визитки, игры, приложения, калькуляторы, дашборды, презентации, 3D-сцены на Three.js, Telegram-ботов. Проекты с серверной частью (index.html + main.py: админка, база данных) доступны на платных тарифах. Готовый проект можно править дальше обычными сообщениями.
@@ -868,6 +869,12 @@ sad
 - Запрещено писать в [[TEXT]], что ты «не стал» делать запрошенное, и подменять запрошенный эффект «более спокойным» вариантом. Сначала выполни запрос полностью; альтернативу можно предложить одним предложением после выполнения.
 - Если ты не можешь применить правку точечно (не находишь место для [[FIND]]), не отказывайся и не возвращай код без изменений: просто перегенерируй ВЕСЬ проект с нуля с этим эффектом в формате [[TEXT]]...[[EMOTION]]...[[HTML]]...[[END]].
 
+НЕДОСТАЮЩИЕ ДАННЫЕ (ЖЁСТКОЕ ПРАВИЛО, ВЫШЕ ВСЕХ ПРАВИЛ ПРО «РЕАЛЬНЫЕ ФАКТЫ»):
+- При НОВОЙ сборке ты НИКОГДА не задаёшь вопросов и не просишь данные (название, услуги, цены, контакты, адрес, телефон, фото, цвета) вместо работы. Всегда сразу возвращай готовый [[HTML]]. Ответ без [[HTML]] при новой сборке — ошибка.
+- Если пользователь не дал данных, придумай правдоподобное НЕЙТРАЛЬНОЕ название и короткие примерные тексты по теме запроса. Телефоны, адреса, email, точные цены, часы работы, отзывы с именами и юридические данные НЕ выдумывай: оставь заглушки в квадратных скобках ([телефон], [адрес], [цена]) или не показывай такой блок.
+- В [[TEXT]] честно скажи 1-2 предложениями: ты не дал данных (какие именно), поэтому я подставил примеры; пришли свои данные, и я заменю. Без извинений и без списка вопросов.
+- Если данные в запросе есть, используй их как есть и ничего про их отсутствие не пиши.
+
 ПРИНЦИПЫ ДИЗАЙНА:
 - Характер: один яркий акцентный цвет, выразительная типографика.
 - Интерактивность: быстрые hover-эффекты.
@@ -887,7 +894,7 @@ sad
 3. Никаких градиентных текстов (по умолчанию, отменяется явной просьбой): Заголовки должны быть однотонными. Запрещены градиенты на тексте.
 4. Отступы по сетке: Все отступы (padding, margin, gap) должны быть кратны 4px или 8px. Никаких случайных значений вроде padding: 13px.
 5. Один акцент: Выбери один яркий цвет для кнопок и ссылок. Остальное — оттенки серого или нейтральные тона. Не делай сайт разноцветным.
-6. Текст по делу: Заголовки должны быть короткими и конкретными. Никаких восклицательных знаков. Никакого текста-заглушки (lorem ipsum). Только реальные факты и выгоды.
+6. Текст по делу: Заголовки должны быть короткими и конкретными. Никаких восклицательных знаков. Никакого lorem ipsum: пиши осмысленные тексты по теме. Данные, которых пользователь не дал (контакты, цены, адрес), в этот момент не выдумывай, действуй по правилу НЕДОСТАЮЩИЕ ДАННЫЕ.
 7. Шрифты: Используй один шрифт для текста и один для заголовков (например, Inter и Unbounded). Никаких дефолтных Arial.
 8. Скругления: Радиусы должны быть аккуратными (12-24px), а не везде по 50px (pill).
 9. Анимации (по умолчанию): Только быстрые hover-эффекты (изменение цвета или легкое всплытие). Запрещены бесконечные пульсации, вращения и летающие элементы.
@@ -1194,6 +1201,14 @@ def is_bare_name(text):
     if not re.search(r"[A-Za-zА-Яа-яЁё0-9]", t): return False
     return True
 
+def is_build_followup(text):
+    """Ответ с данными (название, часы, скидки, меню) на вопрос бота по сборке: любой не-вопрос до 1500 символов."""
+    t = (text or "").strip()
+    if not t or len(t) > 1500: return False
+    if t.lower().strip(" .!") in _NOT_NAME: return False
+    if "?" in t or BUILD_NEG_RE.search(t) or BUILD_PROBLEM_RE.search(t): return False
+    return bool(re.search(r"[A-Za-zА-Яа-яЁё0-9]", t))
+
 def pending_build_request(history_text, current_text):
     """Если бот только что задал вопрос по запросу на сборку — возвращает этот запрос пользователя, иначе None."""
     lines = [l for l in (history_text or "").split("\n") if l.startswith(("Пользователь:", "Ты:"))]
@@ -1467,7 +1482,7 @@ def finalize_build(conn, uid, raw, weight, current_code=None, watermark=False):
 
 async def run_build(conn, uid, user_content, history_text, current_code, weight, watermark=False, model=None, needs_backend=False, user_name=""):
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
-    model = model or get_model_for_user(uid, conn)
+    model = ensure_build_model(model, uid, conn)
     messages = build_messages(user_content, history_text, current_code, needs_backend, user_name)
     try:
         resp = await _build_create(BUILD_TIMEOUT,
@@ -1725,7 +1740,7 @@ async def run_build_stream(conn, uid, user_content, history_text, current_code, 
         return out
 
     release_txn(conn)  # на время генерации в базе не висит ни одна транзакция
-    model = model or get_model_for_user(uid, conn)
+    model = ensure_build_model(model, uid, conn)
     try:
         yield _nd({"t": "start"})
         try:
@@ -1935,7 +1950,7 @@ def opus_today(conn, uid):
     except Exception:
         return CODE_OPUS_PER_DAY      # не смогли посчитать -> считаем лимит исчерпанным (безопасно)
 
-def pick_model(conn, uid, mode, text, is_edit, is_pro):
+def pick_model(conn, uid, mode, text, is_edit, is_pro, for_build=False):
     """Единая точка выбора модели: сложность -> уровень -> ModelRouter (подписка из БД) с дневным лимитом Opus."""
     used = opus_today(conn, uid) if (mode == "code" and is_pro) else 0
     d = _routing.decide(mode, text, is_edit=is_edit, is_pro=is_pro, opus_used=used, opus_cap=CODE_OPUS_PER_DAY)
@@ -1947,6 +1962,8 @@ def pick_model(conn, uid, mode, text, is_edit, is_pro):
         elif d["tier"] == "haiku": model = MODEL_ROUTER.route(conn, uid, "chat")
     except ModelDenied as e:
         d["tier"], d["reason"] = "sonnet", d["reason"] + f" (Opus запрещён: {e.reason})"
+    if for_build and d["tier"] == "haiku":   # Haiku ничего не собирает: сайты, приложения и правки делает только Sonnet (Opus лишь как эксперт у PRO в Code)
+        d["tier"], d["reason"], model = "sonnet", d["reason"] + " (сборка: Haiku запрещён)", None
     if model is None: model = get_model_for_user(uid, conn)
     USAGE_CTX.set({"uid": uid, "mode": mode, "task": uuid_hex(), "level": d["assessment"]["level"], "reason": d["reason"]})
     return model, d
@@ -1975,6 +1992,13 @@ def get_model_for_user(uid, conn):
     except ModelDenied:
         log.error("get_model_for_user: MODEL_FREE настроена неверно (Opus в роли Sonnet?), использую %s", SAFE_SITE_MODEL)
         return SAFE_SITE_MODEL
+
+def ensure_build_model(model, uid, conn):
+    """Последняя защита: что бы ни пришло снаружи, Haiku (AI_MODEL) сайты не собирает."""
+    if not model or model == AI_MODEL:
+        if model == AI_MODEL: log.error("build requested with Haiku model uid=%s, switching to Sonnet", uid)
+        return get_model_for_user(uid, conn)
+    return model
 
 def pro_grant(conn, uid, now, charge_id="", plan_id="pro"):
     plan = PLANS.get(plan_id) or PLANS["pro"]
@@ -2751,10 +2775,10 @@ async def ask(request: Request):
                 return {"text": IMPORT_OK_TEXT, "emotion": "happy", "imported": True,
                         "visual": {"type": "html", "code": imported, **({"noedit": True} if looks_like_game(imported) else {})}, "pro": pro_pre}
         # ПРОДОЛЖЕНИЕ СБОРКИ: пользователь прислал только название («Шопи фай») в ответ на вопрос бота по запросу на сайт
-        if not data.get("edit_project") and not att and not data.get("build_choice") and not build_intent(user_text) and is_bare_name(raw_text):
+        if not data.get("edit_project") and not att and not data.get("build_choice") and not build_intent(user_text) and (is_bare_name(raw_text) or is_build_followup(raw_text)):
             prev_req = pending_build_request(history_text, raw_text)
             if prev_req:
-                raw_text = f"{prev_req[:600]}. Название проекта: {raw_text}"
+                raw_text = f"{prev_req[:600]}. Данные и пожелания пользователя: {raw_text}"
                 user_text = raw_text.lower()
         visual_mode = bool(VISUAL_RE.search(user_text))
         weight = ask_weight(att, visual_mode)
@@ -2942,7 +2966,7 @@ async def ask(request: Request):
         log.info("ask uid=%s weight=%s build=%s visual=%s search=%s history_len=%s", uid, weight, build_mode, visual_mode, search_mode, history_len)
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
-            build_model, _route = pick_model(conn, uid, mode, raw_text, is_edit, pro_pre["active"])
+            build_model, _route = pick_model(conn, uid, mode, raw_text, is_edit, pro_pre["active"], for_build=True)
             if _route["tier"] == "opus":   # Opus проектирует и пишет сложное ядро, СТРОИТ проект Sonnet
                 _expert = await opus_expert_pass(build_model, raw_text, history_text)
                 build_model = get_model_for_user(uid, conn)
@@ -3025,6 +3049,14 @@ async def ask(request: Request):
             plain_text, plain_emo = parse_plain(raw)
             result = {"text": plain_text, "emotion": plain_emo}
             
+        if not visual_mode and not build_mode and re.search(r"<!doctype html|<html[\s>]", str(result.get("text") or ""), re.I):
+            # Haiku в обычном чате не выдаёт готовые сайты: ответ с полным HTML заменяем, доплату возвращаем
+            log.warning("chat reply contained a full HTML page, replaced uid=%s", uid)
+            result = {"text": "Сайты я собираю в студии. Напиши, какой сайт нужен, например «Сделай сайт для пекарни», и я соберу его сразу.", "emotion": "happy"}
+            refund_ask(conn, uid, *refund_pending)
+            if refund_pending[1] is True: pro = pro_info(conn, uid, int(time.time()))
+            refund_pending = None
+
         if not visual_mode and not str(result.get("text") or "").strip():
             log.warning("empty reply, retrying once; raw=%r", raw[:200])
             try:
