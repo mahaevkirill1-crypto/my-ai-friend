@@ -3991,7 +3991,7 @@ function watchVideoJob(jobId){
         status: label => setTypingStatus(label),
         finish: job => {
             finishSteps();
-            addToHistory(job.delivery === 'sent' ? 'Видео готово, отправил его тебе в чат с ботом.' : 'Видео готово.', 'bot');
+            addToHistory((job.delivery === 'sent' ? 'Видео готово, отправил его тебе в чат с ботом.' : 'Видео готово.') + (job.charged != null ? ' Списано: ' + job.charged + '.' : ''), 'bot');
             Hologram.react('happy', 'wave', 3000);
             tgPost('pro/status').then(j => { if (j && j.pro){ Object.assign(PRO, j.pro); renderPro(); } }).catch(() => {});
         },
