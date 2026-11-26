@@ -1,0 +1,1 @@
+"""Holo Friend Video Studio"""
