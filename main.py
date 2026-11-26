@@ -22,6 +22,8 @@ from pydantic import BaseModel
 import html as _html
 import xml.etree.ElementTree as _ET
 from video_studio.model_router import ModelRouter, ModelDenied   # единый серверный выбор моделей (чат, сайты, Video Studio)
+from video_studio import routing as _routing, usage as _usage, skills as _skills   # умный выбор модели по сложности + внутренняя статистика расходов
+import contextvars
 from video_studio.integration import VideoStudio                # Video Studio: выключена, пока VIDEO_ENABLED не включён
 
 def _b64_bytes(b64):
@@ -261,6 +263,22 @@ async def _build_create(timeout, **kw):
         log.error("Провайдер отверг параметр thinking (%s). Дальше шлю без него: размышление может тратить токены!", str(e)[:200])
         return await cli.chat.completions.create(**kw)
 
+USAGE_CTX = contextvars.ContextVar("usage_ctx", default=None)   # uid/mode/level/reason текущего запроса (для статистики расходов)
+USAGE_PRICING = _usage.load_pricing()
+
+def record_llm_usage(model, tin, tout, estimated=False):
+    """Пишет вызов модели в статистику владельца. Никогда не ломает основной запрос."""
+    ctx = USAGE_CTX.get()
+    if not ctx: return
+    def _w():
+        try:
+            _usage.record_usage(get_db_connection(), user_id=ctx["uid"], mode=ctx["mode"], task_id=ctx["task"], level=ctx["level"], model=model,
+                                tokens_in=tin, tokens_out=tout, reason=ctx["reason"] + (" [оценка токенов]" if estimated else ""), pricing=USAGE_PRICING)
+        except Exception:
+            log.warning("usage record failed", exc_info=True)
+    try: asyncio.get_running_loop().run_in_executor(None, _w)
+    except RuntimeError: _w()
+
 def _log_build_usage(resp, model):
     """Пишет в лог расход токенов и причину остановки: сразу видно, если токены ушли в размышление."""
     try:
@@ -268,6 +286,7 @@ def _log_build_usage(resp, model):
         u = getattr(resp, "usage", None)
         det = getattr(u, "completion_tokens_details", None)
         reasoning = getattr(det, "reasoning_tokens", None)
+        record_llm_usage(model, int(getattr(u, "prompt_tokens", 0) or 0), int(getattr(u, "completion_tokens", 0) or 0))
         log.info("build usage model=%s finish=%s prompt=%s completion=%s reasoning=%s", model, getattr(ch, "finish_reason", None),
                  getattr(u, "prompt_tokens", None), getattr(u, "completion_tokens", None), reasoning)
         if getattr(ch, "finish_reason", None) == "length" and not (ch.message.content or "").strip():
@@ -590,6 +609,8 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS published_sites (user_id INTEGER NOT NULL, code_hash TEXT NOT NULL, url TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, code_hash))")
     conn.execute("CREATE TABLE IF NOT EXISTS photos (pid TEXT PRIMARY KEY, user_id INTEGER NOT NULL, hash TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_user ON photos (user_id, created_at)")
+    _skills.init_skills_schema(conn)
+    _usage.init_usage_schema(conn)                  # внутренняя статистика расходов (только для владельца)
     if VIDEO.cfg.enabled: VIDEO.init_schema(conn)   # таблицы video_* создаются только при VIDEO_ENABLED=1
     conn.commit()
 
@@ -1052,16 +1073,19 @@ def alert_api_funds(e):
     except Exception:
         log.warning("alert_api_funds: не удалось отправить уведомление", exc_info=True)
 
-async def llm(messages, max_tokens, json_mode=False, temperature=None):
-    base = dict(model=AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE if temperature is None else temperature)
+async def llm(messages, max_tokens, json_mode=False, temperature=None, model=None):
+    base = dict(model=model or AI_MODEL, messages=messages, max_tokens=max_tokens, temperature=AI_TEMPERATURE if temperature is None else temperature)
     if json_mode: base["response_format"] = {"type": "json_object"}
     try:
-        return await client.chat.completions.create(**base)
+        resp = await client.chat.completions.create(**base)
     except Exception as e:
         if not json_mode or api_error_kind(e): raise
         log.warning("json_object mode failed, retrying without response_format", exc_info=True)
         base.pop("response_format", None)
-        return await client.chat.completions.create(**base)
+        resp = await client.chat.completions.create(**base)
+    u = getattr(resp, "usage", None)
+    record_llm_usage(base["model"], int(getattr(u, "prompt_tokens", 0) or 0), int(getattr(u, "completion_tokens", 0) or 0))
+    return resp
 
 async def chat_json(messages, max_tokens):
     return await llm(messages, max_tokens, json_mode=True)
@@ -1118,6 +1142,17 @@ def noun_led_intent(user_text):
 
 # ---------- ВИДЕО: бот видео создавать НЕ умеет, на такие просьбы сразу отвечает отказом (без списаний и без вызова нейросети) ----------
 VIDEO_REFUSAL_TEXT = "Я не могу создавать видео."
+VIDEO_IN_CHAT_TEXT = "Создание видео будет доступно в режиме Video. Он сейчас в разработке."
+VIDEO_IN_DEV_TEXT = "Режим Video сейчас в разработке. Скоро он станет доступен."
+CODE_NO_ACCESS_TEXT = "Этот режим доступен только пользователям Holo Friend PRO."
+CODE_OPUS_PER_DAY = int(os.getenv("CODE_OPUS_PER_DAY", "5"))   # лимит экспертных (Opus) задач Code на пользователя в сутки; 0 = Opus в Code выключен. Утверждает владелец
+CODE_ANSWER_TOKENS = 3500
+CODE_MODE_NOTE = "Режим Code: отвечай как старший разработчик. Код давай целиком в блоках markdown с указанием языка, коротко поясняй ключевые решения, не выдумывай API и библиотеки."
+EXPERT_SYSTEM = ("Ты главный архитектор. Задача сложная. 1) Кратко (до 250 слов) опиши архитектуру и ключевые решения (структура, производительность, мобильные устройства). "
+                 "2) Напиши ГОТОВЫЙ код только самых сложных частей (ядро: физика, шейдеры, алгоритмы, критичные модули). Вёрстку, обычный интерфейс и простые части НЕ пиши: их сделает другой разработчик. Без вступлений.")
+EXPERT_BLOCK = "[ЭКСПЕРТНЫЙ ПЛАН И КОД СЛОЖНЫХ ЧАСТЕЙ ОТ АРХИТЕКТОРА. Используй как основу: интегрируй ядро в проект без изменений логики и сам доделай остальное.]\n"
+CHAT_TO_CODE_TEXT = "Для такой сложной задачи лучше перейти в режим Code, где доступна экспертная модель Opus."
+VIDEO_TAB_LIVE = os.getenv("VIDEO_TAB_LIVE", "0").strip().lower() in ("1", "true", "yes", "on")   # вкладка Video открывается только когда владелец включит
 # однозначные слова: это видео-запрос, даже если рядом есть слово «сайт»
 VIDEO_HARD_RE = re.compile(r"моуш[еэ]н\w*|motion[\s-]?(?:design|graphics?)|тик-?ток\w*|tik-?tok|\bshorts?\b|\breels?\b|\bрилс\w*|\bmp4\b|\bролик(?:а|у|ом|е)?\b|видео-?ролик\w*|видео-?клип\w*", re.I)
 # слабые слова: «видео», «клип» — видео-запрос, только если рядом нет слов про сайт/приложение («добавь видео на сайт» остаётся сайтом)
@@ -1593,6 +1628,16 @@ async def _llm_stream(messages, model, edit=False, temperature=None, max_tokens=
         model=model, messages=messages, max_tokens=(max_tokens or (EDIT_MAX_TOKENS if edit else BUILD_MAX_TOKENS)),
         temperature=(temperature if temperature is not None else (EDIT_TEMPERATURE if edit else 0.7)), stream=True)
     t_end = time.monotonic() + deadline if deadline else None
+    _out_chars = 0
+    _in_chars = sum(len(str(m.get("content", ""))) for m in messages)
+    try:
+        async for chunk in _stream_body(stream, t_end, deadline, model):
+            if chunk: _out_chars += len(chunk)
+            yield chunk
+    finally:
+        record_llm_usage(model, max(1, _in_chars // 3), _out_chars // 3, estimated=True)   # у потока токены не приходят: оценка по длине
+
+async def _stream_body(stream, t_end, deadline, model):
     async for chunk in stream:
         if t_end and time.monotonic() > t_end:   # общий предел времени: таймаут клиента считает паузы между кусками, а не всю генерацию
             log.warning("stream: превышен общий лимит времени %ss, обрываю генерацию", deadline)
@@ -1881,6 +1926,47 @@ def pro_info(conn, uid, now):
 # Единый Model Router. Тариф читается из БД на сервере при КАЖДОМ вызове; Opus отсюда недоступен вообще (только Video Studio).
 MODEL_ROUTER = ModelRouter({"haiku": AI_MODEL, "sonnet": MODEL_FREE, "opus": MODEL_PRO}, lambda conn, uid, now: pro_info(conn, uid, now))
 SAFE_SITE_MODEL = "anthropic/claude-sonnet-5-5"
+
+def opus_today(conn, uid):
+    """Сколько разных Opus-задач Code пользователь запустил за сутки (по внутренней статистике)."""
+    try:
+        since = int(time.time()) - 86400
+        return int(conn.execute("SELECT COUNT(DISTINCT task_id) FROM llm_usage WHERE user_id=? AND tier='opus' AND mode='code' AND ts>=?", (uid, since)).fetchone()[0] or 0)
+    except Exception:
+        return CODE_OPUS_PER_DAY      # не смогли посчитать -> считаем лимит исчерпанным (безопасно)
+
+def pick_model(conn, uid, mode, text, is_edit, is_pro):
+    """Единая точка выбора модели: сложность -> уровень -> ModelRouter (подписка из БД) с дневным лимитом Opus."""
+    used = opus_today(conn, uid) if (mode == "code" and is_pro) else 0
+    d = _routing.decide(mode, text, is_edit=is_edit, is_pro=is_pro, opus_used=used, opus_cap=CODE_OPUS_PER_DAY)
+    if d["assessment"]["level"] == "complex" and mode == "code" and is_pro and d["tier"] != "opus":
+        d["reason"] += " (дневной лимит Opus исчерпан)"; d["capped"] = True
+    model = None
+    try:
+        if d["tier"] == "opus": model = MODEL_ROUTER.route(conn, uid, "code_expert", context="code")
+        elif d["tier"] == "haiku": model = MODEL_ROUTER.route(conn, uid, "chat")
+    except ModelDenied as e:
+        d["tier"], d["reason"] = "sonnet", d["reason"] + f" (Opus запрещён: {e.reason})"
+    if model is None: model = get_model_for_user(uid, conn)
+    USAGE_CTX.set({"uid": uid, "mode": mode, "task": uuid_hex(), "level": d["assessment"]["level"], "reason": d["reason"]})
+    return model, d
+
+pick_build_model = pick_model     # старое имя (тесты и код)
+
+async def opus_expert_pass(model, text, ctx):
+    """Opus проектирует архитектуру и пишет только сложное ядро. Остальное строит Sonnet. Ошибка/таймаут -> None (сборка идёт без Opus)."""
+    try:
+        resp = await _build_create(70, model=model, messages=[{"role": "system", "content": EXPERT_SYSTEM},
+                                                           {"role": "user", "content": ((ctx or "")[-3000:] + "\n\n" + text)[-6000:]}], max_tokens=3500, temperature=0.3)
+        _log_build_usage(resp, model)
+        out = (resp.choices[0].message.content or "").strip()
+        return out[:12000] or None
+    except Exception:
+        log.warning("opus expert pass failed, building without it", exc_info=True)
+        return None
+
+def uuid_hex():
+    return secrets.token_hex(8)
 
 def get_model_for_user(uid, conn):
     """Модель для сборки сайтов и технических задач: ВСЕГДА Sonnet для любого тарифа. Opus сюда не попадает."""
@@ -2608,6 +2694,44 @@ async def ask(request: Request):
             return {"text": "Я не вижу текста.", "emotion": "thinking", "pro": pro_info(conn, uid, now)}
         user_content = None
         pro_pre = pro_info(conn, uid, now)
+        # РЕЖИМЫ Chat | Video | Code. Доступ проверяется на сервере ДО любых списаний и вызовов модели.
+        mode = str(data.get("mode") or "chat").lower()
+        if mode not in ("chat", "video", "code"): mode = "chat"
+        _a0 = _routing.assess(raw_text)
+        USAGE_CTX.set({"uid": uid, "mode": mode, "task": uuid_hex(), "level": _a0["level"], "reason": "simple_question" if _a0["level"] == "simple" else "chat_or_technical"})
+        if mode == "video":
+            if not (VIDEO_TAB_LIVE and VIDEO.cfg.enabled):   # пока режим в разработке — для всех, без модели и списаний
+                return JSONResponse({"text": VIDEO_IN_DEV_TEXT, "emotion": "happy", "pro": pro_pre, "mode_locked": "dev"}, status_code=403)
+            if not pro_pre["active"]:
+                return JSONResponse({"text": CODE_NO_ACCESS_TEXT, "emotion": "sad", "pro": pro_pre, "mode_locked": "pro", "limit_reached": True}, status_code=402)
+            _vp, _vs = await asyncio.to_thread(lambda: VIDEO.create_from_ask(get_db_connection(), uid, raw_text, pro_pre))
+            return JSONResponse(_vp, status_code=_vs)
+        if mode == "code" and not pro_pre["active"]:
+            return JSONResponse({"text": CODE_NO_ACCESS_TEXT, "emotion": "sad", "pro": pro_pre, "mode_locked": "pro", "limit_reached": True}, status_code=402)
+        skill_ids = []
+        if mode == "code" and pro_pre["active"]:
+            try: skill_ids = [int(x) for x in (data.get("skill_ids") or [])[:5] if str(x).isdigit()]
+            except Exception: skill_ids = []
+            _urls = _skills.GITHUB_URL_RE.findall(raw_text)
+            if _urls:   # ссылка на навык: читаем SKILL.md, подключаем и продолжаем работу
+                try:
+                    _sk, _ru = await _skills.fetch_skill(_urls[0], github_get)
+                    _sid = await asyncio.to_thread(lambda: _skills.add_skill(get_db_connection(), uid, _sk, _ru))
+                except _skills.SkillError as e:
+                    return {"text": f"Не смог прочитать навык: {e}", "emotion": "sad", "pro": pro_pre}
+                skill_ids = [_sid] + [x for x in skill_ids if x != _sid]
+                raw_text = _skills.GITHUB_URL_RE.sub("", raw_text).strip(); user_text = raw_text.lower()
+                if len(raw_text) < 3:
+                    _d = f" {_sk['description']}" if _sk["description"] else ""
+                    return {"text": f"Прочитал навык «{_sk['name']}» и подключил.{_d} Что сделать с его помощью?", "emotion": "happy", "pro": pro_pre,
+                            "skill": {"id": _sid, "name": _sk["name"], "description": _sk["description"]}}
+            if skill_ids:
+                _sb = _skills.skill_block(await asyncio.to_thread(lambda: _skills.load_skills(get_db_connection(), uid, skill_ids)))
+                history_text = _sb + history_text
+        if mode == "chat" and pro_pre["active"] and not att and not data.get("build_choice"):
+            _rd = _routing.decide("chat", raw_text, is_edit=bool(data.get("edit_project")), is_pro=True)
+            if _rd["redirect"] == "code":   # Chat не берёт задачи уровня Opus: честно направляем в Code
+                return {"text": CHAT_TO_CODE_TEXT, "emotion": "thinking", "pro": pro_pre, "suggest_mode": "code"}
         # ИМПОРТ ГОТОВОГО КОДА: .html-вложение или код текстом. Модель не вызывается, лимиты не трогаем.
         if not data.get("edit_project"):
             imported = extract_import_code(att, full_text)
@@ -2646,11 +2770,8 @@ async def ask(request: Request):
         _vstr = video_strength(user_text)
         _looks_edit = (not edit_req) and (not att) and (not data.get("build_choice")) and has_project and looks_like_edit(user_text)
         if (not edit_req) and (not att) and _vstr > 0 and data.get("build_choice") != "advice" and (_vstr == 2 or not _looks_edit):
-            if VIDEO.cfg.enabled:
-                # Video Studio: тариф и лимит проверяются на сервере внутри create (Free получает 402 с предложением тарифа)
-                _vp, _vs = await asyncio.to_thread(lambda: VIDEO.create_from_ask(get_db_connection(), uid, raw_text, pro_pre))
-                return JSONResponse(_vp, status_code=_vs)
-            return {"text": VIDEO_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
+            # Chat/Code не запускают Video Job: видео создаётся только в режиме Video (сейчас в разработке)
+            return {"text": VIDEO_IN_CHAT_TEXT, "emotion": "happy", "pro": pro_pre, "suggest_mode": "video"}
         auto_edit_cand = _looks_edit
         if auto_edit_cand and not pro_pre["active"]:
             return editor_paywall(conn, uid, proj_kind, EDIT_PRO_ONLY_TEXT, pro_pre, "edit")
@@ -2678,7 +2799,8 @@ async def ask(request: Request):
         if not is_edit and not att and not build_choice and build_intent(user_text) == "ask":
             # есть действие и прилагательное, но нет существительного: ничего не списываем и в нейросеть не идём
             return {"text": BUILD_CHOICE_QUESTION, "emotion": "thinking", "pro": pro_pre, "choices": BUILD_CHOICES}
-        build_mode = is_edit or build_choice == "build" or (build_choice != "advice" and wants_build(user_text))
+        _code_model = None   # Code: модель для ответа не про сайты (Sonnet/Opus)
+        build_mode = is_edit or build_choice == "build" or (build_choice != "advice" and (wants_build(user_text) or (mode == "code" and pro_pre["active"] and _routing.assess(raw_text)["is_build"] and _routing.assess(raw_text)["is_site"])))
         if not build_mode and is_forbidden_chat(user_text):
             # запрещённая просьба в обычном чате: отказ до списаний и до вызова модели, токены не тратятся
             return {"text": CHAT_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
@@ -2820,7 +2942,12 @@ async def ask(request: Request):
         log.info("ask uid=%s weight=%s build=%s visual=%s search=%s history_len=%s", uid, weight, build_mode, visual_mode, search_mode, history_len)
         asyncio.get_running_loop().run_in_executor(None, count_message, uid, max(len(raw_text), MSG_MIN_LEN if att else 0))
         if build_mode:
-            build_model = get_model_for_user(uid, conn)
+            build_model, _route = pick_model(conn, uid, mode, raw_text, is_edit, pro_pre["active"])
+            if _route["tier"] == "opus":   # Opus проектирует и пишет сложное ядро, СТРОИТ проект Sonnet
+                _expert = await opus_expert_pass(build_model, raw_text, history_text)
+                build_model = get_model_for_user(uid, conn)
+                if _expert: history_text = EXPERT_BLOCK + _expert + "\n\n" + history_text
+            log.info("route uid=%s mode=%s tier=%s level=%s reason=%s", uid, mode, _route["tier"], _route["assessment"]["level"], _route["reason"])
             if trial:
                 # занимаем пробную попытку атомарно: из N параллельных запросов пройдёт один
                 cur = conn.execute("INSERT OR IGNORE INTO trial_build (user_id, used_at) VALUES (?, ?)", (uid, int(time.time())))
@@ -2878,6 +3005,12 @@ async def ask(request: Request):
             else:
                 log.warning("search uid=%s: поиск вернул пусто (ключ, лимит или ошибка API, см. строку srezai search выше)", uid)
                 messages.append({"role": "user", "content": "Поиск в интернете ничего не вернул, даже по упрощённому запросу. Ответь одной короткой фразой: «Не нашёл актуальной информации в интернете». Не проси уточнить запрос, не предлагай искать самому, не оправдывайся и не говори, что у тебя нет доступа в интернет. Не выдумывай новости, курсы и цены."})
+        if mode == "code" and pro_pre["active"] and not build_mode and not visual_mode:
+            _cm, _cr = pick_model(conn, uid, "code", raw_text, False, True)
+            if _cm != AI_MODEL:
+                _code_model = _cm
+                messages.append({"role": "system", "content": CODE_MODE_NOTE})
+            log.info("route uid=%s mode=code answer tier=%s reason=%s", uid, _cr["tier"], _cr["reason"])
         messages.append({"role": "user", "content": user_content})
         if visual_mode:
             response = await chat_json(messages, AI_MAX_TOKENS_VISUAL)
@@ -2887,7 +3020,7 @@ async def ask(request: Request):
             except ValueError:
                 result = salvage_json(raw) or {"text": "Не получилось собрать ответ целиком. Попробуй попросить проще или короче.", "emotion": "sad"}
         else:
-            response = await llm(messages, AI_MAX_TOKENS)
+            response = await llm(messages, CODE_ANSWER_TOKENS if _code_model else AI_MAX_TOKENS, model=_code_model)
             raw = response.choices[0].message.content or ""
             plain_text, plain_emo = parse_plain(raw)
             result = {"text": plain_text, "emotion": plain_emo}
@@ -3264,6 +3397,44 @@ async def support_send(data: SupportRequest):
     except Exception:
         log.exception("support_send failed")
         return {"status": "error", "reason": "send_failed"}
+
+async def github_get(url):
+    """Скачивание SKILL.md: только raw.githubusercontent.com, без редиректов, ограниченный размер."""
+    assert url.startswith("https://raw.githubusercontent.com/")
+    r = await _http.get(url, follow_redirects=False, timeout=8)
+    return r.status_code, (r.text[: _skills.MAX_SKILL_CHARS + 1] if r.status_code == 200 else "")
+
+async def _skills_call(request, fn):
+    data = await request.json()
+    info = validate_init_data(data.get("init_data", ""))
+    if not info: return JSONResponse({"status": "error", "text": "Ошибка авторизации."}, status_code=401)
+    uid = info["user"]["id"]
+    conn = get_db_connection()
+    if not pro_info(conn, uid, int(time.time()))["active"]:   # навыки — часть Code: только PRO, проверка на сервере
+        return JSONResponse({"status": "error", "text": CODE_NO_ACCESS_TEXT, "mode_locked": "pro", "limit_reached": True}, status_code=402)
+    return await fn(conn, uid, data)
+
+@app.post("/skills/import")
+async def skills_import(request: Request):
+    async def go(conn, uid, data):
+        try:
+            sk, ru = await _skills.fetch_skill(str(data.get("url", "")), github_get)
+            sid = await asyncio.to_thread(lambda: _skills.add_skill(get_db_connection(), uid, sk, ru))
+        except _skills.SkillError as e:
+            return JSONResponse({"status": "error", "text": str(e)}, status_code=400)
+        return {"status": "ok", "skill": {"id": sid, "name": sk["name"], "description": sk["description"]}}
+    return await _skills_call(request, go)
+
+@app.post("/skills/list")
+async def skills_list(request: Request):
+    async def go(conn, uid, data): return {"status": "ok", "skills": _skills.list_skills(conn, uid)}
+    return await _skills_call(request, go)
+
+@app.post("/skills/delete")
+async def skills_delete(request: Request):
+    async def go(conn, uid, data):
+        _skills.delete_skill(conn, uid, int(data.get("id") or 0)); return {"status": "ok"}
+    return await _skills_call(request, go)
 
 # --- VIDEO STUDIO (выключена по умолчанию: VIDEO_ENABLED=0) ---
 if "opus" in MODEL_FREE.lower():
