@@ -1842,6 +1842,52 @@ body.light-theme{background:var(--ui-bg-0)}
     <div class="sb-links"><button type="button" class="sb-link" id="hn-invite">Пригласить друга</button></div>
   </div>
 </aside>
+<style>
+#mode-pill{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:41;display:flex;padding:3px;height:44px;box-sizing:border-box;border-radius:22px;background:rgba(118,122,135,.2);border:1px solid rgba(255,255,255,.1);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%)}
+#mode-pill .mp-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/3);border-radius:19px;background:rgba(255,255,255,.16);transform:translateX(calc(var(--i,0)*100%));transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+#mode-pill button{position:relative;z-index:1;width:64px;border:0;background:none;color:var(--ui-tx-mid,#9aa);font:600 13px 'Manrope',system-ui,sans-serif;border-radius:19px;-webkit-tap-highlight-color:transparent}
+#mode-pill button.on{color:var(--ui-tx-hi,#fff)}
+body.light-theme #mode-pill{border-color:rgba(0,0,0,.06)} body.light-theme #mode-pill .mp-thumb{background:rgba(0,0,0,.09)}
+#mode-gate{position:fixed;inset:0;z-index:35;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+#mode-gate.on{display:flex} #mode-gate b{font:700 22px 'Manrope',system-ui,sans-serif;color:var(--ui-tx-hi,#fff)}
+#mode-gate p{margin:0;max-width:300px;font:500 15px/1.45 'Manrope',system-ui,sans-serif;color:var(--ui-tx-mid,#9aa)}
+body.mode-locked #hud-panel,body.mode-locked #chat-history,body.mode-locked #empty-logo{display:none!important}
+</style>
+<style>
+/* единое стекло в стиле iOS для шестерёнки, переключателя режимов и кнопок сверху */
+:root{--glass-bg:rgba(255,255,255,.04);--glass-bd:.5px solid rgba(255,255,255,.14);--glass-sh:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 -.5px 0 rgba(255,255,255,.04),0 8px 24px -8px rgba(0,0,0,.4)}
+#mode-pill,#gear-btn,#hist-btn,#proj-btn{background:var(--glass-bg)!important;border:var(--glass-bd)!important;-webkit-backdrop-filter:blur(24px) saturate(180%)!important;backdrop-filter:blur(24px) saturate(180%)!important;box-shadow:var(--glass-sh)!important}
+body.light-theme #mode-pill,body.light-theme #gear-btn,body.light-theme #hist-btn,body.light-theme #proj-btn{background:rgba(120,124,135,.16)!important;border:1px solid rgba(0,0,0,.06)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px -10px rgba(22,23,26,.3)!important}
+#gear-btn{position:fixed;top:max(12px,env(safe-area-inset-top));left:16px;z-index:41;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;color:var(--ui-tx-hi,#fff);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .3s cubic-bezier(.34,1.7,.64,1)}
+#gear-btn:active{transform:scale(.92)}
+#hist-btn{left:auto!important;right:16px!important;top:max(12px,env(safe-area-inset-top))!important}
+#proj-btn{display:none;position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 52px);left:50%;transform:translateX(-50%);z-index:41;height:34px;padding:0 14px;border-radius:17px;align-items:center;gap:6px;color:var(--ui-tx-hi,#fff);font:600 13px 'Manrope',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+body.mode-code:not(.mode-locked) #proj-btn{display:flex}
+:root:root body.mode-code:not(.mode-locked) #chat-history{padding-top:112px!important}
+#proj-sheet{position:fixed;inset:0;z-index:60;display:none} #proj-sheet.on{display:block}
+#proj-sheet .ps-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+#proj-sheet .ps-box{position:absolute;left:0;right:0;bottom:0;max-height:78vh;overflow:auto;border-radius:24px 24px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));background:rgba(22,24,32,.78);-webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);border-top:.5px solid rgba(255,255,255,.14);color:var(--ui-tx-hi,#fff);font-family:'Manrope',system-ui,sans-serif}
+body.light-theme #proj-sheet .ps-box{background:rgba(244,245,249,.86);border-top-color:rgba(0,0,0,.06)}
+.ps-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ps-tabs{display:flex;gap:6px}.ps-tabs button{border:0;border-radius:16px;padding:7px 14px;background:transparent;color:var(--ui-tx-mid,#9aa);font:600 14px 'Manrope',system-ui,sans-serif}
+.ps-tabs button.on{background:rgba(255,255,255,.12);color:var(--ui-tx-hi,#fff)} body.light-theme .ps-tabs button.on{background:rgba(0,0,0,.08)}
+#ps-x{border:0;background:transparent;color:var(--ui-tx-mid,#9aa);font-size:20px;width:36px;height:36px}
+.ps-pane{display:none}.ps-pane.on{display:block}
+.ps-item{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:.5px solid rgba(255,255,255,.08)}
+.ps-item .t{flex:1;min-width:0}.ps-item b{display:block;font:600 15px 'Manrope',system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-item i{display:block;font:500 12px 'Manrope',system-ui,sans-serif;font-style:normal;color:var(--ui-tx-mid,#9aa);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-item button{border:0;background:transparent;color:var(--ui-tx-mid,#9aa);padding:8px;font:600 13px 'Manrope',system-ui,sans-serif}
+.ps-item button.act.on{color:#5fd38d}
+.ps-empty{padding:26px 8px;text-align:center;color:var(--ui-tx-mid,#9aa);font:500 14px/1.45 'Manrope',system-ui,sans-serif}
+.ps-add{display:flex;gap:8px;margin-bottom:8px}.ps-add input{flex:1;min-width:0;border-radius:14px;border:.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--ui-tx-hi,#fff);padding:11px 12px;font:500 14px 'Manrope',system-ui,sans-serif;outline:none}
+</style>
+<button type="button" id="gear-btn" aria-label="Настройки"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+<button type="button" id="proj-btn" aria-label="Проекты"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Проекты</span></button>
+<div id="proj-sheet"><div class="ps-bg" id="ps-bg"></div><div class="ps-box"><div class="ps-head"><div class="ps-tabs"><button type="button" data-t="p" class="on">Проекты</button><button type="button" data-t="s">Навыки</button></div><button type="button" id="ps-x" aria-label="Закрыть">&#10005;</button></div>
+<div class="ps-pane on" id="ps-p"></div>
+<div class="ps-pane" id="ps-s"><div class="ps-add"><input id="sk-url" type="url" inputmode="url" autocomplete="off" placeholder="Ссылка на навык с GitHub"><button type="button" class="st-pill" id="sk-add">Добавить</button></div><div class="ps-empty" style="padding:6px 4px 12px;text-align:left">Папка навыка или файл SKILL.md из публичного репозитория. Навыки работают в режиме Code.</div><div id="sk-list"></div></div></div></div>
+<div id="mode-pill" role="tablist" aria-label="Режим" style="--i:0"><span class="mp-thumb"></span><button type="button" role="tab" class="on" data-mode="chat">Chat</button><button type="button" role="tab" data-mode="video">Video</button><button type="button" role="tab" data-mode="code">Code</button></div>
+<div id="mode-gate"><b id="mg-title"></b><p id="mg-text"></p><button type="button" class="st-pill" id="mg-btn">Купить PRO</button></div>
 <div id="topbar">
   <button class="ibtn" id="menu-btn" aria-label="Меню"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div>
@@ -3816,6 +3862,7 @@ visPop.innerHTML = '<button type="button" role="menuitem" data-a="editor"><svg v
     + '<button type="button" role="menuitem" data-a="help"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg><span>Как запустить</span></button>'
     + '<button type="button" role="menuitem" data-a="publish"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6M5 21h14"/></svg><span>Опубликовать</span></button>'
     + '<button type="button" role="menuitem" data-a="dl"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button>';
+visPop.insertAdjacentHTML('beforeend', '<button type="button" role="menuitem" data-a="proj">'+'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'+' В проекты</button>');
 document.body.appendChild(visPop);
 let visPopFor = null;
 function visPopClose(){ visPop.classList.remove('open'); visPopFor = null; }
@@ -3843,6 +3890,7 @@ visPop.addEventListener('click', e => {
     else if (a === 'editor'){ openVis(v, vis); edEnter(); }
     else if (a === 'publish') publishSite(v);
     else if (a === 'help'){ if (!isSending) sendMessage('Я только что сгенерировал проект. Расскажи пошагово, как мне его запустить'); }
+    else if (a === 'proj'){ const r = ProjectsStore.add(localStorage, v); toast(r.ok ? (r.updated ? 'Проект обновлён в «Проекты»' : 'Добавлено в «Проекты»') : 'Не удалось сохранить: нет места на устройстве'); }
     else if (a === 'dl'){ curVis = { v, el: vis }; dlVis(); curVis = null; }  // dlVis читает curVis синхронно, до первого await
 });
 document.addEventListener('click', e => { if (visPopFor && !visPop.contains(e.target) && !e.target.closest('[data-vis="more"]')) visPopClose(); });
@@ -3963,6 +4011,141 @@ const VideoActivity = {
     }
 };
 /*VIDEO_ACTIVITY_END*/
+
+/*MODES_START*/
+// ---- Режимы Chat | Video | Code. Чистая логика доступа (интерфейс только показывает; настоящая проверка тарифа — на сервере) ----
+const ModeGate = {
+    resolve(mode, pro){
+        if (mode === 'video') return { title: 'В разработке', text: 'Режим Video сейчас в разработке. Скоро он станет доступен.', btn: null };
+        if (mode === 'code' && !pro) return { title: 'Нет доступа', text: 'Этот режим доступен только пользователям Holo Friend PRO.', btn: 'Купить PRO' };
+        return null;
+    }
+};
+/*MODES_END*/
+let appMode = 'chat', histMode = 'chat';
+const MODE_KEYS = { chat: 'holo_history', code: 'holo_history_code' };
+const MODE_CHATS = { chat: 'holo_chats', code: 'holo_chats_code' };
+function applyModeGate(){
+    const g = ModeGate.resolve(appMode, !!PRO.active), box = $('mode-gate'), pill = $('mode-pill');
+    box.classList.toggle('on', !!g);
+    if (g){ $('mg-title').textContent = g.title; $('mg-text').textContent = g.text; const b = $('mg-btn'); b.style.display = g.btn ? '' : 'none'; if (g.btn) b.textContent = g.btn; }
+    document.body.classList.toggle('mode-locked', !!g);
+    document.body.classList.toggle('mode-code', appMode === 'code' && !g);
+    pill.style.setProperty('--i', ['chat', 'video', 'code'].indexOf(appMode));
+    pill.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === appMode));
+}
+function setMode(m, quiet){
+    if (m === appMode) return;
+    if (isSending){ toast('Подожди, ответ ещё печатается'); return; }
+    tap();
+    appMode = m;
+    if ((m === 'chat' || m === 'code') && histMode !== m){   // у Chat и Code независимые истории; Video историю не трогает
+        saveHistory();
+        histMode = m;
+        let msgs = []; try { msgs = JSON.parse(localStorage.getItem(MODE_KEYS[m]) || '[]'); } catch (e) {}
+        showChat(Array.isArray(msgs) ? msgs : []);
+    }
+    applyModeGate();
+    if (m === 'code' && !quiet && PRO.active && ProjectsStore.list(localStorage).length) projSheet(true, 'p');   // Code: сразу предлагаем выбрать проект
+}
+$('mode-pill').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
+$('mg-btn').addEventListener('click', () => openPro());
+function addModeSuggestBtn(m){
+    const last = chatHistory.lastElementChild, msg = last && last.querySelector('.message'); if (!msg) return;
+    const bar = document.createElement('div'); bar.className = 'vis-bar';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'txtbtn'; b.textContent = m === 'code' ? 'Открыть Code' : 'Открыть Video';
+    b.addEventListener('click', () => { bar.remove(); setMode(m); });
+    bar.appendChild(b); msg.appendChild(bar);
+}
+
+/*PROJECTS_START*/
+// ---- «Проекты»: папка проектов из чата. Хранится на устройстве (localStorage), максимум 20 ----
+const ProjectsStore = {
+    KEY: 'holo_projects', MAX: 20,
+    _read(st){ try { const a = JSON.parse(st.getItem(this.KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } },
+    list(st){ return this._read(st); },
+    titleOf(v){ return (v && (v.name || v.title)) || (v && typeof v.code === 'string' && (v.code.match(/<title[^>]*>([^<]{1,60})<\/title>/i) || [])[1]) || 'Проект'; },
+    sig(v){ return v.pid ? 'p:' + v.pid : 'c:' + (typeof v.code === 'string' ? v.code.length + ':' + v.code.slice(0, 120) : ''); },
+    add(st, v){
+        if (!v || (!v.code && !v.pid)) return { ok: false, reason: 'empty' };
+        const list = this._read(st), sig = this.sig(v), i = list.findIndex(x => x.sig === sig);
+        if (i >= 0) list.splice(i, 1);                               // тот же проект: обновляем, не плодим копии
+        const item = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: this.titleOf(v), sig, ts: Date.now(), v: JSON.parse(JSON.stringify(v)) };
+        list.unshift(item); while (list.length > this.MAX) list.pop();
+        for (;;){
+            try { st.setItem(this.KEY, JSON.stringify(list)); return { ok: true, item, updated: i >= 0 }; }
+            catch (e) { if (list.length <= 1) return { ok: false, reason: 'quota' }; list.pop(); }   // нет места: выкидываем самые старые
+        }
+    },
+    remove(st, id){ const l = this._read(st).filter(x => x.id !== id); try { st.setItem(this.KEY, JSON.stringify(l)); } catch (e) {} return l; },
+    get(st, id){ return this._read(st).find(x => x.id === id) || null; }
+};
+/*PROJECTS_END*/
+const SK_ACTIVE_KEY = 'holo_skills_active';
+function activeSkillIds(){ try { const a = JSON.parse(localStorage.getItem(SK_ACTIVE_KEY) || '[]'); return Array.isArray(a) ? a.filter(Number.isInteger).slice(0, 3) : []; } catch (e) { return []; } }
+function setActiveSkillIds(a){ try { localStorage.setItem(SK_ACTIVE_KEY, JSON.stringify(a.slice(0, 3))); } catch (e) {} }
+function projTab(t){
+    document.querySelectorAll('#proj-sheet .ps-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    $('ps-p').classList.toggle('on', t === 'p'); $('ps-s').classList.toggle('on', t === 's');
+    if (t === 'p') renderProjects(); else renderSkills();
+}
+function projSheet(open, tab){ $('proj-sheet').classList.toggle('on', !!open); if (open) projTab(tab || 'p'); }
+function renderProjects(){
+    const box = $('ps-p'), list = ProjectsStore.list(localStorage); box.innerHTML = '';
+    if (!list.length){ const e = document.createElement('div'); e.className = 'ps-empty'; e.textContent = 'Пока пусто. В карточке проекта нажми «⋯» и выбери «В проекты».'; box.appendChild(e); return; }
+    list.forEach(p => {
+        const row = document.createElement('div'); row.className = 'ps-item';
+        const t = document.createElement('div'); t.className = 't'; t.style.cursor = 'pointer';
+        const b = document.createElement('b'); b.textContent = p.title; const i = document.createElement('i'); i.textContent = new Date(p.ts).toLocaleDateString('ru-RU');
+        t.appendChild(b); t.appendChild(i); t.addEventListener('click', () => openProjectInCode(p.id));
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Удалить'; del.addEventListener('click', () => { ProjectsStore.remove(localStorage, p.id); renderProjects(); });
+        row.appendChild(t); row.appendChild(del); box.appendChild(row);
+    });
+}
+async function renderSkills(){
+    const box = $('sk-list'); box.innerHTML = '';
+    let r; try { r = await tgPost('skills/list', {}); } catch (e) { r = null; }
+    if (!r || r.status !== 'ok'){ const e = document.createElement('div'); e.className = 'ps-empty'; e.textContent = (r && r.text) || 'Не удалось загрузить навыки'; box.appendChild(e); return; }
+    if (!r.skills.length){ const e = document.createElement('div'); e.className = 'ps-empty'; e.textContent = 'Навыков пока нет.'; box.appendChild(e); return; }
+    const act = activeSkillIds();
+    r.skills.forEach(s => {
+        const row = document.createElement('div'); row.className = 'ps-item';
+        const t = document.createElement('div'); t.className = 't'; const b = document.createElement('b'); b.textContent = s.name; const i = document.createElement('i'); i.textContent = s.description || 'без описания';
+        t.appendChild(b); t.appendChild(i);
+        const on = document.createElement('button'); on.type = 'button'; on.className = 'act' + (act.includes(s.id) ? ' on' : ''); on.textContent = act.includes(s.id) ? 'Включён' : 'Выключен';
+        on.addEventListener('click', () => { let a = activeSkillIds(); if (a.includes(s.id)) a = a.filter(x => x !== s.id); else { if (a.length >= 3){ toast('Одновременно можно включить до 3 навыков'); return; } a.unshift(s.id); } setActiveSkillIds(a); renderSkills(); });
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Удалить';
+        del.addEventListener('click', async () => { try { await tgPost('skills/delete', { id: s.id }); } catch (e) {} setActiveSkillIds(activeSkillIds().filter(x => x !== s.id)); renderSkills(); });
+        row.appendChild(t); row.appendChild(on); row.appendChild(del); box.appendChild(row);
+    });
+}
+async function addSkillFromInput(){
+    const inp = $('sk-url'), url = inp.value.trim(); if (!url) return;
+    $('sk-add').disabled = true;
+    try {
+        const r = await tgPost('skills/import', { url });
+        if (r && r.status === 'ok'){ inp.value = ''; const a = activeSkillIds(); if (!a.includes(r.skill.id)) setActiveSkillIds([r.skill.id].concat(a)); toast('Навык подключён: ' + r.skill.name); renderSkills(); }
+        else toast((r && r.text) || 'Не удалось добавить навык');
+    } catch (e) { toast('Нет связи. Попробуй позже'); }
+    $('sk-add').disabled = false;
+}
+function openProjectInCode(id){
+    const p = ProjectsStore.get(localStorage, id); if (!p) return;
+    if (isSending){ toast('Подожди, ответ ещё печатается'); return; }
+    projSheet(false);
+    if (!PRO.active){ setMode('code'); return; }                    // у Free откроется экран «Нет доступа»
+    if (appMode !== 'code') setMode('code', true);
+    const text = 'Открыл проект «' + p.title + '». Что изменить?';
+    addToHistory(text, 'bot', '', null, p.v, false);
+    chatHistoryForServer.push({ sender: 'bot', text, vis: p.v }); saveHistory();
+    setEditTarget(p.v); input.focus();
+}
+$('gear-btn').addEventListener('click', () => { if (typeof openDrawer === 'function') openDrawer(); });
+$('proj-btn').addEventListener('click', () => { tap(); projSheet(true, 'p'); });
+$('ps-bg').addEventListener('click', () => projSheet(false)); $('ps-x').addEventListener('click', () => projSheet(false));
+document.querySelector('#proj-sheet .ps-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) projTab(b.dataset.t); });
+$('sk-add').addEventListener('click', addSkillFromInput);
+$('sk-url').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addSkillFromInput(); } });
 let videoWatch = null;
 function addVideoResumeBtn(jobId){
     const last = chatHistory.lastElementChild;
@@ -4028,6 +4211,7 @@ async function resumeVideoIfAny(){
         if (r && r.status === 'ok' && r.job && (r.job.status === 'queued' || r.job.status === 'running')) watchVideoJob(r.job.job_id);
     } catch (e) { /* Video Studio выключена или нет сети: молча пропускаем */ }
 }
+try { applyModeGate(); } catch (e) {}
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 const refOk = () => !!(tg && tg.initData);
 async function tgPost(path, extra){
@@ -4275,6 +4459,7 @@ var PW = (function(){
     };
 })();
 function renderPro(){
+    try { applyModeGate(); } catch (e) {}
     grantProItems();
     if (!plTab) plTab = curPlanId() || 'pro';
     if (PW) PW.render(!proBox.classList.contains('open'));
@@ -4506,9 +4691,9 @@ function saveHistory(){
     let nv = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].vis && ++nv > 5) delete chatHistoryForServer[i].vis; }
     let imgs = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].img && ++imgs > 15) delete chatHistoryForServer[i].img; }
     let fls = 0; for (let i = chatHistoryForServer.length - 1; i >= 0; i--){ if (chatHistoryForServer[i].file && ++fls > 10) delete chatHistoryForServer[i].file; }
-    try { localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer)); }
+    try { localStorage.setItem(MODE_KEYS[histMode], JSON.stringify(chatHistoryForServer)); }
     catch (e) {  // квота (большие импортированные проекты): убираем код из старых сообщений и пробуем ещё раз
-        try { chatHistoryForServer.forEach((m, i) => { if (m.vis && i < chatHistoryForServer.length - 1) delete m.vis; }); localStorage.setItem('holo_history', JSON.stringify(chatHistoryForServer)); } catch (e2) {}
+        try { chatHistoryForServer.forEach((m, i) => { if (m.vis && i < chatHistoryForServer.length - 1) delete m.vis; }); localStorage.setItem(MODE_KEYS[histMode], JSON.stringify(chatHistoryForServer)); } catch (e2) {}
     }
 }
 
@@ -4525,7 +4710,7 @@ const IMGDB = (() => {
         prune: keep => run('readwrite', s => { const c = s.openKeyCursor(); c.onsuccess = () => { const cur = c.result; if (!cur) return; if (!keep.has(cur.key)) s.delete(cur.key); cur.continue(); }; return c; }).catch(() => {})
     };
 })();
-function keepIds(){ const ids = new Set(); let chats = []; try { chats = JSON.parse(localStorage.getItem('holo_chats') || '[]'); } catch(e) {} const all = chatHistoryForServer.concat(...(Array.isArray(chats) ? chats : []).map(c => (c && c.msgs) || [])); all.forEach(m => { if (m && (m.img || m.file)) ids.add((m.img || m.file).id); }); return ids; }
+function keepIds(){ const ids = new Set(); let chats = []; let other = []; try { chats = [].concat(JSON.parse(localStorage.getItem('holo_chats') || '[]'), JSON.parse(localStorage.getItem('holo_chats_code') || '[]')); other = JSON.parse(localStorage.getItem(MODE_KEYS[histMode === 'chat' ? 'code' : 'chat']) || '[]'); } catch(e) {} const all = chatHistoryForServer.concat(other, ...(Array.isArray(chats) ? chats : []).map(c => (c && c.msgs) || [])); all.forEach(m => { if (m && (m.img || m.file)) ids.add((m.img || m.file).id); }); return ids; }
 IMGDB.prune(keepIds());
 
 let lbUrl = null;
@@ -4957,6 +5142,8 @@ async function sendMessage(text, opts) {
             chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
             saveHistory();
             if (data.video_job && data.video_job.job_id) watchVideoJob(data.video_job.job_id);   // Video Studio: дальше показываем реальные этапы
+            if (data.suggest_mode) addModeSuggestBtn(data.suggest_mode);
+            if (data.skill && data.skill.id){ const a = activeSkillIds(); if (!a.includes(data.skill.id)) setActiveSkillIds([data.skill.id].concat(a)); toast('Навык подключён: ' + data.skill.name); }
         };
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
@@ -4964,6 +5151,8 @@ async function sendMessage(text, opts) {
                 text: text,
                 stream: true,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
+                mode: appMode === 'code' ? 'code' : 'chat',
+                skill_ids: appMode === 'code' ? activeSkillIds() : [],
                 last_visual: editing ? { type: editing.type, code: editing.code, pid: editing.pid } : lastVisual,
                 edit_project: !!editing,
                 build_choice: silent ? (opts.choice || '') : '',
@@ -5255,7 +5444,7 @@ $('do-clear').addEventListener('click', async () => {
     setEditTarget(null);
     if (char === 'holo') Hologram.react('surprised', 'idle', 2000);
     if (forget) {
-        localStorage.removeItem('holo_history');
+        localStorage.removeItem('holo_history'); localStorage.removeItem('holo_history_code');
         IMGDB.prune(keepIds());
         chatHistoryForServer = [];
         isOffended = false; store.set('isOffended', false);
@@ -5349,12 +5538,12 @@ $('inv-copy').addEventListener('click', async () => {
 // Drawer
 function drTab(t){ $('dr-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.dt === t)); $('dr-menu').classList.toggle('on', t === 'menu'); $('dr-prof').classList.toggle('on', t === 'prof'); renderProfile(); }
 // --- ИСТОРИЯ ЧАТОВ (localStorage: holo_chats = массив архивных чатов) ---
-const CHATS_KEY = 'holo_chats', CHATS_MAX = 30;
-function loadChats(){ try { const a = JSON.parse(localStorage.getItem(CHATS_KEY) || '[]'); return Array.isArray(a) ? a.filter(c => c && Array.isArray(c.msgs)) : []; } catch(e) { return []; } }
+const CHATS_MAX = 30; const chatsKey = () => MODE_CHATS[histMode];
+function loadChats(){ try { const a = JSON.parse(localStorage.getItem(chatsKey()) || '[]'); return Array.isArray(a) ? a.filter(c => c && Array.isArray(c.msgs)) : []; } catch(e) { return []; } }
 function saveChats(a){
     a = a.slice(0, CHATS_MAX);
     for (;;){
-        try { localStorage.setItem(CHATS_KEY, JSON.stringify(a)); return a; }
+        try { localStorage.setItem(chatsKey(), JSON.stringify(a)); return a; }
         catch(e){
             if (a.some(c => c.msgs.some(m => m.vis))){ a.forEach(c => c.msgs.forEach(m => { delete m.vis; })); continue; }
             if (a.length > 1){ a.pop(); continue; }
