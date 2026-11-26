@@ -455,15 +455,15 @@ def is_complex_request(user_text: str) -> bool:
 # --- ПОДПИСКА PRO (ОБНОВЛЕННЫЕ ЦЕНЫ) ---
 PUBLISH_FEATURE = "Автоматическая публикация сайтов в Netlify"
 
-PLANS = {   # порядок = порядок карточек в приложении: Free (без записи здесь) -> Now -> Start -> Pro
-    "now":      {"title": "Now",    "price": 499,  "units": 300,  "days": 30,  "features": [PUBLISH_FEATURE]},
-    "start":    {"title": "Start",  "price": 899,  "units": 500,  "days": 30,  "features": [PUBLISH_FEATURE]},
-    "pro":      {"title": "Pro",    "price": 1999, "units": 1500, "days": 30,  "features": [PUBLISH_FEATURE]},
+PLANS = {   # порядок = порядок карточек в приложении: Free (без записи здесь) -> Pro -> Pro Plus -> Maximum
+    "pro":      {"title": "Pro",      "price": 899,  "units": 500,  "days": 30,  "features": [PUBLISH_FEATURE]},
+    "pro_plus": {"title": "Pro Plus", "price": 1999, "units": 1500, "days": 30,  "features": [PUBLISH_FEATURE]},
+    "maximum":  {"title": "Maximum",  "price": 4499, "units": 4000, "days": 30,  "features": [PUBLISH_FEATURE]},
 }
 PRO_WARN_LEFT = 100
 
 # Цена тарифа по валюте: RUB — в копейках (карта через ЮKassa), XTR — в звёздах Telegram
-PLAN_PRICE_RUB = {"now": 59900, "start": 119900, "pro": 249900}
+PLAN_PRICE_RUB = {"pro": 119900, "pro_plus": 249900, "maximum": 549900}
 
 def plan_amount(plan_id, currency):
     """Сумма счёта в минимальных единицах валюты или None, если тариф/валюта неизвестны."""
