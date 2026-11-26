@@ -498,10 +498,20 @@ TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 # ---------- БД: повторы при SQLITE_BUSY ----------
-DB_RETRIES = 5                       # всего попыток на один запрос
-DB_RETRY_MIN, DB_RETRY_MAX = 0.10, 0.20   # пауза между попытками, сек
+DB_RETRIES = 6                       # всего попыток на один запрос
+DB_RETRY_MIN, DB_RETRY_MAX = 0.15, 0.30   # базовая пауза между попытками, сек (растёт x2 с каждой попыткой)
 BUSY_TEXT = "Сейчас высокая нагрузка, попробуй ещё раз через 10 секунд."
 _BUSY_MARKERS = ("sqlite_busy", "database is locked", "database table is locked", "busy")
+
+DB_RETRIES_LOOP = 3                  # в потоке event loop повторяем коротко: sleep тут замораживает ВСЕХ пользователей
+DB_RETRY_LOOP_PAUSE = (0.02, 0.05)
+
+def _in_event_loop():
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False
 
 class DBBusy(Exception):
     """База осталась занятой после всех повторов."""
@@ -518,19 +528,24 @@ class RetryConn:
 
     def _call(self, name, *a, **k):
         fn = getattr(self._c, name)
-        for i in range(DB_RETRIES):
+        on_loop = _in_event_loop()
+        tries = DB_RETRIES_LOOP if on_loop else DB_RETRIES
+        for i in range(tries):
             try:
                 return fn(*a, **k)
             except Exception as e:
                 if not is_busy_error(e):
                     raise
-                if i == DB_RETRIES - 1:
-                    log.error("SQLITE_BUSY: %s не прошёл за %s попыток", name, DB_RETRIES)
+                if i == tries - 1:
+                    log.error("SQLITE_BUSY: %s не прошёл за %s попыток", name, tries)
                     try: self._c.rollback()   # не оставляем висящую транзакцию
                     except Exception: pass
                     raise DBBusy(str(e)) from e
-                log.warning("SQLITE_BUSY в %s, повтор %s/%s", name, i + 1, DB_RETRIES - 1)
-                time.sleep(random.uniform(DB_RETRY_MIN, DB_RETRY_MAX))
+                log.warning("SQLITE_BUSY в %s, повтор %s/%s", name, i + 1, tries - 1)
+                if on_loop:
+                    time.sleep(random.uniform(*DB_RETRY_LOOP_PAUSE))
+                else:
+                    time.sleep(min(1.0, random.uniform(DB_RETRY_MIN, DB_RETRY_MAX) * (2 ** i)))   # потолок 1 сек
 
     def execute(self, *a, **k):     return self._call("execute", *a, **k)
     def executemany(self, *a, **k): return self._call("executemany", *a, **k)
@@ -540,6 +555,9 @@ class RetryConn:
         try: return self._c.rollback()
         except Exception: pass
     def __getattr__(self, name):    return getattr(self._c, name)
+    def __del__(self):
+        try: self._c.rollback()   # висящая незавершённая транзакция блокирует запись всем остальным
+        except Exception: pass
     def __enter__(self):            return self
     def __exit__(self, *exc):
         if exc[0] is not None: self.rollback()
@@ -2302,7 +2320,15 @@ async def referral_register(request: Request, data: dict = Body(...)):
     now = int(time.time())
     ip = (request.client.host if request and request.client else "unknown") or "unknown"
     day = time.strftime("%Y-%m-%d", time.gmtime(now))
-    conn = get_db_connection()
+    def _run():
+        conn = get_db_connection()
+        try:
+            return _referral_register_tx(conn, uid, referrer_id, now, ip, day)
+        finally:
+            conn.rollback()   # вышли без commit (ранний return) - транзакция не остаётся висеть
+    return await asyncio.to_thread(_run)   # не блокируем event loop паузами повтора
+
+def _referral_register_tx(conn, uid, referrer_id, now, ip, day):
     if conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ?", (uid,)).fetchone(): return {"status": "ignored", "reason": "already"}
     meta = conn.execute("SELECT first_seen FROM user_meta WHERE user_id = ?", (uid,)).fetchone()
     if meta is None: touch_meta(conn, uid, now)
