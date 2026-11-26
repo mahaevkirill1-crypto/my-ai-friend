@@ -77,18 +77,19 @@ class JobManager:
         if ex: return {"job_id": ex[0], "existing": True}
         now = int(self.clock())
         job_id = uuid.uuid4().hex
+        hold = self.cfg.hold_units()          # резерв по максимуму; после готовности лишнее возвращается (settle)
         try:
             conn.execute("INSERT INTO video_jobs (job_id,user_id,status,prompt,idem_key,weight,created_at,updated_at,deadline) "
                          "VALUES (?,?,?,?,?,?,?,?,?)",
-                         (job_id, uid, "queued", prompt, idem_key, self.cfg.weight, now, now, now + self.cfg.job_seconds))
+                         (job_id, uid, "queued", prompt, idem_key, hold, now, now, now + self.cfg.job_seconds))
             cur = conn.execute("UPDATE pro_state SET requests_left = requests_left - ? "
                                "WHERE user_id = ? AND requests_left >= ? AND expires_at > ?",
-                               (self.cfg.weight, uid, self.cfg.weight, now))
+                               (hold, uid, hold, now))
             if cur.rowcount != 1:
                 conn.rollback()
-                raise VideoDenied("limit", "Не хватает лимита для видео. Пополни тариф.")
+                raise VideoDenied("limit", f"Не хватает лимита для видео: на время работы резервируется до {hold}, неиспользованное вернётся. Пополни тариф.")
             conn.execute("INSERT INTO video_ledger (job_id, kind, units, ts) VALUES (?,?,?,?)",
-                         (job_id, "charge", self.cfg.weight, now))
+                         (job_id, "charge", hold, now))
             conn.execute("INSERT INTO video_events (job_id, ts, kind, stage, label) VALUES (?,?,?,?,?)",
                          (job_id, now, "queued", "", "Задача принята"))
             conn.commit()
@@ -211,20 +212,22 @@ class JobManager:
         self.add_event(conn, job_id, "error", "", (error or "Ошибка")[:200])
         if not resumable: self.refund_for_job(conn, job_id)
 
-    def refund_for_job(self, conn, job_id):
-        """Возврат пропорционально НЕпотраченному бюджету. Идемпотентно: второй раз ничего не вернёт."""
-        j = self.load(conn, job_id)
-        if not j or not j["weight"]: return 0
-        has_charge = conn.execute("SELECT 1 FROM video_ledger WHERE job_id=? AND kind='charge'", (job_id,)).fetchone()
-        if not has_charge: return 0
-        if j["delivery_status"] in ("sent", "blocked"): return 0     # видео уже сделано/доставлено — возврата нет
-        budget = int((self.cfg.budget_usd or 0) * 1_000_000)
-        spent = self.spent_micro(conn, job_id)
+    def _refund_units(self, conn, j):
+        spent = self.spent_micro(conn, j["job_id"])
+        if self.cfg.price_table:                       # цена по фактической стоимости
+            final = min(j["weight"], self.cfg.units_for_rub(self.cfg.rub_cost(spent)))
+            return j["weight"] - final
+        budget = int((self.cfg.budget_usd or 0) * 1_000_000)   # режим фиксированной суммы
         ratio = 1.0 if budget <= 0 else max(0.0, 1.0 - min(1.0, spent / budget))
-        units = int(j["weight"] * ratio)
-        now = int(self.clock())
+        return int(j["weight"] * ratio)
+
+    def _write_refund(self, conn, j):
+        has_charge = conn.execute("SELECT 1 FROM video_ledger WHERE job_id=? AND kind='charge'", (j["job_id"],)).fetchone()
+        if not has_charge: return 0
+        units = self._refund_units(conn, j)
         try:
-            cur = conn.execute("INSERT OR IGNORE INTO video_ledger (job_id, kind, units, ts) VALUES (?,?,?,?)", (job_id, "refund", units, now))
+            cur = conn.execute("INSERT OR IGNORE INTO video_ledger (job_id, kind, units, ts) VALUES (?,?,?,?)",
+                               (j["job_id"], "refund", units, int(self.clock())))
             if cur.rowcount == 1 and units > 0:
                 conn.execute("UPDATE pro_state SET requests_left = requests_left + ? WHERE user_id = ?", (units, j["user_id"]))
             conn.commit()
@@ -233,6 +236,19 @@ class JobManager:
             try: conn.rollback()
             except Exception: pass
             raise
+
+    def settle(self, conn, job_id):
+        """Видео собрано и прошло контроль: итоговая цена по фактической стоимости, неиспользованный резерв возвращается. Идемпотентно."""
+        if not self.cfg.price_table: return 0          # режим фиксированной суммы: после успеха ничего не возвращается
+        j = self.load(conn, job_id)
+        return self._write_refund(conn, j) if j and j["weight"] else 0
+
+    def refund_for_job(self, conn, job_id):
+        """Возврат при неудаче: резерв минус цена фактически потраченного. Идемпотентно (общий ключ с settle)."""
+        j = self.load(conn, job_id)
+        if not j or not j["weight"]: return 0
+        if j["delivery_status"] in ("sent", "blocked"): return 0     # видео уже сделано/доставлено — возврата нет
+        return self._write_refund(conn, j)
 
     def housekeeping(self, conn):
         """Закрывает «зависшие» возобновляемые задачи по истечении окна resume (с возвратом)."""
@@ -257,7 +273,9 @@ class JobManager:
         if not j: return None
         evs = conn.execute("SELECT id, kind, stage, label FROM video_events WHERE job_id=? AND id>? ORDER BY id LIMIT 100",
                            (j["job_id"], int(since or 0))).fetchall()
-        return {"job_id": j["job_id"], "status": j["status"], "stage": j["stage"], "failure_kind": j["failure_kind"],
+        led = dict(conn.execute("SELECT kind, units FROM video_ledger WHERE job_id=?", (j["job_id"],)).fetchall())
+        charged = (led["charge"] - led["refund"]) if ("charge" in led and "refund" in led) else None
+        return {"job_id": j["job_id"], "status": j["status"], "stage": j["stage"], "charged": charged, "failure_kind": j["failure_kind"],
                 "error": j["error"] if j["status"] in ("failed", "blocked") else "", "delivery": j["delivery_status"],
                 "resumable": j["status"] in ("failed", "blocked") and j["failure_kind"] in RESUMABLE_KINDS and j["resume_count"] < self.cfg.max_resumes,
                 "events": [{"id": e[0], "kind": e[1], "stage": e[2], "label": e[3]} for e in evs]}
