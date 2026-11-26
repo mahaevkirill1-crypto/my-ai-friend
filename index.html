@@ -248,7 +248,7 @@
     .tier { align-self: center; font: 600 11px 'Manrope', system-ui, sans-serif; padding: 3px 12px; border-radius: 999px; border: 1px solid; text-transform: uppercase; letter-spacing: .05em; }
     .overlay { position: fixed; inset: 0; display: flex; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .25s ease, visibility 0s linear .25s; }
     .overlay.open { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity .25s ease, visibility 0s; }
-    #confirm .dialog.ios-alert, #invite .dialog.ios-alert { transition: transform .42s cubic-bezier(.2,1.2,.3,1), opacity .2s ease; }
+    #confirm .dialog.ios-alert, #delconf .dialog.ios-alert, #invite .dialog.ios-alert { transition: transform .42s cubic-bezier(.2,1.2,.3,1), opacity .2s ease; }
     
     #shop { background: radial-gradient(1000px 700px at 50% 0%, rgba(255,255,255,.06), transparent 60%), var(--ui-bg-0); flex-direction: column; z-index: 50; transition: background .3s; }
     #shop-head { display: flex; align-items: center; justify-content: space-between; padding: calc(14px + env(safe-area-inset-top)) 16px 14px; border-bottom: 1px solid var(--ui-line); background: rgba(7,11,20,.72); backdrop-filter: blur(24px); transition: background .3s, border-color .3s; }
@@ -298,7 +298,7 @@
     .res { font-size: 13px; color: var(--ui-gold-hi); text-align: center; font-weight: 500; }
     #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: rgba(13,20,38,.94); backdrop-filter: blur(20px); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); font: 500 13px 'Manrope', system-ui, sans-serif; padding: 11px 18px; border-radius: 14px; z-index: 1300; opacity: 0; transition: all .3s cubic-bezier(.2,.8,.2,1); pointer-events: none; box-shadow: 0 20px 40px -12px rgba(0,0,0,.8); max-width: 90vw; }
     #toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
-    #confirm, #invite { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
+    #confirm, #delconf, #invite { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 16px; z-index: 60; }
     #pro { background: rgba(4,7,14,.82); backdrop-filter: blur(8px); z-index: 90; }
     .dialog { background: linear-gradient(180deg, #161D30 0%, #10162A 100%); border: 1px solid var(--ui-line-hi); border-radius: 22px; padding: 20px; width: 100%; max-width: 340px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.9); transition: background .3s, border-color .3s; }
     .dialog h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; color: var(--ui-tx-hi); letter-spacing: -.01em; }
@@ -308,9 +308,9 @@
     .dialog .btns button { flex: 1; }
 
     /* iOS-стиль окна подтверждения */
-    #confirm, #invite { background: rgba(0,0,0,.45); backdrop-filter: blur(6px) saturate(120%); -webkit-backdrop-filter: blur(6px) saturate(120%); }
-    #confirm .dialog.ios-alert, #invite .dialog.ios-alert { max-width: 280px; padding: 0; border-radius: 16px; overflow: hidden; background: rgba(28,32,44,.96); border: 1px solid rgba(255,255,255,.06); box-shadow: 0 24px 60px -20px rgba(0,0,0,.8); transform: scale(1.08); opacity: 0; transition: transform .28s cubic-bezier(.2,.9,.3,1), opacity .2s ease; }
-    #confirm.open .dialog.ios-alert, #invite.open .dialog.ios-alert { transform: scale(1); opacity: 1; }
+    #confirm, #delconf, #invite { background: rgba(0,0,0,.45); backdrop-filter: blur(6px) saturate(120%); -webkit-backdrop-filter: blur(6px) saturate(120%); }
+    #confirm .dialog.ios-alert, #delconf .dialog.ios-alert, #invite .dialog.ios-alert { max-width: 280px; padding: 0; border-radius: 16px; overflow: hidden; background: rgba(28,32,44,.96); border: 1px solid rgba(255,255,255,.06); box-shadow: 0 24px 60px -20px rgba(0,0,0,.8); transform: scale(1.08); opacity: 0; transition: transform .28s cubic-bezier(.2,.9,.3,1), opacity .2s ease; }
+    #confirm.open .dialog.ios-alert, #delconf.open .dialog.ios-alert, #invite.open .dialog.ios-alert { transform: scale(1); opacity: 1; }
     .ia-body { padding: 20px 18px 16px; text-align: center; }
     .ios-alert h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
     .ios-alert p { margin: 0 0 14px; font-size: 13px; line-height: 1.4; color: var(--ui-tx-mid); }
@@ -325,8 +325,8 @@
     .ia-btn + .ia-btn { border-left: .5px solid rgba(255,255,255,.14); font-weight: 600; }
     .ia-btn.danger { color: #FF453A; }
     .ia-btn:active { background: rgba(255,255,255,.12); transition: background 0s; }
-    body.light-theme #confirm, body.light-theme #invite { background: rgba(0,0,0,.3); }
-    body.light-theme #confirm .dialog.ios-alert, body.light-theme #invite .dialog.ios-alert { background: rgba(250,250,252,.97); border-color: rgba(0,0,0,.06); }
+    body.light-theme #confirm, body.light-theme #delconf, body.light-theme #invite { background: rgba(0,0,0,.3); }
+    body.light-theme #confirm .dialog.ios-alert, body.light-theme #delconf .dialog.ios-alert, body.light-theme #invite .dialog.ios-alert { background: rgba(250,250,252,.97); border-color: rgba(0,0,0,.06); }
     body.light-theme .ia-btns, body.light-theme .ia-btn + .ia-btn { border-color: rgba(0,0,0,.14); }
     body.light-theme .ia-btn:active { background: rgba(0,0,0,.08); }
     body.light-theme .ia-box { border-color: rgba(0,0,0,.28); }
@@ -1032,8 +1032,8 @@
 
     /* окна и уведомления */
     :root:root body #toast { background: var(--cl-card); border: 1px solid var(--ui-line-hi); color: var(--ui-tx-hi); border-radius: 14px; box-shadow: var(--cl-shadow); backdrop-filter: none; }
-    #confirm, #invite, #support-modal { background: rgba(22,23,26,.5); backdrop-filter: blur(3px); }
-    :root:root body #confirm .dialog.ios-alert, :root:root body #invite .dialog.ios-alert { background: var(--cl-card); border: 1px solid var(--ui-line-hi); border-radius: 18px; box-shadow: var(--cl-shadow); }
+    #confirm, #delconf, #invite, #support-modal { background: rgba(22,23,26,.5); backdrop-filter: blur(3px); }
+    :root:root body #confirm .dialog.ios-alert, :root:root body #delconf .dialog.ios-alert, :root:root body #invite .dialog.ios-alert { background: var(--cl-card); border: 1px solid var(--ui-line-hi); border-radius: 18px; box-shadow: var(--cl-shadow); }
     :root:root body .ios-alert h3 { font-family: 'Manrope', system-ui, sans-serif; font-weight: 500; font-size: 19px; color: var(--ui-tx-hi); }
     :root:root body .ios-alert p, :root:root body .ia-check { color: var(--ui-tx-mid); }
     :root:root body .ia-btns, :root:root body .ia-btn + .ia-btn { border-color: var(--ui-line); }
@@ -1140,7 +1140,7 @@
     :root:root body .ibtn, :root:root body .txtbtn, :root:root body .chip, :root:root body .gi, :root:root body .pst, :root:root body .wd { border-radius: 8px; }
     :root:root body #topbar .ibtn, :root:root body #hist-btn { border-radius: 10px; }
     :root:root body .card, :root:root body .try, :root:root body .bcard { border-radius: 10px; }
-    :root:root body .dialog, :root:root body #confirm .dialog.ios-alert, :root:root body #invite .dialog.ios-alert { border-radius: 12px; }
+    :root:root body .dialog, :root:root body #confirm .dialog.ios-alert, :root:root body #delconf .dialog.ios-alert, :root:root body #invite .dialog.ios-alert { border-radius: 12px; }
     :root:root body .msg-row.user .message { border-radius: 12px; }
     :root:root body .input-container { border-radius: 16px; }
     :root:root body .input-inner { border-radius: 15px; }
@@ -1880,21 +1880,21 @@ body.light-theme #proj-sheet .ps-box{background:rgba(244,245,249,.86);border-top
 .ps-add{display:flex;gap:8px;margin-bottom:8px}.ps-add input{flex:1;min-width:0;border-radius:14px;border:.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--ui-tx-hi,#fff);padding:11px 12px;font:500 14px 'Manrope',system-ui,sans-serif;outline:none}
 </style>
 <button type="button" id="proj-btn" aria-label="Проекты"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Проекты</span></button>
-<div id="proj-sheet"><div class="ps-bg" id="ps-bg"></div><div class="ps-box"><div class="ps-head"><div class="ps-tabs"><button type="button" data-t="p" class="on">Проекты</button><button type="button" data-t="s">Навыки</button></div><button type="button" id="ps-x" aria-label="Закрыть">&#10005;</button></div>
+<div id="proj-sheet"><div class="ps-bg" id="ps-bg"></div><div class="ps-box"><div class="ps-head"><div class="ps-tabs"><button type="button" data-t="p" class="on">Мои проекты</button><button type="button" data-t="s">Навыки</button></div><button type="button" id="ps-x" aria-label="Закрыть">&#10005;</button></div>
 <div class="ps-pane on" id="ps-p"></div>
 <div class="ps-pane" id="ps-s"><div class="ps-add"><input id="sk-url" type="url" inputmode="url" autocomplete="off" placeholder="Ссылка на навык с GitHub"><button type="button" class="st-pill" id="sk-add">Добавить</button></div><div class="ps-empty" style="padding:6px 4px 12px;text-align:left">Папка навыка или файл SKILL.md из публичного репозитория. Навыки работают в режиме Code.</div><div id="sk-list"></div></div></div></div>
 <style>
 /* Liquid Glass (по референсу dazecoop/liquid-glass): платформа-стекло, линза-ползунок, свечение под пальцем, «набухание» при нажатии */
-:root{--lg-plat:rgba(30,30,33,.55);--lg-lens:rgba(255,255,255,.15);--lg-lens-sh:0 7px 18px -2px rgba(0,0,0,.5);--lg-label2:rgba(235,235,245,.62);--lg-spring:cubic-bezier(.3,1.25,.5,1)}
+:root{--lg-plat:rgba(30,30,33,.55);--lg-lens:rgba(255,255,255,.09);--lg-lens-sh:0 7px 18px -2px rgba(0,0,0,.5);--lg-label2:rgba(235,235,245,.62);--lg-spring:cubic-bezier(.3,1.25,.5,1)}
 body #mode-pill{isolation:isolate;height:48px;padding:4px;border-radius:999px;background:none!important;border:0!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-body #mode-pill::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:999px;background:var(--lg-plat);-webkit-backdrop-filter:blur(14px) saturate(1.6);backdrop-filter:blur(14px) saturate(1.6);box-shadow:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.1),0 0 0 .5px rgba(0,0,0,.06),0 10px 30px rgba(0,0,0,.25);transition:scale .3s var(--lg-spring)}
+body #mode-pill::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:999px;background:var(--lg-plat);-webkit-backdrop-filter:blur(14px) saturate(1.6);backdrop-filter:blur(14px) saturate(1.6);box-shadow:inset 0 .5px 0 rgba(255,255,255,.15),inset 0 0 0 .5px rgba(255,255,255,.07),0 0 0 .5px rgba(0,0,0,.06),0 10px 30px rgba(0,0,0,.25);transition:scale .3s var(--lg-spring)}
 body #mode-pill.pressing::before{scale:1.0355}
-body #mode-pill .mp-thumb{top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:999px;background:var(--lg-lens);box-shadow:inset 1.5px 1.5px 1px -.5px rgba(255,255,255,.5),inset -1px -1px 1px -.5px rgba(255,255,255,.25),var(--lg-lens-sh);transform:translateX(calc(var(--i,0)*100% + var(--dx,0px)));transition:transform .35s cubic-bezier(.32,.72,0,1),scale .3s var(--lg-spring)}
+body #mode-pill .mp-thumb{top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:999px;background:var(--lg-lens);box-shadow:inset 1.5px 1.5px 1px -.5px rgba(255,255,255,.3),inset -1px -1px 1px -.5px rgba(255,255,255,.14),var(--lg-lens-sh);transform:translateX(calc(var(--i,0)*100% + var(--dx,0px)));transition:transform .35s cubic-bezier(.32,.72,0,1),scale .3s var(--lg-spring)}
 body #mode-pill.pressing .mp-thumb{scale:1.04 1.06}
 body #mode-pill.dragging .mp-thumb{transition:scale .3s var(--lg-spring)}
 body #mode-pill .mp-clip{position:absolute;inset:0;border-radius:999px;overflow:hidden;pointer-events:none;z-index:0}
-body #mode-pill .mp-glow{position:absolute;left:0;top:50%;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.5),rgba(255,255,255,0));opacity:0;transition:opacity .25s;pointer-events:none;z-index:0}
-body #mode-pill.pressing .mp-glow{opacity:.55}
+body #mode-pill .mp-glow{position:absolute;left:0;top:50%;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.3),rgba(255,255,255,0));opacity:0;transition:opacity .25s;pointer-events:none;z-index:0}
+body #mode-pill.pressing .mp-glow{opacity:.4}
 body #mode-pill button{width:76px;font:600 14px/1 'Manrope',system-ui,sans-serif;letter-spacing:-.01em;color:var(--lg-label2);transition:color .3s;-webkit-tap-highlight-color:transparent}
 body #mode-pill button.on{color:var(--ui-tx-hi,#fff)}
 /* кнопка «три полоски» — то же стекло */
@@ -1931,6 +1931,7 @@ body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgb
     <div class="st-sec">Приложение</div>
     <div class="st-grp">
       <div class="drow" data-keep="1"><button class="ibtn" id="snd-btn"></button><span>Звуки</span><span class="sw"><i></i></span></div>
+      <div class="drow"><button class="ibtn" id="myproj-btn" aria-label="Мои проекты"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button><span>Мои проекты</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="drow"><button class="ibtn" id="ex-btn" aria-label="Примеры работ"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg></button><span>Примеры работ</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="drow"><button class="ibtn" id="share-btn" aria-label="Поделиться"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><span>Поделиться</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="drow"><button class="ibtn" id="support-btn" aria-label="Поддержка"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button><span>Поддержка</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
@@ -2056,6 +2057,18 @@ body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgb
     <div class="ia-btns">
       <button type="button" class="ia-btn" id="cancel-clear">Отмена</button>
       <button type="button" class="ia-btn danger" id="do-clear">Удалить</button>
+    </div>
+  </div>
+</div>
+<div id="delconf" class="overlay" style="z-index:200">
+  <div class="dialog ios-alert" role="alertdialog" aria-labelledby="delconf-title">
+    <div class="ia-body">
+      <h3 id="delconf-title">Удалить?</h3>
+      <p id="delconf-text">Вернуть будет нельзя.</p>
+    </div>
+    <div class="ia-btns">
+      <button type="button" class="ia-btn" id="delconf-no">Отмена</button>
+      <button type="button" class="ia-btn danger" id="delconf-yes">Удалить</button>
     </div>
   </div>
 </div>
@@ -4133,6 +4146,20 @@ const ProjectsStore = {
     get(st, id){ return this._read(st).find(x => x.id === id) || null; }
 };
 /*PROJECTS_END*/
+// Подтверждение удаления (сохранённый чат / проект)
+let _delRes = null;
+function askDelete(title, text){
+    return new Promise(res => {
+        if (_delRes) _delRes(false);
+        _delRes = res;
+        $('delconf-title').textContent = title; $('delconf-text').textContent = text;
+        $('delconf').classList.add('open'); try { tap('medium'); } catch (e) {}
+    });
+}
+function _delDone(v){ $('delconf').classList.remove('open'); const r = _delRes; _delRes = null; if (r) r(v); }
+$('delconf-yes').addEventListener('click', () => _delDone(true));
+$('delconf-no').addEventListener('click', () => _delDone(false));
+$('delconf').addEventListener('click', e => { if (e.target === $('delconf')) _delDone(false); });
 const SK_ACTIVE_KEY = 'holo_skills_active';
 function activeSkillIds(){ try { const a = JSON.parse(localStorage.getItem(SK_ACTIVE_KEY) || '[]'); return Array.isArray(a) ? a.filter(Number.isInteger).slice(0, 3) : []; } catch (e) { return []; } }
 function setActiveSkillIds(a){ try { localStorage.setItem(SK_ACTIVE_KEY, JSON.stringify(a.slice(0, 3))); } catch (e) {} }
@@ -4150,7 +4177,7 @@ function renderProjects(){
         const t = document.createElement('div'); t.className = 't'; t.style.cursor = 'pointer';
         const b = document.createElement('b'); b.textContent = p.title; const i = document.createElement('i'); i.textContent = new Date(p.ts).toLocaleDateString('ru-RU');
         t.appendChild(b); t.appendChild(i); t.addEventListener('click', () => openProjectInCode(p.id));
-        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Удалить'; del.addEventListener('click', () => { ProjectsStore.remove(localStorage, p.id); renderProjects(); });
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Удалить'; del.addEventListener('click', async () => { if (!(await askDelete('Удалить проект?', '«' + p.title + '» будет удалён. Вернуть его будет нельзя.'))) return; ProjectsStore.remove(localStorage, p.id); renderProjects(); });
         row.appendChild(t); row.appendChild(del); box.appendChild(row);
     });
 }
@@ -4193,6 +4220,7 @@ function openProjectInCode(id){
     setEditTarget(p.v); input.focus();
 }
 $('proj-btn').addEventListener('click', () => { tap(); projSheet(true, 'p'); });
+$('myproj-btn').addEventListener('click', () => { closeDrawer(); projSheet(true, 'p'); });
 $('ps-bg').addEventListener('click', () => projSheet(false)); $('ps-x').addEventListener('click', () => projSheet(false));
 document.querySelector('#proj-sheet .ps-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) projTab(b.dataset.t); });
 $('sk-add').addEventListener('click', addSkillFromInput);
@@ -5661,7 +5689,7 @@ $('hist-bg').addEventListener('click', closeHist);
 $('hist-new').addEventListener('click', newChat);
 $('hist-list').addEventListener('click', e => {
     const del = e.target.closest('button[data-del]');
-    if (del){ e.stopPropagation(); saveChats(loadChats().filter(c => c.id !== del.dataset.del)); IMGDB.prune(keepIds()); renderHistList(); return; }
+    if (del){ e.stopPropagation(); const cid = del.dataset.del; askDelete('Удалить чат?', 'Этот сохранённый чат исчезнет. Вернуть его будет нельзя.').then(ok => { if (!ok) return; saveChats(loadChats().filter(c => c.id !== cid)); IMGDB.prune(keepIds()); renderHistList(); }); return; }
     const row = e.target.closest('.hi'); if (row){ if (row.dataset.cur){ closeHist(); return; } openChat(row.dataset.id); }
 });
 function openDrawer(){ tap(); document.body.classList.add('dr'); drTab('menu'); }
