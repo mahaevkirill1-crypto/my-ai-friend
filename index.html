@@ -3945,6 +3945,89 @@ function finishSteps(){   // успех: все шаги с галочкой, с
     aiSteps.forEach(x => { x.status = 'done'; });
     aiPaint(); aiL = null; aiSteps = [];
 }
+/*VIDEO_ACTIVITY_START*/
+// ---- Video Studio: Activity Stream. Показываем ТОЛЬКО события, которые прислал сервер (без заранее проигрываемых шагов) ----
+const VIDEO_SHOW = { queued: 1, stage: 1, note: 1, resumed: 1 };
+const VideoActivity = {
+    newState(){ return { since: 0, started: false }; },
+    apply(st, resp, ui){
+        const job = resp && resp.job;
+        if (!job) return { done: true, lost: true };
+        (job.events || []).forEach(ev => {
+            st.since = Math.max(st.since, ev.id | 0);
+            if (VIDEO_SHOW[ev.kind] && ev.label){ ui.status(ev.label); st.started = true; }
+        });
+        if (job.status === 'done'){ ui.finish(job); return { done: true }; }
+        if (job.status === 'failed' || job.status === 'blocked' || job.status === 'cancelled'){ ui.fail(job); return { done: true }; }
+        return { done: false };
+    }
+};
+/*VIDEO_ACTIVITY_END*/
+let videoWatch = null;
+function addVideoResumeBtn(jobId){
+    const last = chatHistory.lastElementChild;
+    const msg = last && last.querySelector('.message');
+    if (!msg) return;
+    const bar = document.createElement('div'); bar.className = 'vis-bar';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'txtbtn'; b.textContent = 'Продолжить';
+    b.addEventListener('click', async () => {
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        bar.remove();
+        try {
+            const r = await tgPost('video/resume', { job_id: jobId });
+            if (r && r.status === 'ok') watchVideoJob(jobId);
+            else addToHistory((r && r.text) || 'Не получилось продолжить.', 'bot');
+        } catch (e) { addToHistory('Не получилось продолжить. Попробуй ещё раз позже.', 'bot'); }
+    });
+    bar.appendChild(b); msg.appendChild(bar);
+}
+function watchVideoJob(jobId){
+    if (videoWatch) return;
+    videoWatch = jobId;
+    const st = VideoActivity.newState();
+    hideTyping(); showTyping(['Проверяю статус задачи'], 600000);
+    const stop = () => { videoWatch = null; };
+    const ui = {
+        status: label => setTypingStatus(label),
+        finish: job => {
+            finishSteps();
+            addToHistory(job.delivery === 'sent' ? 'Видео готово, отправил его тебе в чат с ботом.' : 'Видео готово.', 'bot');
+            Hologram.react('happy', 'wave', 3000);
+            tgPost('pro/status').then(j => { if (j && j.pro){ Object.assign(PRO, j.pro); renderPro(); } }).catch(() => {});
+        },
+        fail: job => {
+            hideTyping();
+            const base = job.status === 'cancelled' ? 'Задача отменена.' : (job.error || 'Не удалось сделать видео.');
+            addToHistory(job.resumable ? base : base + ' Неиспользованную часть лимита вернул.', 'bot');
+            if (job.resumable) addVideoResumeBtn(job.job_id);
+            tgPost('pro/status').then(j => { if (j && j.pro){ Object.assign(PRO, j.pro); renderPro(); } }).catch(() => {});
+        }
+    };
+    let delay = 2000, fails = 0; const t0 = Date.now();
+    const tick = async () => {
+        try {
+            const r = await tgPost('video/status', { job_id: jobId, since: st.since });
+            fails = 0;
+            if (r && r.status === 'ok'){ if (VideoActivity.apply(st, r, ui).done){ stop(); return; } }
+            else { fails++; }
+        } catch (e) { fails++; }
+        if (fails >= 8 || Date.now() - t0 > 40 * 60 * 1000){
+            hideTyping(); stop();
+            addToHistory('Потерял связь с задачей. Загляни позже: ход выполнения сохранится.', 'bot');
+            return;
+        }
+        delay = Math.min(5000, delay + 500);
+        setTimeout(tick, delay);
+    };
+    setTimeout(tick, 1000);
+}
+async function resumeVideoIfAny(){
+    if (videoWatch || !refOk()) return;
+    try {
+        const r = await tgPost('video/status', {});
+        if (r && r.status === 'ok' && r.job && (r.job.status === 'queued' || r.job.status === 'running')) watchVideoJob(r.job.job_id);
+    } catch (e) { /* Video Studio выключена или нет сети: молча пропускаем */ }
+}
 const userId = () => { const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user; return u ? u.id : null; };
 const refOk = () => !!(tg && tg.initData);
 async function tgPost(path, extra){
@@ -4410,6 +4493,7 @@ async function loadProgress() {
             setRefBonus(res.ref_bonus);
             applyOutfit();
             checkProExpired();
+            resumeVideoIfAny();
         }
     } catch(e) { console.error('Load error', e); }
 }
@@ -4872,6 +4956,7 @@ async function sendMessage(text, opts) {
             if (!silent) chatHistoryForServer.push({ sender: 'user', text: shown, img: imgInfo || undefined, file: fileInfo || undefined });
             chatHistoryForServer.push({ sender: 'bot', text: outText, vis: vis || undefined });
             saveHistory();
+            if (data.video_job && data.video_job.job_id) watchVideoJob(data.video_job.job_id);   // Video Studio: дальше показываем реальные этапы
         };
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
@@ -4947,6 +5032,13 @@ async function sendMessage(text, opts) {
             hideTyping();
             addToHistory(data.text || 'Подожди пару секунд…', 'bot');
             if (att && !ATT){ ATT = att; renderAtt(); }
+            input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
+            return;
+        }
+        if (!response.ok && data && data.reason && data.text && [400, 409, 503].includes(response.status)){   // отказы Video Studio: понятный текст вместо «Сервер ответил: 409»
+            hideTyping();
+            addToHistory(data.text, 'bot');
+            if (data.job_id) watchVideoJob(data.job_id);
             input.readOnly = false; sendBtn.disabled = false; refocus(); isSending = false;
             return;
         }
