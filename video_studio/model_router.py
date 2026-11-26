@@ -15,8 +15,13 @@ ROLE_TIER = {
     "chat": HAIKU, "simple": HAIKU,
     "code": SONNET, "scene_code": SONNET, "fix": SONNET, "render": SONNET,
     "concept": OPUS, "direction": OPUS, "storyboard": OPUS, "qc_complex": OPUS,
+    "code_expert": OPUS,        # режим Code: сложная архитектура / сложные части, которые должен реализовать Opus
+    "code_review": OPUS,        # режим Code: экспертная проверка критических решений
 }
 OPUS_ROLES = frozenset(r for r, t in ROLE_TIER.items() if t == OPUS)
+# Opus-роль разрешена только в «своём» режиме: видео-роли — в video, кодовые — в code. Чат — никогда.
+OPUS_ROLE_CONTEXT = {"concept": "video", "direction": "video", "storyboard": "video", "qc_complex": "video",
+                     "code_expert": "code", "code_review": "code"}
 
 
 class ModelDenied(Exception):
@@ -55,10 +60,12 @@ class ModelRouter:
         tier = ROLE_TIER.get(role)
         if tier is None: raise ModelDenied("unknown_role", str(role))
         now = int(now if now is not None else self.clock())
-        if context == "video":
-            self.video_access(conn, uid, now)            # любая модель внутри видео — только платным
+        if context in ("video", "code"):
+            self.video_access(conn, uid, now)            # любая модель внутри Video/Code — только платным, подписка из БД
         elif tier == OPUS:
-            raise ModelDenied("opus_not_allowed", "opus only inside video studio")
+            raise ModelDenied("opus_not_allowed", "opus is not allowed in chat")
+        if tier == OPUS and OPUS_ROLE_CONTEXT.get(role) != context:
+            raise ModelDenied("opus_not_allowed", f"role {role} is not allowed in context {context}")
         # (чат/сайты: haiku и sonnet доступны всем тарифам, подписку проверять не нужно)
         model = self.models.get(tier)
         if not model: raise ModelDenied("misconfigured", f"no model for {tier}")
