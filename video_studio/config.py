@@ -35,6 +35,9 @@ class VideoConfig:
     weight: int = None                       # VIDEO_JOB_WEIGHT: сколько единиц лимита списывается за задачу
     budget_usd: float = None                 # VIDEO_JOB_BUDGET_USD: потолок расходов на модели на одну задачу
     pricing: dict = None                     # VIDEO_PRICING_JSON: {"haiku":{"in":x,"out":y},...} USD за 1 млн токенов
+    price_table: list = None                 # VIDEO_PRICE_TABLE_JSON: [[рубли, единицы лимита], ...] — цена по фактической стоимости
+    rub_per_usd: float = None                # VIDEO_RUB_PER_USD: курс для перевода расходов на модели в рубли
+    overhead_rub: float = 0.0                # VIDEO_OVERHEAD_RUB: добавка за рендер/сервер к стоимости моделей
     allowed_plans: list = None               # VIDEO_ALLOWED_PLANS: ["pro"]; None = любой активный платный тариф
     # --- технические лимиты (предложенные значения, владелец может изменить) ---
     max_calls: dict = field(default_factory=lambda: {"haiku": 4, "sonnet": 24, "opus": 4})
@@ -60,9 +63,37 @@ class VideoConfig:
     complex_scenes: int = 5                  # раскадровка от N сцен считается сложной (Opus-проверка)
     workdir: str = "/tmp/holo_video"
 
+    # ---- цена: единицы лимита по фактической стоимости (кусочно-линейная интерполяция по таблице) ----
+    def rub_cost(self, micro_usd):
+        return micro_usd / 1_000_000 * float(self.rub_per_usd or 0) + float(self.overhead_rub or 0)
+
+    def units_for_rub(self, rub):
+        """Ниже первой точки — пропорционально от нуля; выше последней — по наклону последнего отрезка. Округление вверх."""
+        import math
+        pts = sorted((float(a), float(b)) for a, b in self.price_table)
+        if rub <= 0: return 0
+        if rub <= pts[0][0]: return math.ceil(rub * pts[0][1] / pts[0][0])
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            if rub <= x1: return math.ceil(y0 + (rub - x0) * (y1 - y0) / (x1 - x0))
+        (x0, y0), (x1, y1) = (pts[-2], pts[-1]) if len(pts) > 1 else ((0.0, 0.0), pts[-1])
+        return math.ceil(y1 + (rub - x1) * (y1 - y0) / (x1 - x0))
+
+    def hold_units(self):
+        """Сколько единиц резервируется при старте: цена максимально возможной стоимости (потолка бюджета)."""
+        if self.price_table:
+            return self.units_for_rub(self.rub_cost(int(self.budget_usd * 1_000_000)))
+        return self.weight
+
     def ready(self):
         miss = []
-        if not isinstance(self.weight, int) or self.weight <= 0: miss.append("VIDEO_JOB_WEIGHT")
+        if self.price_table:
+            ok = (isinstance(self.price_table, list) and len(self.price_table) >= 1 and
+                  all(isinstance(r, (list, tuple)) and len(r) == 2 and r[0] > 0 and r[1] > 0 for r in self.price_table) and
+                  len({r[0] for r in self.price_table}) == len(self.price_table))
+            if not ok: miss.append("VIDEO_PRICE_TABLE_JSON")
+            if not self.rub_per_usd or self.rub_per_usd <= 0: miss.append("VIDEO_RUB_PER_USD")
+        elif not isinstance(self.weight, int) or self.weight <= 0:
+            miss.append("VIDEO_PRICE_TABLE_JSON (или VIDEO_JOB_WEIGHT)")
         if not self.budget_usd or self.budget_usd <= 0: miss.append("VIDEO_JOB_BUDGET_USD")
         p = self.pricing or {}
         if not all(isinstance(p.get(t), dict) and "in" in p[t] and "out" in p[t] for t in TIERS):
@@ -77,6 +108,9 @@ class VideoConfig:
         w = env.get("VIDEO_JOB_WEIGHT")
         c.weight = int(w) if (w or "").strip().isdigit() else None
         c.budget_usd = _float_or_none(env, "VIDEO_JOB_BUDGET_USD")
+        c.rub_per_usd = _float_or_none(env, "VIDEO_RUB_PER_USD")
+        c.overhead_rub = _float_or_none(env, "VIDEO_OVERHEAD_RUB") or 0.0
+        c.price_table = _json(env, "VIDEO_PRICE_TABLE_JSON", []) or None
         c.pricing = _json(env, "VIDEO_PRICING_JSON", {}) or None
         pl = _json(env, "VIDEO_ALLOWED_PLANS", [])
         c.allowed_plans = pl or None
