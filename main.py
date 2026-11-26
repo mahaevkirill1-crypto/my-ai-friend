@@ -21,6 +21,8 @@ from urllib.parse import parse_qsl
 from pydantic import BaseModel
 import html as _html
 import xml.etree.ElementTree as _ET
+from video_studio.model_router import ModelRouter, ModelDenied   # единый серверный выбор моделей (чат, сайты, Video Studio)
+from video_studio.integration import VideoStudio                # Video Studio: выключена, пока VIDEO_ENABLED не включён
 
 def _b64_bytes(b64):
     s = (b64 or "").strip()
@@ -588,6 +590,7 @@ def init_db():
     conn.execute("CREATE TABLE IF NOT EXISTS published_sites (user_id INTEGER NOT NULL, code_hash TEXT NOT NULL, url TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, code_hash))")
     conn.execute("CREATE TABLE IF NOT EXISTS photos (pid TEXT PRIMARY KEY, user_id INTEGER NOT NULL, hash TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_user ON photos (user_id, created_at)")
+    if VIDEO.cfg.enabled: VIDEO.init_schema(conn)   # таблицы video_* создаются только при VIDEO_ENABLED=1
     conn.commit()
 
 @app.on_event("startup")
@@ -1875,14 +1878,17 @@ def pro_info(conn, uid, now):
     limit = max(total or 0, left if active else 0) or default_limit
     return {"active": active, "expires_at": expires_at, "left": max(0, left) if active else 0, "auto_renew": auto, "limit": limit, "plan": title, "plan_id": plan or ""}
 
+# Единый Model Router. Тариф читается из БД на сервере при КАЖДОМ вызове; Opus отсюда недоступен вообще (только Video Studio).
+MODEL_ROUTER = ModelRouter({"haiku": AI_MODEL, "sonnet": MODEL_FREE, "opus": MODEL_PRO}, lambda conn, uid, now: pro_info(conn, uid, now))
+SAFE_SITE_MODEL = "anthropic/claude-sonnet-5-5"
+
 def get_model_for_user(uid, conn):
-    """Модель для сборки сайтов: Pro (активная подписка) -> MODEL_PRO, иначе MODEL_FREE."""
+    """Модель для сборки сайтов и технических задач: ВСЕГДА Sonnet для любого тарифа. Opus сюда не попадает."""
     try:
-        if pro_info(conn, uid, int(time.time()))["active"]:
-            return MODEL_PRO
-    except Exception:
-        log.warning("get_model_for_user: pro_info недоступен, беру базовую модель", exc_info=True)
-    return MODEL_FREE
+        return MODEL_ROUTER.route(conn, uid, "code", context="chat")
+    except ModelDenied:
+        log.error("get_model_for_user: MODEL_FREE настроена неверно (Opus в роли Sonnet?), использую %s", SAFE_SITE_MODEL)
+        return SAFE_SITE_MODEL
 
 def pro_grant(conn, uid, now, charge_id="", plan_id="pro"):
     plan = PLANS.get(plan_id) or PLANS["pro"]
@@ -2640,6 +2646,10 @@ async def ask(request: Request):
         _vstr = video_strength(user_text)
         _looks_edit = (not edit_req) and (not att) and (not data.get("build_choice")) and has_project and looks_like_edit(user_text)
         if (not edit_req) and (not att) and _vstr > 0 and data.get("build_choice") != "advice" and (_vstr == 2 or not _looks_edit):
+            if VIDEO.cfg.enabled:
+                # Video Studio: тариф и лимит проверяются на сервере внутри create (Free получает 402 с предложением тарифа)
+                _vp, _vs = await asyncio.to_thread(lambda: VIDEO.create_from_ask(get_db_connection(), uid, raw_text, pro_pre))
+                return JSONResponse(_vp, status_code=_vs)
             return {"text": VIDEO_REFUSAL_TEXT, "emotion": "sad", "pro": pro_pre}
         auto_edit_cand = _looks_edit
         if auto_edit_cand and not pro_pre["active"]:
@@ -3254,6 +3264,12 @@ async def support_send(data: SupportRequest):
     except Exception:
         log.exception("support_send failed")
         return {"status": "error", "reason": "send_failed"}
+
+# --- VIDEO STUDIO (выключена по умолчанию: VIDEO_ENABLED=0) ---
+if "opus" in MODEL_FREE.lower():
+    log.error("MODEL_FREE содержит Opus: Router не выдаст её для чата/сайтов, исправь переменную окружения")
+VIDEO = VideoStudio({"haiku": AI_MODEL, "sonnet": MODEL_FREE, "opus": MODEL_PRO}, pro_info, validate_init_data, get_db_connection)
+app.include_router(VIDEO.api_router())
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def health(): return {"status": "ok"}
