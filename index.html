@@ -714,6 +714,8 @@
     .pw-feats { list-style: none; margin: 4px 0 10px; padding: 0 12px; }
     .pw-feats li { display: flex; align-items: center; gap: 10px; height: 30px; font-size: 14px; color: var(--ui-tx-mid); --h: 30px; }
     .pw-ck { width: 20px; height: 20px; border-radius: 50%; background: var(--cl-btn); display: grid; place-items: center; flex: none; color: var(--ui-tx-hi); }
+    .pw-no .pw-ck { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.28); color: rgba(255,255,255,.5); }
+    .pw-no .pw-rl { opacity: .55; }
     .pw-ck svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
     .pw-cta { position: relative; display: block; margin: 0 auto; width: 100%; height: 48px; border: 0; border-radius: 999px; cursor: pointer; overflow: hidden;
         background: var(--cl-acc); color: var(--cl-acc-fg); font-size: 15px; font-weight: 700; letter-spacing: -.01em; transition: background .3s, color .3s !important; will-change: width, transform; }
@@ -2091,6 +2093,9 @@ body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgb
         <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r2"></span></li>
         <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r3"></span></li>
         <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r4"></span></li>
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r5"></span></li>
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r6"></span></li>
+        <li><span class="pw-ck"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span><span class="pw-rl" id="pw-r7"></span></li>
       </ul>
       <button class="pw-cta" id="pw-cta" type="button"><span class="pw-cta-in" id="pw-ctain"></span></button>
     </section>
@@ -4309,7 +4314,7 @@ function showBanned(){
     document.body.appendChild(d);
 }
 
-let PRO = { active: false, left: 0, expires_at: 0, limit: 1500, price: 1999, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'now', title: 'Now', price: 499, price_rub: 599, units: 300, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'start', title: 'Start', price: 899, price_rub: 1199, units: 500, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro', title: 'Pro', price: 1999, price_rub: 2499, units: 1500, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
+let PRO = { active: false, left: 0, expires_at: 0, limit: 500, price: 899, free: 20, loaded: false, busy: false, plan: '', build_weight: 100, plans: [ { id: 'pro', title: 'Pro', price: 899, price_rub: 1199, units: 500, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'pro_plus', title: 'Pro Plus', price: 1999, price_rub: 2499, units: 1500, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] }, { id: 'maximum', title: 'Maximum', price: 4499, price_rub: 5499, units: 4000, days: 30, features: ['Автоматическая публикация сайтов в Netlify'] } ] };
 const proBox = $('pro');
 
 function spawnConfetti(){
@@ -4338,14 +4343,14 @@ function checkProExpired(){
 const PRO_ITEMS = ['c_aurum', 'b_pro_cape'];
 function grantProItems(){ if (!PRO.active) return; let ch = false; PRO_ITEMS.forEach(id => { if (!OWNED[id]){ OWNED[id] = true; ch = true; } }); if (ch){ store.set('owned', OWNED); } }
 
-const PLAN_STYLE = { now: { cls: 'p-now' }, start: { cls: 'p-start' }, pro: { cls: 'p-pro', badge: 'Популярный' } };
+const PLAN_STYLE = { pro: { cls: 'p-pro', badge: 'Хит продаж 🔥' }, pro_plus: { cls: 'p-start' }, maximum: { cls: 'p-biz' } };
 const fmtN = n => Number(n).toLocaleString('ru-RU');
 function setProMsg(t, k){ const m = $('pro-msg'); m.textContent = t || ''; m.dataset.k = k || ''; }
 const PL_FEAT = {
-  now: ['Лимит запросов'], start: ['Базовый лимит запросов'], pro: ['Повышенный лимит запросов']
+  pro: ['Расширенный объем генераций'], pro_plus: ['Увеличенный объем генераций (х3 к Pro)'], maximum: ['Максимальный объем генераций']
 };
-const PL_NAME = { now: 'Now', start: 'Start', pro: 'Pro' };
-const PL_OLD = { 'Старт': 'start', 'Про': 'pro', 'Базовый': 'start', 'Обычный': 'pro' };
+const PL_NAME = { pro: 'Pro', pro_plus: 'Pro Plus', maximum: 'Maximum' };
+const PL_OLD = { 'Старт': 'pro', 'Про': 'pro', 'Базовый': 'pro', 'Обычный': 'pro', 'Now': 'pro', 'Start': 'pro' };
 const plName = p => PL_NAME[p.id] || p.title;
 const PL_CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
 let plTab = null;
@@ -4415,15 +4420,15 @@ var PW = (function(){
     const L = S(0), R = S(0), CH = S(0), CW = S(1), CP = S(1);
     [[CH, POP], [CW, SOFT], [CP, POP]].forEach(([s, t]) => tune(s, ...t));
     const price = roller($('pw-price'), 4, 48), bill = line($('pw-bill'), 20), btn = line(ctaIn, 48);
-    const rows = [1, 2, 3, 4].map(i => line($('pw-r' + i), 30));
+    const rows = [1, 2, 3, 4, 5, 6, 7].map(i => line($('pw-r' + i), 30));
     const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4 8-9"/></svg>';
 
     let buttons = [], lastSig = '', sel = 0, built = false, sigP = '', state = '', btnKey = '', flashText = '', flashT = null, ctaOff = true, curId = '';
 
     const list = () => [{ id: 'free', title: 'Free', free: true }].concat(PRO.plans || []);
     const rowsFor = p => p.free
-        ? ['Ежедневный лимит запросов', 'Одна бесплатная сборка', 'Разбор фото и файлов', 'Копирование и скачивание кода']
-        : [p.units ? 'Лимит ' + fmtN(p.units) : ((PL_FEAT[p.id] || [])[0] || 'Больше запросов'), 'Самая мощная модель бота', 'Автопубликация', 'Возможность править проект'];
+        ? [['Базовый доступ к генерациям', 1], ['Стандартная модель', 1], ['Ознакомительные функции', 1], ['Режим CODE', 0], ['Режим VIDEO', 0], ['Автопубликация', 0], ['Правка проекта с помощью ИИ', 0]]
+        : [[(PL_FEAT[p.id] || ['Расширенный объем генераций'])[0], 1], ['Доступ к самой мощной модели', 1], ['Режим CODE', 1], ['Режим VIDEO', 1], ['Автопубликация', 1], ['Правка проекта с помощью ИИ', 1], ['', 1]];
 
     function buildSeg(pl){
         seg.querySelectorAll('button').forEach(b => b.remove());
@@ -4486,7 +4491,7 @@ var PW = (function(){
             curEl.textContent = rub ? '₽' : '⭐'; curEl.classList.toggle('is-star', !rub);
             per.textContent = p.free ? '' : '/ ' + p.days + ' дн.';
             bill.set(p.free ? 'Базовые функции' : p.days + ' дней', null, first);
-            rowsFor(p).forEach((t, k) => rows[k].set(t, null, first));
+            rowsFor(p).forEach(([t, ok], k) => { rows[k].set(t, null, first); const li = $('pw-r' + (k + 1)).closest('li'); if (!li) return; li.style.display = t ? '' : 'none'; li.classList.toggle('pw-no', !ok); const ck = li.querySelector('.pw-ck'); if (ck) ck.innerHTML = ok ? '<svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>'; });
             const ct = mine ? 'Ваш план' : (p.id === 'pro' ? 'Популярный' : '');
             if (ct) chip.textContent = ct;
             CH.t = ct ? 1 : 0; if (first) CH.x = CH.t; else if (ct && change) CH.x = Math.min(CH.x, .3);
@@ -4548,7 +4553,7 @@ function renderPro(){
         const leftPct = Math.max(0, Math.min(100, Math.round(PRO.left / (PRO.limit || 1) * 100)));
         const pct = Math.max(2, leftPct);   // полоска как раньше: минимум 2%, чтобы была видна
         st.style.display = '';
-        st.innerHTML = `<div class="row"><span>Тариф «${(() => { const cp = (PRO.plans || []).find(x => x.id === curPlanId()); return cp ? plName(cp) : (PRO.plan || 'Pro'); })()}»</span><span>до ${new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU')}</span></div><div class="bar" style="height:8px;margin:10px 0 8px"><i style="width:${pct}%"></i></div><div class="row sm"><span>Осталось ${leftPct}% лимита</span></div>`;
+        st.innerHTML = `<div class="row"><span>Тариф «${(() => { const cp = (PRO.plans || []).find(x => x.id === curPlanId()); return cp ? plName(cp) : (PRO.plan || 'Pro'); })()}»</span><span>до ${new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU')}</span></div><div class="bar" style="height:8px;margin:10px 0 8px"><i style="width:${pct}%"></i></div><div class="row sm"><span>Осталось ${leftPct}%</span></div>`;
         $('pro-btn').style.color = 'var(--ui-gold-hi)';
     } else {
         st.style.display = 'none'; st.innerHTML = '';
