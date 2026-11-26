@@ -621,7 +621,7 @@
     .fv-pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 ui-monospace, Menlo, monospace; color: var(--ui-tx-hi); -webkit-user-select: text; user-select: text; }
     .fv-note { padding: 24px; font-size: 14px; line-height: 1.6; color: var(--ui-tx-mid); }
     #fv-body iframe { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
-    body.bot-hidden #sv, body.bot-hidden #bub { display: none !important; }
+    #sv, #bub, #stage, body.bot-hidden #sv, body.bot-hidden #bub { display: none !important; }
 
     /* Стадии размышления + переливающийся текст */
     .message.think { padding: 6px 4px !important; }
@@ -1856,11 +1856,9 @@ body.mode-locked #hud-panel,body.mode-locked #chat-history,body.mode-locked #emp
 <style>
 /* единое стекло в стиле iOS для шестерёнки, переключателя режимов и кнопок сверху */
 :root{--glass-bg:rgba(255,255,255,.04);--glass-bd:.5px solid rgba(255,255,255,.14);--glass-sh:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 -.5px 0 rgba(255,255,255,.04),0 8px 24px -8px rgba(0,0,0,.4)}
-#mode-pill,#gear-btn,#hist-btn,#proj-btn{background:var(--glass-bg)!important;border:var(--glass-bd)!important;-webkit-backdrop-filter:blur(24px) saturate(180%)!important;backdrop-filter:blur(24px) saturate(180%)!important;box-shadow:var(--glass-sh)!important}
-body.light-theme #mode-pill,body.light-theme #gear-btn,body.light-theme #hist-btn,body.light-theme #proj-btn{background:rgba(120,124,135,.16)!important;border:1px solid rgba(0,0,0,.06)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px -10px rgba(22,23,26,.3)!important}
-#gear-btn{position:fixed;top:max(12px,env(safe-area-inset-top));left:16px;z-index:41;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;color:var(--ui-tx-hi,#fff);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .3s cubic-bezier(.34,1.7,.64,1)}
-#gear-btn:active{transform:scale(.92)}
-#hist-btn{left:auto!important;right:16px!important;top:max(12px,env(safe-area-inset-top))!important}
+#mode-pill,#hist-btn,#proj-btn{background:var(--glass-bg)!important;border:var(--glass-bd)!important;-webkit-backdrop-filter:blur(24px) saturate(180%)!important;backdrop-filter:blur(24px) saturate(180%)!important;box-shadow:var(--glass-sh)!important}
+body.light-theme #mode-pill,body.light-theme #hist-btn,body.light-theme #proj-btn{background:rgba(120,124,135,.16)!important;border:1px solid rgba(0,0,0,.06)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px -10px rgba(22,23,26,.3)!important}
+#hist-btn{left:16px!important;right:auto!important;top:max(12px,env(safe-area-inset-top))!important}
 #proj-btn{display:none;position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 52px);left:50%;transform:translateX(-50%);z-index:41;height:34px;padding:0 14px;border-radius:17px;align-items:center;gap:6px;color:var(--ui-tx-hi,#fff);font:600 13px 'Manrope',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
 body.mode-code:not(.mode-locked) #proj-btn{display:flex}
 :root:root body.mode-code:not(.mode-locked) #chat-history{padding-top:112px!important}
@@ -1881,12 +1879,38 @@ body.light-theme #proj-sheet .ps-box{background:rgba(244,245,249,.86);border-top
 .ps-empty{padding:26px 8px;text-align:center;color:var(--ui-tx-mid,#9aa);font:500 14px/1.45 'Manrope',system-ui,sans-serif}
 .ps-add{display:flex;gap:8px;margin-bottom:8px}.ps-add input{flex:1;min-width:0;border-radius:14px;border:.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--ui-tx-hi,#fff);padding:11px 12px;font:500 14px 'Manrope',system-ui,sans-serif;outline:none}
 </style>
-<button type="button" id="gear-btn" aria-label="Настройки"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 <button type="button" id="proj-btn" aria-label="Проекты"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Проекты</span></button>
 <div id="proj-sheet"><div class="ps-bg" id="ps-bg"></div><div class="ps-box"><div class="ps-head"><div class="ps-tabs"><button type="button" data-t="p" class="on">Проекты</button><button type="button" data-t="s">Навыки</button></div><button type="button" id="ps-x" aria-label="Закрыть">&#10005;</button></div>
 <div class="ps-pane on" id="ps-p"></div>
 <div class="ps-pane" id="ps-s"><div class="ps-add"><input id="sk-url" type="url" inputmode="url" autocomplete="off" placeholder="Ссылка на навык с GitHub"><button type="button" class="st-pill" id="sk-add">Добавить</button></div><div class="ps-empty" style="padding:6px 4px 12px;text-align:left">Папка навыка или файл SKILL.md из публичного репозитория. Навыки работают в режиме Code.</div><div id="sk-list"></div></div></div></div>
-<div id="mode-pill" role="tablist" aria-label="Режим" style="--i:0"><span class="mp-thumb"></span><button type="button" role="tab" class="on" data-mode="chat">Chat</button><button type="button" role="tab" data-mode="video">Video</button><button type="button" role="tab" data-mode="code">Code</button></div>
+<style>
+/* Liquid Glass (по референсу dazecoop/liquid-glass): платформа-стекло, линза-ползунок, свечение под пальцем, «набухание» при нажатии */
+:root{--lg-plat:rgba(30,30,33,.55);--lg-lens:rgba(255,255,255,.15);--lg-lens-sh:0 7px 18px -2px rgba(0,0,0,.5);--lg-label2:rgba(235,235,245,.62);--lg-spring:cubic-bezier(.3,1.25,.5,1)}
+body #mode-pill{isolation:isolate;height:48px;padding:4px;border-radius:999px;background:none!important;border:0!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+body #mode-pill::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:999px;background:var(--lg-plat);-webkit-backdrop-filter:blur(14px) saturate(1.6);backdrop-filter:blur(14px) saturate(1.6);box-shadow:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.1),0 0 0 .5px rgba(0,0,0,.06),0 10px 30px rgba(0,0,0,.25);transition:scale .3s var(--lg-spring)}
+body #mode-pill.pressing::before{scale:1.0355}
+body #mode-pill .mp-thumb{top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:999px;background:var(--lg-lens);box-shadow:inset 1.5px 1.5px 1px -.5px rgba(255,255,255,.5),inset -1px -1px 1px -.5px rgba(255,255,255,.25),var(--lg-lens-sh);transform:translateX(calc(var(--i,0)*100% + var(--dx,0px)));transition:transform .35s cubic-bezier(.32,.72,0,1),scale .3s var(--lg-spring)}
+body #mode-pill.pressing .mp-thumb{scale:1.04 1.06}
+body #mode-pill.dragging .mp-thumb{transition:scale .3s var(--lg-spring)}
+body #mode-pill .mp-clip{position:absolute;inset:0;border-radius:999px;overflow:hidden;pointer-events:none;z-index:0}
+body #mode-pill .mp-glow{position:absolute;left:0;top:50%;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.5),rgba(255,255,255,0));opacity:0;transition:opacity .25s;pointer-events:none;z-index:0}
+body #mode-pill.pressing .mp-glow{opacity:.55}
+body #mode-pill button{width:76px;font:600 14px/1 'Manrope',system-ui,sans-serif;letter-spacing:-.01em;color:var(--lg-label2);transition:color .3s;-webkit-tap-highlight-color:transparent}
+body #mode-pill button.on{color:var(--ui-tx-hi,#fff)}
+/* кнопка «три полоски» — то же стекло */
+:root:root body #hist-btn{width:48px!important;height:48px!important;border-radius:50%!important;border:0!important;background:var(--lg-plat)!important;-webkit-backdrop-filter:blur(14px) saturate(1.6)!important;backdrop-filter:blur(14px) saturate(1.6)!important;box-shadow:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.1),0 0 0 .5px rgba(0,0,0,.06),0 6px 16px -4px rgba(0,0,0,.3)!important;transition:scale .3s var(--lg-spring),background-color .2s!important}
+:root:root body #hist-btn:active{scale:1.0355;background:rgba(60,60,66,.62)!important;transform:none!important}
+:root:root body #hist-btn svg{width:22px!important;height:22px!important;opacity:.92}
+#proj-btn{top:calc(max(12px,env(safe-area-inset-top)) + 58px)}
+:root:root body.mode-code:not(.mode-locked) #chat-history{padding-top:120px!important}
+body.light-theme{--lg-plat:rgba(255,255,255,.72);--lg-lens:rgba(0,0,0,.08);--lg-lens-sh:0 0 0 .5px rgba(0,0,0,.1),0 7px 18px rgba(0,0,0,.12);--lg-label2:rgba(60,60,67,.6)}
+body.light-theme #mode-pill::before{box-shadow:inset 0 .5px 0 rgba(255,255,255,.7),0 0 0 .5px rgba(0,0,0,.08),0 10px 30px rgba(0,0,0,.12)}
+body.light-theme #mode-pill .mp-thumb{background:var(--lg-lens);box-shadow:inset 1px 1px 1px -.5px rgba(255,255,255,.8),var(--lg-lens-sh)}
+body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgba(0,0,0,.18),rgba(0,0,0,0))}
+:root:root body.light-theme #hist-btn{background:var(--lg-plat)!important;box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 6px 16px -4px rgba(0,0,0,.18)!important}
+@media (prefers-reduced-motion:reduce){body #mode-pill .mp-thumb,body #mode-pill::before{transition-duration:.01s}}
+</style>
+<div id="mode-pill" role="tablist" aria-label="Режим" style="--i:0"><span class="mp-thumb"></span><span class="mp-clip"><span class="mp-glow"></span></span><button type="button" role="tab" class="on" data-mode="chat">Chat</button><button type="button" role="tab" data-mode="video">Video</button><button type="button" role="tab" data-mode="code">Code</button></div>
 <div id="mode-gate"><b id="mg-title"></b><p id="mg-text"></p><button type="button" class="st-pill" id="mg-btn">Купить PRO</button></div>
 <div id="topbar">
   <button class="ibtn" id="menu-btn" aria-label="Меню"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -1907,7 +1931,6 @@ body.light-theme #proj-sheet .ps-box{background:rgba(244,245,249,.86);border-top
     <div class="st-sec">Приложение</div>
     <div class="st-grp">
       <div class="drow" data-keep="1"><button class="ibtn" id="snd-btn"></button><span>Звуки</span><span class="sw"><i></i></span></div>
-      <div class="drow" data-keep="1"><button class="ibtn" id="bot-btn" aria-label="Скрыть бота"></button><span id="bot-lbl">Показывать бота</span><span class="sw"><i></i></span></div>
       <div class="drow"><button class="ibtn" id="ex-btn" aria-label="Примеры работ"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg></button><span>Примеры работ</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="drow"><button class="ibtn" id="share-btn" aria-label="Поделиться"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><span>Поделиться</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="drow"><button class="ibtn" id="support-btn" aria-label="Поддержка"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button><span>Поддержка</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
@@ -4049,6 +4072,35 @@ function setMode(m, quiet){
     if (m === 'code' && !quiet && PRO.active && ProjectsStore.list(localStorage).length) projSheet(true, 'p');   // Code: сразу предлагаем выбрать проект
 }
 $('mode-pill').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
+
+// Liquid Glass: можно тянуть линзу пальцем между Chat / Video / Code
+(function(){
+    const pill = $('mode-pill'), glow = pill.querySelector('.mp-glow'), modes = ['chat','video','code'];
+    let down = false, moved = false, startX = 0, startI = 0, w = 0;
+    function setGlow(x){ const r = pill.getBoundingClientRect(); glow.style.left = Math.max(0, Math.min(r.width, x - r.left)) + 'px'; }
+    pill.addEventListener('pointerdown', e => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        down = true; moved = false; startX = e.clientX; w = (pill.clientWidth - 8) / 3; startI = modes.indexOf(appMode);
+        pill.classList.add('pressing'); setGlow(e.clientX);
+    });
+    pill.addEventListener('pointermove', e => {
+        if (!down) return;
+        setGlow(e.clientX);
+        const dx = e.clientX - startX;
+        if (!moved && Math.abs(dx) > 6){ moved = true; pill.classList.add('dragging'); try { pill.setPointerCapture(e.pointerId); } catch (_) {} }
+        if (moved) pill.style.setProperty('--dx', Math.max(-startI * w, Math.min((2 - startI) * w, dx)) + 'px');
+    });
+    function end(){
+        if (!down) return;
+        down = false; pill.classList.remove('pressing');
+        if (!moved) return;
+        const dx = parseFloat(pill.style.getPropertyValue('--dx')) || 0;
+        const idx = Math.max(0, Math.min(2, Math.round(startI + dx / w)));
+        pill.classList.remove('dragging'); pill.style.setProperty('--dx', '0px');
+        if (modes[idx] !== appMode) setMode(modes[idx]);
+    }
+    pill.addEventListener('pointerup', end); pill.addEventListener('pointercancel', end);
+})();
 $('mg-btn').addEventListener('click', () => openPro());
 function addModeSuggestBtn(m){
     const last = chatHistory.lastElementChild, msg = last && last.querySelector('.message'); if (!msg) return;
@@ -4140,7 +4192,6 @@ function openProjectInCode(id){
     chatHistoryForServer.push({ sender: 'bot', text, vis: p.v }); saveHistory();
     setEditTarget(p.v); input.focus();
 }
-$('gear-btn').addEventListener('click', () => { if (typeof openDrawer === 'function') openDrawer(); });
 $('proj-btn').addEventListener('click', () => { tap(); projSheet(true, 'p'); });
 $('ps-bg').addEventListener('click', () => projSheet(false)); $('ps-x').addEventListener('click', () => projSheet(false));
 document.querySelector('#proj-sheet .ps-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) projTab(b.dataset.t); });
@@ -5671,21 +5722,10 @@ const ICON_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" st
 function drawSnd(){ if(!sndBtn) return; sndBtn.innerHTML = Snd.on() ? ICON_ON : ICON_OFF; sndBtn.classList.toggle('muted', !Snd.on()); sndBtn.closest('.drow').classList.toggle('sw-on', Snd.on()); sndBtn.setAttribute('aria-label', Snd.on() ? 'Выключить звуки' : 'Включить звуки'); }
 sndBtn.addEventListener('click', () => { Snd.set(!Snd.on()); drawSnd(); }); drawSnd();
 
-// СКРЫТЬ / ПОКАЗАТЬ БОТА
-let botHidden = store.get('bot_hidden', true);
-const botBtn = $('bot-btn');
-const EYE_ON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-const EYE_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.4 10.4 0 0 1 12 19c-6.5 0-10-7-10-7a17.6 17.6 0 0 1 4.1-4.9M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.2 3.2"/><path d="M3 3l18 18"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
-function setBotHidden(h, init){
-    botHidden = !!h; store.set('bot_hidden', botHidden);
-    document.body.classList.toggle('bot-hidden', botHidden);
-    botBtn.innerHTML = botHidden ? EYE_OFF : EYE_ON;
-    botBtn.setAttribute('aria-label', botHidden ? 'Показать бота' : 'Скрыть бота');
-    $('bot-lbl').textContent = 'Показывать бота'; botBtn.closest('.drow').classList.toggle('sw-on', !botHidden);
-    if (botHidden){ hideBubble(); Snd.jetStop(); } else if (!init) Snd.unlock();
-}
-botBtn.addEventListener('click', () => setBotHidden(!botHidden));
-setBotHidden(botHidden, true);
+// Бот (персонаж) убран из интерфейса навсегда: переключателя в настройках больше нет
+let botHidden = true;
+function setBotHidden(){ botHidden = true; document.body.classList.add('bot-hidden'); hideBubble(); Snd.jetStop(); }
+setBotHidden();
 
 // ТЕМА
 const themeBtn = $('theme-btn');
