@@ -294,6 +294,7 @@ class VideoPipeline:
                 if not (stage == "deliver" and c.state.get("delivered", "").endswith("blocked")):
                     done.append(stage)                  # заблокированная доставка стадией «выполнено» не считается: resume повторит только отправку
                 self.checkpoint(c, stage)
+                if stage == "qc": self.jobs.settle(conn, c.jid)   # все платные вызовы позади: итоговая цена, лишний резерв возвращается
             if c.state.get("delivered", "").endswith("blocked"):
                 self.note(c, "Telegram не принял видео: открой чат с ботом, нажми /start и повтори отправку")
                 self.jobs.fail(conn, c.jid, c.owner, "delivery_retry", "Бот заблокирован или чат не начат", status="failed")
