@@ -1867,9 +1867,11 @@ body.mode-locked #hud-panel,body.mode-locked #chat-history,body.mode-locked #emp
 body.light-theme #mode-pill,body.light-theme #hist-btn,body.light-theme #proj-btn{background:rgba(120,124,135,.16)!important;border:1px solid rgba(0,0,0,.06)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px -10px rgba(22,23,26,.3)!important}
 #hist-btn{left:16px!important;right:auto!important;top:max(12px,env(safe-area-inset-top))!important}
 :root:root body.mode-code:not(.mode-locked) #chat-history{padding-top:112px!important}
-#proj-sheet{position:fixed;inset:0;z-index:60;display:none} #proj-sheet.on{display:block}
+#proj-sheet{position:fixed;inset:0;z-index:60;visibility:hidden;pointer-events:none;transition:visibility 0s linear .4s} #proj-sheet.on{visibility:visible;pointer-events:auto;transition:visibility 0s}
 #proj-sheet .ps-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
 #proj-sheet .ps-box{position:absolute;left:0;right:0;bottom:0;max-height:78vh;overflow:auto;border-radius:24px 24px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));background:rgba(22,24,32,.78);-webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);border-top:.5px solid rgba(255,255,255,.14);color:var(--ui-tx-hi,#fff);font-family:'Manrope',system-ui,sans-serif}
+#proj-sheet .ps-bg{opacity:0;transition:opacity .32s ease} #proj-sheet.on .ps-bg{opacity:1}
+#proj-sheet .ps-box{transform:translateY(100%);transition:transform .4s cubic-bezier(.2,.8,.2,1)} #proj-sheet.on .ps-box{transform:none}
 body.light-theme #proj-sheet .ps-box{background:rgba(244,245,249,.86);border-top-color:rgba(0,0,0,.06)}
 .ps-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .ps-tabs{display:flex;gap:6px}.ps-tabs button{border:0;border-radius:16px;padding:7px 14px;background:transparent;color:var(--ui-tx-mid,#9aa);font:600 14px 'Manrope',system-ui,sans-serif}
@@ -2187,6 +2189,50 @@ body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgb
     <div id="nt-prog" style="font-size: 13px; margin-bottom: 12px; min-height: 18px;"></div>
     
     <button class="txtbtn" style="width: 100%;" onclick="closeAdmin()">Закрыть</button>
+  </div>
+</div>
+<style>
+#a2,#rp{width:100%;max-width:100vw;box-sizing:border-box;overflow-x:hidden;transform:translateY(28px);transition:opacity .32s ease,transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s linear .4s;z-index:1000;flex-direction:column;background:var(--ui-bg-0,#16171a);color:var(--ui-tx-hi,#fff);padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}
+#a2.open,#rp.open{transform:none;transition:opacity .32s ease,transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
+@media (prefers-reduced-motion:reduce){#a2,#rp,#proj-sheet .ps-box,#proj-sheet .ps-bg{transition-duration:.01s!important}}
+.a2h button{flex:0 0 auto}.a2h b{min-width:0}
+.a2h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--ui-line-hi,#333)}
+.a2h b{flex:1;font-size:17px;color:var(--ui-gold-hi,#e8c36a)}
+.a2st{font-size:12px;opacity:.8;padding:6px 14px}
+.a2t{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--ui-line-hi,#333)}
+.a2t button{flex:0 0 auto}
+.a2b{flex:1;overflow-y:auto;padding:12px 14px;-webkit-overflow-scrolling:touch}
+.a2b input,.a2b textarea,#rp textarea{width:100%;box-sizing:border-box;background:transparent;color:inherit;border:1px solid var(--ui-line-hi,#333);border-radius:10px;padding:10px;font:inherit;margin-bottom:8px}
+.a2b textarea{min-height:160px;resize:vertical}
+.a2r{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--ui-line,#2a2a2a);font-size:13px}
+.a2r .i{flex:1;word-break:break-all}.a2r .m{opacity:.65;font-size:12px}
+.a2g{font-size:11px;border-radius:6px;padding:1px 6px;margin-left:4px;border:1px solid currentColor}
+.a2row{display:flex;gap:8px;margin-bottom:8px}.a2row>*{flex:1}
+#rp .a2b{display:flex;flex-direction:column}#rp textarea{flex:1;min-height:140px}
+.rpf{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0}.rpf span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rp-bar{height:4px;background:var(--ui-cyan,#4cc);width:0;transition:width .15s}
+</style>
+<div id="a2" class="overlay">
+  <div class="a2h"><b>Админ-панель</b><button class="txtbtn" onclick="closeAdmin()">Закрыть</button></div>
+  <div class="a2st" id="a2-st">Загрузка…</div>
+  <div class="a2t" id="a2-tabs">
+    <button class="txtbtn on" data-t="users">Пользователи</button>
+    <button class="txtbtn" data-t="bc">Рассылка</button>
+    <button class="txtbtn" data-t="ban">Баны</button>
+    <button class="txtbtn" data-t="sus">Подозрительные</button>
+  </div>
+  <div class="a2b" id="a2-body"></div>
+</div>
+<div id="rp" class="overlay">
+  <div class="a2h"><b>Сообщить о проблеме</b><button class="txtbtn" id="rp-close">Закрыть</button></div>
+  <div id="rp-bar"></div>
+  <div class="a2b">
+    <textarea id="rp-text" maxlength="2000" placeholder="Опиши, что случилось и как это повторить"></textarea>
+    <input type="file" id="rp-file" accept="image/*,video/*" multiple hidden>
+    <button class="txtbtn" id="rp-add" style="margin:8px 0">Фото / видео (до 3)</button>
+    <div id="rp-files"></div>
+    <div style="font-size:12px;opacity:.6;margin:6px 0">Фото до 10 МБ, видео до 45 МБ (mp4, mov, webm).</div>
+    <button class="txtbtn on" id="rp-send" style="margin-top:auto">Отправить</button>
   </div>
 </div>
 <div id="visview"><div id="vv-bar"><span id="vv-title">Просмотр</span><button class="pill" id="vv-apply" type="button" style="display:none">Применить</button><div id="vv-dev" role="group" aria-label="Устройство"><button type="button" id="vv-dev-m" class="on" aria-pressed="true" aria-label="Мобильный вид" title="Мобильный"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/></svg></button><button type="button" id="vv-dev-d" aria-pressed="false" aria-label="Вид на компьютере" title="Компьютер"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button type="button" id="vv-dev-full" aria-label="Во весь экран" title="Во весь экран"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button></div><button class="pill" id="vv-ed" type="button" style="display:none">Редактор</button><button id="vv-menu-btn" type="button" aria-label="Меню" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><button id="vv-close" type="button" aria-label="Закрыть">✕</button></div><div id="vv-menu" role="menu"><button id="vv-dl" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Скачать</span></button><button id="vv-copy" type="button" role="menuitem"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><span>Скопировать</span></button><button id="vv-code" type="button" role="menuitem"><span id="vv-code-i"></span><span id="vv-code-t">Показать код</span></button></div><div id="vv-full"><div id="vv-full-box"><iframe id="vv-full-fr" sandbox="allow-scripts" title="Полный экран"></iframe><button id="vv-full-x" type="button" aria-label="Закрыть">✕</button></div></div><textarea id="vv-edit" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea><div id="ed-panel"><div id="ed-mv"></div><div id="ed-tabs"></div><div id="ed-body"></div></div><iframe id="vv-frame" sandbox="allow-scripts" title="Предпросмотр"></iframe></div>
@@ -5987,7 +6033,7 @@ $('share-btn').addEventListener('click', () => {
 });
 
 // ПОДДЕРЖКА
-$('support-btn').addEventListener('click', () => { tap(); $('support-modal').classList.add('open'); $('support-text').focus(); });
+$('support-btn').addEventListener('click', () => { tap(); openReport(); });
 $('support-cancel').addEventListener('click', () => { $('support-modal').classList.remove('open'); $('support-text').value = ''; });
 $('support-send').addEventListener('click', async () => {
     const text = $('support-text').value.trim();
@@ -6236,6 +6282,74 @@ window.adminGivePro = adminGivePro;
 window.adminBan = adminBan;
 window.adminUnban = adminUnban;
 </script>
+<script id="adm2-js">
+(function(){
+const A=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ago=t=>{if(!t)return '—';const d=Math.floor(Date.now()/1000)-t;return d<60?'сейчас':d<3600?Math.floor(d/60)+' мин':d<86400?Math.floor(d/3600)+' ч':Math.floor(d/86400)+' дн'};
+let tab='users',off=0,q='',aud='all',tmr,pollT,armT,armed=false,body=A('a2-body');
+const call=async(p,x)=>{try{return await tgPost(p,x)}catch(e){toast('Нет связи');return {}}};
+async function stats(){const r=await call('admin/stats');if(r.status==='ok')A('a2-st').textContent=`Всего: ${r.total} · Онлайн: ${r.online} · Pro: ${r.pro_active||0}`}
+window.openAdmin=function(){A('a2').classList.add('open');setTab('users');clearInterval(tmr);tmr=setInterval(stats,5000);stats()};
+window.closeAdmin=function(){clearInterval(tmr);clearInterval(pollT);A('a2').classList.remove('open')};
+function setTab(t){tab=t;off=0;armed=false;clearInterval(pollT);
+ A('a2-tabs').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+ ({users:vUsers,bc:vBc,ban:vBan,sus:vSus})[t]()}
+A('a2-tabs').onclick=e=>{const b=e.target.closest('button');if(b)setTab(b.dataset.t)};
+async function doBan(id,un){const r=await call(un?'admin/unban':'admin/ban',{user_id:id,reason:(A('bn-r')||{}).value||''});
+ if(r.status==='ok'){toast(un?'Разбанен: '+id:'Забанен: '+id);setTab(tab)}else toast(r.reason==='self'?'Себя нельзя':'Не вышло')}
+window.__a2ban=doBan;
+function row(u){return `<div class="a2r"><div class="i"><b onclick="navigator.clipboard&&navigator.clipboard.writeText('${u.id}');toast('ID скопирован')">${u.id}</b>${u.pro?'<span class="a2g" style="color:#e8c36a">PRO</span>':''}${u.banned?'<span class="a2g" style="color:#f66">БАН</span>':''}<div class="m">был: ${ago(u.seen)} · с нами: ${u.first?ago(u.first):'—'}</div></div><button class="txtbtn" onclick="__a2ban(${u.id},${u.banned})">${u.banned?'Разбан':'Бан'}</button></div>`}
+async function vUsers(more){if(!more){off=0;body.innerHTML='<input id="us-q" inputmode="numeric" placeholder="Поиск по ID" value="'+esc(q)+'"><div id="us-l"></div><div id="us-m"></div>';
+ A('us-q').oninput=e=>{q=e.target.value;clearTimeout(armT);armT=setTimeout(()=>vUsers(),350)}}
+ const r=await call('admin/users',{q,offset:off});if(r.status!=='ok'){A('us-l').textContent='Ошибка';return}
+ A('us-l').insertAdjacentHTML('beforeend',r.list.map(row).join('')||(off?'':'<div class="m">Никого нет</div>'));
+ off+=r.list.length;A('us-m').innerHTML=off<r.total?`<button class="txtbtn" style="width:100%;margin-top:8px" id="us-more">Ещё (${r.total-off})</button>`:'';
+ const mb=A('us-more');if(mb)mb.onclick=()=>vUsers(true)}
+function vBc(){body.innerHTML=`<div class="a2row"><button class="txtbtn" data-a="free">Free</button><button class="txtbtn" data-a="pro">Pro</button><button class="txtbtn" data-a="all">Все</button></div>
+<textarea id="bc-t" maxlength="4000" placeholder="Текст рассылки"></textarea><div id="bc-i" class="m" style="font-size:13px;margin-bottom:8px"></div>
+<div class="a2row"><button class="txtbtn" id="bc-test">Тест мне</button><button class="txtbtn on" id="bc-send">Отправить</button></div><div id="bc-p" style="font-size:13px"></div>`;
+ const chips=()=>body.querySelectorAll('[data-a]').forEach(b=>b.classList.toggle('on',b.dataset.a===aud));chips();
+ const cnt=async()=>{const r=await call('admin/bc/send',{audience:aud,dry:1});A('bc-i').textContent=r.status==='ok'?'Получателей: '+r.total:''};cnt();
+ body.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{aud=b.dataset.a;armed=false;A('bc-send').textContent='Отправить';chips();cnt()});
+ A('bc-test').onclick=async()=>{const t=A('bc-t').value.trim();if(!t)return toast('Введи текст');const r=await call('admin/bc/send',{audience:aud,text:t,test:1});toast(r.result==='ok'?'Тест отправлен':'Не вышло')};
+ A('bc-send').onclick=async()=>{const t=A('bc-t').value.trim();if(!t)return toast('Введи текст');const b=A('bc-send');
+  if(!armed){armed=true;b.textContent='Нажми ещё раз';clearTimeout(armT);armT=setTimeout(()=>{armed=false;b.textContent='Отправить'},6000);return}
+  armed=false;b.textContent='Отправить';const r=await call('admin/bc/send',{audience:aud,text:t});
+  if(r.status!=='ok')return toast(r.reason==='running'?'Уже идёт рассылка':'Не вышло');toast('Запущено: '+r.total);
+  clearInterval(pollT);pollT=setInterval(async()=>{const s=await call('admin/notify/status');if(s.status!=='ok')return;
+   A('bc-p').innerHTML=(s.running?'':'Готово: ')+`отправлено <b>${s.sent}</b> из ${s.total} · блок ${s.blocked} · ошибок ${s.failed}`;if(!s.running)clearInterval(pollT)},2000)}}
+async function vBan(){body.innerHTML=`<input id="bn-i" inputmode="numeric" placeholder="ID пользователя"><input id="bn-r" maxlength="200" placeholder="Причина (необязательно)">
+<div class="a2row"><button class="txtbtn on" id="bn-b">Забанить</button><button class="txtbtn" id="bn-u">Разбанить</button></div><div id="bn-l"></div>`;
+ const id=()=>parseInt(A('bn-i').value,10);
+ A('bn-b').onclick=()=>id()>0?doBan(id(),false):toast('Введи ID');A('bn-u').onclick=()=>id()>0?doBan(id(),true):toast('Введи ID');
+ const r=await call('admin/banned');if(r.status!=='ok')return;
+ A('bn-l').innerHTML=`<div class="m" style="margin:6px 0">В бане: ${r.total}</div>`+r.list.map(u=>`<div class="a2r"><div class="i"><b>${u.id}</b><div class="m">${esc(u.reason)||'без причины'} · ${ago(u.at)}</div></div><button class="txtbtn" onclick="__a2ban(${u.id},true)">Разбан</button></div>`).join('')}
+async function vSus(){body.innerHTML='<div class="m">Загрузка…</div>';const r=await call('admin/suspicious');if(r.status!=='ok'){body.textContent='Ошибка';return}
+ const N={bad_payment:'подделка оплаты',import_spam:'спам импортом',publish_spam:'спам публикаций',ask_flood:'флуд запросами'};
+ body.innerHTML=`<div class="m" style="margin-bottom:6px">За 24 ч, порог ${r.min_score} баллов. Подозрение ≠ вина: проверь перед баном.</div>`+(r.list.map(u=>`<div class="a2r"><div class="i"><b>${u.id}</b><span class="a2g" style="color:#f90">${u.score} б.</span>${u.banned?'<span class="a2g" style="color:#f66">БАН</span>':''}<div class="m">${Object.entries(u.kinds).map(([k,v])=>(N[k]||esc(k))+' ×'+v).join(', ')} · ${ago(u.last)}</div></div>${u.banned?'':`<button class="txtbtn" onclick="__a2ban(${u.id},false)">Бан</button>`}</div>`).join('')||'<div class="m">Подозрительных нет </div>')}
+/* ---- репорт ---- */
+let files=[];
+const MB=1048576;
+function rpRender(){A('rp-files').innerHTML=files.map((f,i)=>`<div class="rpf"><span>${f.type.startsWith('video')?'':''} ${esc(f.name)} · ${(f.size/MB).toFixed(1)} МБ</span><button class="txtbtn" data-i="${i}"></button></div>`).join('')}
+window.openReport=function(){A('rp').classList.add('open');A('rp-text').focus()};
+function rpClose(){A('rp').classList.remove('open');A('rp-text').value='';files=[];rpRender();A('rp-bar').style.width=0}
+A('rp-close').onclick=rpClose;A('rp-add').onclick=()=>A('rp-file').click();
+A('rp-files').onclick=e=>{const b=e.target.closest('[data-i]');if(b){files.splice(+b.dataset.i,1);rpRender()}};
+A('rp-file').onchange=e=>{for(const f of e.target.files){const v=f.type.startsWith('video'),p=f.type.startsWith('image');
+ if(!v&&!p)toast('Только фото и видео');else if(files.length>=3)toast('Максимум 3 файла');else if(f.size>(v?45:10)*MB)toast((v?'Видео':'Фото')+' слишком большое');else files.push(f)}
+ e.target.value='';rpRender()};
+A('rp-send').onclick=()=>{const t=A('rp-text').value.trim();if(!t)return toast('Опиши проблему');const b=A('rp-send');b.disabled=true;b.textContent='Отправка…';
+ const fd=new FormData();fd.append('init_data',tg.initData);fd.append('message',t);files.forEach(f=>fd.append('files',f));
+ const x=new XMLHttpRequest();x.open('POST',BACKEND_URL+'/support/report');
+ x.upload.onprogress=e=>{if(e.lengthComputable)A('rp-bar').style.width=(e.loaded/e.total*100)+'%'};
+ const end=()=>{b.disabled=false;b.textContent='Отправить'};
+ x.onload=()=>{end();let j={};try{j=JSON.parse(x.responseText)}catch(e){}
+  if(j.status==='ok'){toast('Отправлено, спасибо!');rpClose()}else toast(({too_often:'Подожди 30 секунд',too_big:'Файл слишком большой',bad_type:'Неподдерживаемый файл'})[j.reason]||'Ошибка отправки')};
+ x.onerror=()=>{end();toast('Ошибка сети')};x.send(fd)};
+})();
+</script>
+
 <script type="module">
 /* AI Loading State (Kokonut UI, MIT) — оригинальный компонент на React + motion, без JSX и без Tailwind.
    Грузится с esm.sh. Если сеть недоступна, приложение остаётся на лёгкой версии без React. */
