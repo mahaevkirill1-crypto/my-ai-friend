@@ -398,6 +398,10 @@
     /* КОПИРОВАНИЕ */
     .message { position: relative; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
     .message.has-copy { padding-top: 38px; }
+    /* длинное сообщение пользователя: показываем кусок + «Показать полностью» */
+    .message.msg-collapsed { max-height: 13em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 62%, transparent); mask-image: linear-gradient(#000 62%, transparent); }
+    .more-btn { display: block; margin: 4px 4px 0; padding: 2px 0; background: none; border: 0; color: var(--ui-cyan); font: inherit; font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .msg-row.user .more-btn { margin-left: auto; text-align: right; align-self: flex-end; }
     .copy-btn { position: absolute; top: 6px; right: 8px; width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--ui-line-hi); background: rgba(255,255,255,.07); color: var(--ui-tx-mid); cursor: pointer; transition: color .2s, background .2s; }
     .copy-btn:active { transform: scale(.92); }
     .copy-btn.ok { color: #5BD17A; }
@@ -1835,6 +1839,7 @@ body.light-theme{background:var(--ui-bg-0)}
     <button type="button" class="sb-it on" data-t="chats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z"/></svg><span class="sb-lb">Чаты</span></button>
     <button type="button" class="sb-it" data-t="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg><span class="sb-lb">Профиль</span></button>
     <button type="button" class="sb-it" data-t="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6"/></svg><span class="sb-lb">Настройки</span></button>
+    <button type="button" class="sb-it" data-t="projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="sb-lb">Мои проекты</span></button>
     <button type="button" class="sb-it" data-t="pro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg><span class="sb-lb">Pro</span></button>
   </nav>
   <div class="sb-body" id="sb-body">
@@ -1861,8 +1866,6 @@ body.mode-locked #hud-panel,body.mode-locked #chat-history,body.mode-locked #emp
 #mode-pill,#hist-btn,#proj-btn{background:var(--glass-bg)!important;border:var(--glass-bd)!important;-webkit-backdrop-filter:blur(24px) saturate(180%)!important;backdrop-filter:blur(24px) saturate(180%)!important;box-shadow:var(--glass-sh)!important}
 body.light-theme #mode-pill,body.light-theme #hist-btn,body.light-theme #proj-btn{background:rgba(120,124,135,.16)!important;border:1px solid rgba(0,0,0,.06)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px -10px rgba(22,23,26,.3)!important}
 #hist-btn{left:16px!important;right:auto!important;top:max(12px,env(safe-area-inset-top))!important}
-#proj-btn{display:none;position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 52px);left:50%;transform:translateX(-50%);z-index:41;height:34px;padding:0 14px;border-radius:17px;align-items:center;gap:6px;color:var(--ui-tx-hi,#fff);font:600 13px 'Manrope',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
-body.mode-code:not(.mode-locked) #proj-btn{display:flex}
 :root:root body.mode-code:not(.mode-locked) #chat-history{padding-top:112px!important}
 #proj-sheet{position:fixed;inset:0;z-index:60;display:none} #proj-sheet.on{display:block}
 #proj-sheet .ps-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
@@ -1881,10 +1884,10 @@ body.light-theme #proj-sheet .ps-box{background:rgba(244,245,249,.86);border-top
 .ps-empty{padding:26px 8px;text-align:center;color:var(--ui-tx-mid,#9aa);font:500 14px/1.45 'Manrope',system-ui,sans-serif}
 .ps-add{display:flex;gap:8px;margin-bottom:8px}.ps-add input{flex:1;min-width:0;border-radius:14px;border:.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--ui-tx-hi,#fff);padding:11px 12px;font:500 14px 'Manrope',system-ui,sans-serif;outline:none}
 </style>
-<button type="button" id="proj-btn" aria-label="Проекты"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Проекты</span></button>
-<div id="proj-sheet"><div class="ps-bg" id="ps-bg"></div><div class="ps-box"><div class="ps-head"><div class="ps-tabs"><button type="button" data-t="p" class="on">Мои проекты</button><button type="button" data-t="s">Навыки</button></div><button type="button" id="ps-x" aria-label="Закрыть">&#10005;</button></div>
+
+<div id="proj-sheet"><div class="ps-bg" id="ps-bg"></div><div class="ps-box"><div class="ps-head"><div class="ps-tabs"><button type="button" data-t="p" class="on">Мои проекты</button></div><button type="button" id="ps-x" aria-label="Закрыть">&#10005;</button></div>
 <div class="ps-pane on" id="ps-p"></div>
-<div class="ps-pane" id="ps-s"><div class="ps-add"><input id="sk-url" type="url" inputmode="url" autocomplete="off" placeholder="Ссылка на навык с GitHub"><button type="button" class="st-pill" id="sk-add">Добавить</button></div><div class="ps-empty" style="padding:6px 4px 12px;text-align:left">Папка навыка или файл SKILL.md из публичного репозитория. Навыки работают в режиме Code.</div><div id="sk-list"></div></div></div></div>
+</div></div>
 <style>
 /* Liquid Glass (по референсу dazecoop/liquid-glass): платформа-стекло, линза-ползунок, свечение под пальцем, «набухание» при нажатии */
 :root{--lg-plat:rgba(30,30,33,.55);--lg-lens:rgba(255,255,255,.09);--lg-lens-sh:0 7px 18px -2px rgba(0,0,0,.5);--lg-label2:rgba(235,235,245,.62);--lg-spring:cubic-bezier(.3,1.25,.5,1)}
@@ -1923,11 +1926,11 @@ body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgb
   <div class="tabs" id="dr-tabs"><button class="txtbtn on" data-dt="menu">Меню</button><button class="txtbtn" data-dt="prof">Профиль</button></div>
   <div class="dr-pane on" id="dr-menu">
     <button type="button" class="st-acc" id="st-acc"><span class="st-av" id="st-av"></span><span class="st-ai"><b id="st-name"></b><i id="st-sub"></i></span></button>
-    <div class="st-up" id="st-up"><b>Больше возможностей</b><p>Перейдите на Premium: выше лимиты и больше возможностей.</p><button type="button" class="st-pill" id="st-up-btn">Перейти на Premium</button></div>
+    <div class="st-up" id="st-up"><b>Больше возможностей</b><p>Перейдите на Pro: выше лимиты и больше возможностей.</p><button type="button" class="st-pill" id="st-up-btn">Перейти на Pro</button></div>
     <div class="st-sec">Аккаунт</div>
     <div class="st-grp">
       <div class="drow"><button class="ibtn" id="invite-btn" aria-label="Пригласить друга"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></button><span>Пригласить друга</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
-      <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Premium</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="drow pro"><button class="ibtn" id="pro-btn" aria-label="Pro"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18V9l4 4 3-7 3 7 4-4v9"/></svg></button><span>Holo Friend Pro</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="drow" data-keep="1" id="st-prof-row"><span class="ibtn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-5.5 7-5.5s6 1.5 7 5.5"/></svg></span><span>Профиль</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
     </div>
     <div class="st-sec">Приложение</div>
@@ -2018,18 +2021,18 @@ body.light-theme #mode-pill .mp-glow{background:radial-gradient(closest-side,rgb
     <div class="input-container">
         <div class="input-inner">
             <button id="att-btn" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-            <textarea id="user-input" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="2000" enterkeyhint="send"></textarea>
+            <textarea id="user-input" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" enterkeyhint="send"></textarea>
             <button id="send-btn" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         </div>
     </div>
-    <div id="hud-status"><span id="net"></span><span id="cnt">0 / 2000</span></div>
+    <div id="hud-status"><span id="net"></span><span id="cnt">0</span></div>
 </div>
 <div id="cmp" aria-hidden="true">
     <div class="cmp-wrap" id="cmp-real">
         <div class="cmp-chip" id="cmp-chip"></div>
         <div class="cmp-pill">
             <button id="cmp-att" class="cmp-att" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-            <textarea id="cmp-input" class="cmp-ta" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" maxlength="2000" enterkeyhint="send"></textarea>
+            <textarea id="cmp-input" class="cmp-ta" rows="1" placeholder="Опиши идею или вопрос…" autocomplete="off" enterkeyhint="send"></textarea>
             <button id="cmp-send" class="cmp-send" type="button" aria-label="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         </div>
     </div>
@@ -2652,9 +2655,16 @@ function addToHistory(text, sender, time, img, visual, animate, file) {
         msg.classList.add('has-copy');
         const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'copy-btn'; cb.setAttribute('aria-label', 'Копировать'); cb.innerHTML = COPY_ICON; cb._text = body; msg.appendChild(cb);
     }
+    if (sender === 'user' && body && !(img && img.thumb) && !(file && file.id) && (body.length > 600 || body.split('\n').length > 10)) msg.classList.add('msg-collapsed');
     if (visual && typeof visual.code === 'string' && (visual.type === 'html' || visual.type === 'svg')) attachVis(row, msg, visual);
     const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = time === undefined ? nowTime() : time;
-    col.appendChild(lbl); col.appendChild(msg); col.appendChild(tm);
+    col.appendChild(lbl); col.appendChild(msg);
+    if (msg.classList.contains('msg-collapsed')){
+        const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'more-btn'; mb.textContent = 'Показать полностью';
+        mb.addEventListener('click', () => { const c = msg.classList.toggle('msg-collapsed'); mb.textContent = c ? 'Показать полностью' : 'Свернуть'; });
+        col.appendChild(mb);
+    }
+    col.appendChild(tm);
     row.appendChild(avatar); row.appendChild(col);
     chatHistory.appendChild(row);
     if (bulkLoad){ chatHistory.scrollTop = chatHistory.scrollHeight; pinBottom(); } else pinBottom(true);
@@ -4165,13 +4175,10 @@ function _delDone(v){ $('delconf').classList.remove('open'); const r = _delRes; 
 $('delconf-yes').addEventListener('click', () => _delDone(true));
 $('delconf-no').addEventListener('click', () => _delDone(false));
 $('delconf').addEventListener('click', e => { if (e.target === $('delconf')) _delDone(false); });
-const SK_ACTIVE_KEY = 'holo_skills_active';
-function activeSkillIds(){ try { const a = JSON.parse(localStorage.getItem(SK_ACTIVE_KEY) || '[]'); return Array.isArray(a) ? a.filter(Number.isInteger).slice(0, 3) : []; } catch (e) { return []; } }
-function setActiveSkillIds(a){ try { localStorage.setItem(SK_ACTIVE_KEY, JSON.stringify(a.slice(0, 3))); } catch (e) {} }
 function projTab(t){
     document.querySelectorAll('#proj-sheet .ps-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-    $('ps-p').classList.toggle('on', t === 'p'); $('ps-s').classList.toggle('on', t === 's');
-    if (t === 'p') renderProjects(); else renderSkills();
+    $('ps-p').classList.add('on');
+    renderProjects();
 }
 function projSheet(open, tab){ $('proj-sheet').classList.toggle('on', !!open); if (open) projTab(tab || 'p'); }
 function renderProjects(){
@@ -4186,33 +4193,6 @@ function renderProjects(){
         row.appendChild(t); row.appendChild(del); box.appendChild(row);
     });
 }
-async function renderSkills(){
-    const box = $('sk-list'); box.innerHTML = '';
-    let r; try { r = await tgPost('skills/list', {}); } catch (e) { r = null; }
-    if (!r || r.status !== 'ok'){ const e = document.createElement('div'); e.className = 'ps-empty'; e.textContent = (r && r.text) || 'Не удалось загрузить навыки'; box.appendChild(e); return; }
-    if (!r.skills.length){ const e = document.createElement('div'); e.className = 'ps-empty'; e.textContent = 'Навыков пока нет.'; box.appendChild(e); return; }
-    const act = activeSkillIds();
-    r.skills.forEach(s => {
-        const row = document.createElement('div'); row.className = 'ps-item';
-        const t = document.createElement('div'); t.className = 't'; const b = document.createElement('b'); b.textContent = s.name; const i = document.createElement('i'); i.textContent = s.description || 'без описания';
-        t.appendChild(b); t.appendChild(i);
-        const on = document.createElement('button'); on.type = 'button'; on.className = 'act' + (act.includes(s.id) ? ' on' : ''); on.textContent = act.includes(s.id) ? 'Включён' : 'Выключен';
-        on.addEventListener('click', () => { let a = activeSkillIds(); if (a.includes(s.id)) a = a.filter(x => x !== s.id); else { if (a.length >= 3){ toast('Одновременно можно включить до 3 навыков'); return; } a.unshift(s.id); } setActiveSkillIds(a); renderSkills(); });
-        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Удалить';
-        del.addEventListener('click', async () => { try { await tgPost('skills/delete', { id: s.id }); } catch (e) {} setActiveSkillIds(activeSkillIds().filter(x => x !== s.id)); renderSkills(); });
-        row.appendChild(t); row.appendChild(on); row.appendChild(del); box.appendChild(row);
-    });
-}
-async function addSkillFromInput(){
-    const inp = $('sk-url'), url = inp.value.trim(); if (!url) return;
-    $('sk-add').disabled = true;
-    try {
-        const r = await tgPost('skills/import', { url });
-        if (r && r.status === 'ok'){ inp.value = ''; const a = activeSkillIds(); if (!a.includes(r.skill.id)) setActiveSkillIds([r.skill.id].concat(a)); toast('Навык подключён: ' + r.skill.name); renderSkills(); }
-        else toast((r && r.text) || 'Не удалось добавить навык');
-    } catch (e) { toast('Нет связи. Попробуй позже'); }
-    $('sk-add').disabled = false;
-}
 function openProjectInCode(id){
     const p = ProjectsStore.get(localStorage, id); if (!p) return;
     if (isSending){ toast('Подожди, ответ ещё печатается'); return; }
@@ -4224,12 +4204,9 @@ function openProjectInCode(id){
     chatHistoryForServer.push({ sender: 'bot', text, vis: p.v }); saveHistory();
     setEditTarget(p.v); input.focus();
 }
-$('proj-btn').addEventListener('click', () => { tap(); projSheet(true, 'p'); });
 $('myproj-btn').addEventListener('click', () => { closeDrawer(); projSheet(true, 'p'); });
 $('ps-bg').addEventListener('click', () => projSheet(false)); $('ps-x').addEventListener('click', () => projSheet(false));
 document.querySelector('#proj-sheet .ps-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) projTab(b.dataset.t); });
-$('sk-add').addEventListener('click', addSkillFromInput);
-$('sk-url').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addSkillFromInput(); } });
 let videoWatch = null;
 function addVideoResumeBtn(jobId){
     const last = chatHistory.lastElementChild;
@@ -4998,7 +4975,7 @@ async function sendMessage(text, opts) {
     const shown = att ? ((att.kind === 'image' ? '🖼 Фото' : '📎 ' + att.name) + (text ? '\n' + text : '')) : text;
 
     if (text.toLowerCase() === '/admin' && userId() === ADMIN_ID) {
-        input.value = ''; autoGrow(); $('cnt').textContent = '0 / 2000'; syncHud();
+        input.value = ''; autoGrow(); $('cnt').textContent = '0'; syncHud();
         openAdmin();
         return;
     }
@@ -5008,7 +4985,7 @@ async function sendMessage(text, opts) {
     if (imgInfo) IMGDB.put(att.id, att.view);
     const fileInfo = att && att.kind !== 'image' ? { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: att.name, kind: att.kind === 'html' ? 'text' : att.kind } : null;
     if (fileInfo) IMGDB.put(fileInfo.id, attToBlob(att));
-    if (!silent){ addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo); input.value = ''; autoGrow(); $('cnt').textContent = '0 / 2000'; syncHud(); }
+    if (!silent){ addToHistory(shown, 'user', undefined, imgInfo, null, false, fileInfo); input.value = ''; autoGrow(); $('cnt').textContent = '0'; syncHud(); }
     input.readOnly = true;
     sendBtn.disabled = true;
     if (!silent){ Quest.add('msg'); store.set('stat_msgs', store.get('stat_msgs', 0) + 1); if (text.length >= 50) Quest.add('long'); }
@@ -5227,7 +5204,6 @@ async function sendMessage(text, opts) {
             saveHistory();
             if (data.video_job && data.video_job.job_id) watchVideoJob(data.video_job.job_id);   // Video Studio: дальше показываем реальные этапы
             if (data.suggest_mode) addModeSuggestBtn(data.suggest_mode);
-            if (data.skill && data.skill.id){ const a = activeSkillIds(); if (!a.includes(data.skill.id)) setActiveSkillIds([data.skill.id].concat(a)); toast('Навык подключён: ' + data.skill.name); }
         };
         const response = await fetch(`${BACKEND_URL}/ask`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
@@ -5236,7 +5212,7 @@ async function sendMessage(text, opts) {
                 stream: true,
                 persona: char === 'astro' ? 'astronaut' : 'hologram',
                 mode: appMode === 'code' ? 'code' : 'chat',
-                skill_ids: appMode === 'code' ? activeSkillIds() : [],
+                skill_ids: [],
                 last_visual: editing ? { type: editing.type, code: editing.code, pid: editing.pid } : lastVisual,
                 edit_project: !!editing,
                 build_choice: silent ? (opts.choice || '') : '',
@@ -5336,7 +5312,7 @@ async function sendMessage(text, opts) {
     }
 }
 sendBtn.addEventListener('click', () => { if (isSending){ if (sendAbort) sendAbort.abort(); return; } sendMessage(input.value.trim()); });  // во время запроса кнопка = «Остановить»
-input.addEventListener('input', () => { $('cnt').textContent = input.value.length + ' / 2000'; });
+input.addEventListener('input', () => { $('cnt').textContent = input.value.length; });
 function autoGrow(){   // высота поля растёт на пружине (как в Prompt Box)
     const G = autoGrow._g || (autoGrow._g = { x: 0, v: 0, t: 0, run: false, last: 0 });
     const cur = input.offsetHeight;
@@ -5457,7 +5433,7 @@ function closeCmp(sending){
         document.documentElement.style.setProperty('--hud-h', ($('hud-panel').offsetHeight + 8) + 'px');
     } else if (target < keepTop - 1){ smoothUntil = Date.now() + 700; chatHistory.scrollTo({ top: target, behavior: 'smooth' }); }   // едет вниз синхронно с клавиатурой
     cmpQuietUntil = Date.now() + 2000;
-    input.value = cmpIn.value; autoGrow(); $('cnt').textContent = input.value.length + ' / 2000'; syncHud();
+    input.value = cmpIn.value; autoGrow(); $('cnt').textContent = input.value.length; syncHud();
     cmp.querySelectorAll('.gh').forEach(n => n.remove());
     const g = cmpGhost(true);
     cmpReal.classList.remove('live');
@@ -5706,7 +5682,7 @@ function renderProfile(){
   if (u.photo_url){ av.style.backgroundImage = `url("${encodeURI(u.photo_url)}")`; av.textContent = ''; } else { av.style.backgroundImage = ''; av.textContent = name[0].toUpperCase(); }
   const ini = ((u.first_name || '')[0] || '') + ((u.last_name || '')[0] || ''), init = (ini || name[0] || '?').toUpperCase();
   ['st-av'].forEach(id => { const el = $(id); if (!el) return; if (u.photo_url){ el.style.backgroundImage = `url("${encodeURI(u.photo_url)}")`; el.textContent = ''; } else { el.style.backgroundImage = ''; el.textContent = init; } });
-  $('st-name').textContent = name; $('st-sub').textContent = (u.username ? '@' + u.username + ' · ' : '') + (PRO.active ? 'Premium' : 'Free');
+  $('st-name').textContent = name; $('st-sub').textContent = (u.username ? '@' + u.username + ' · ' : '') + (PRO.active ? 'Pro' : 'Free');
   $('st-up').style.display = PRO.active ? 'none' : '';
   $('pname').textContent = name; $('puser').textContent = u.username ? '@' + u.username : '';
   const st = [['Сообщений', store.get('stat_msgs', 0)], ['Pro', PRO.active ? 'до ' + new Date(PRO.expires_at * 1000).toLocaleDateString('ru-RU') : 'нет']];
@@ -5854,6 +5830,7 @@ $('hn-invite').addEventListener('click', () => { closeHist(); openInvite(); });
         pick(i);
         later(200, () => {                       // даём плашке доехать, потом открываем раздел
             if (t === 'pro') { closeHist(); $('pro-btn').click(); }
+            else if (t === 'projects') { closeHist(); projSheet(true, 'p'); }
             else { closeHist(); openDrawer(); if (t === 'profile') drTab('prof'); }
         });
     }));
