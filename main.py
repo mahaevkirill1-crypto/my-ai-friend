@@ -157,7 +157,8 @@ AI_MODEL = "anthropic/claude-haiku-5-5"
 AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "3500"))  # потолок ответа обычного чата (раньше 1000 обрезал длинные ответы на полуслове)
 AI_TEMPERATURE = 0.5
 ANSWER_MARK = "[[ANSWER]]"
-MAX_TEXT_LEN = 4000
+SKILLS_ENABLED = os.getenv("SKILLS_ENABLED", "0") == "1"   # навыки с GitHub выключены; включить: SKILLS_ENABLED=1
+MAX_TEXT_LEN = int(os.getenv("MAX_TEXT_LEN", "100000"))  # защитный потолок (лимит 2000 на клиенте убран)
 MAX_BODY_BYTES = 7 * 1024 * 1024
 MAX_IMAGE_B64 = 4_000_000
 MAX_PDF_B64 = 6_000_000
@@ -368,25 +369,41 @@ def units_word(n: int) -> str:
     return "единиц"
 
 # --- УМНЫЕ ПРАВКИ БЕЗ КНОПКИ: сообщение похоже на просьбу изменить уже собранный проект ---
-EDIT_STRONG_RE = re.compile(r"\b(?:измени|поменяй|замени|добавь|убери|удали|исправь|поправь|переделай|перепиши|обнови|улучши|подвинь|сдвинь|перенеси|выровняй|выравни|поставь|вынеси|увеличь|уменьши|скрой|спрячь|покрась|перекрась|верни|добавим|уберём|уберем)\w*", re.I)
-EDIT_SOFT_RE = re.compile(r"\b(?:сделай|пусть|хочу чтобы|хочу, чтобы)\b", re.I)
+EDIT_STRONG_RE = re.compile(r"\b(?:измени|поменяй|поменять|замени|добавь|добавить|убери|убрать|удали|исправь|исправить|поправь|поправить|переделай|переделать|перепиши|переписать|обнови|обновить|улучши|улучшить|подвинь|подвинуть|сдвинь|сдвинуть|перенеси|перенести|выровняй|выровнять|выравни|поставь|поставить|вынеси|вынести|увеличь|увеличить|уменьши|уменьшить|скрой|скрыть|спрячь|спрятать|покрась|покрасить|перекрась|перекрасить|верни|вернуть|добавим|уберём|уберем|смени|сменить|подкорректируй|скорректируй|доработай|доработать|оформи|оформить|расположи|разместить|размести)\w*", re.I)
+EDIT_SOFT_RE = re.compile(r"\b(?:сделай|сделать|пусть|хочу чтобы|хочу, чтобы|хотелось бы|нужно|надо|нужна|нужен|нужны|хочу|давай|можно)\b", re.I)
 EDIT_TARGET_RE = re.compile(r"шапк|header|меню|навигац|пункт|раздел|секци|блок|футер|подвал|заголов|отступ|размер|шрифт|цвет|фон|кнопк|анимаци|адаптив|мобил|тёмн|темн|светл|ярче|крупнее|мельче|больше|меньше|логотип|текст|картин|фото|иконк|карточ|форм[ауеы]\b|слайдер|таблиц|список|ширин|высот|границ|тень|тени|градиент|неон", re.I)
-EDIT_COMPLAINT_RE = re.compile(r"съехал|не ровн|крив|налез|вылез|обрезан|не помещ|перекрыва|налеза|уехал", re.I)
+EDIT_COMPLAINT_RE = re.compile(r"съехал|не ровн|крив|налез|вылез|обрезан|не помещ|перекрыва|налеза|уехал|не работает|не работают|не видно|не видны|плохо видн|не читается|не нажима|слишком|сломал|не открывается|не отображ|пропал|исчез", re.I)
+# «вежливая» просьба-вопрос: «можешь сделать кнопку больше?» — это правка, а не вопрос
+EDIT_POLITE_RE = re.compile(r"^\s*(?:(?:а|и|ну|так|слушай)[\s,]+)?(?:ты\s+)?(?:можешь|сможешь|не мог бы|мог бы|можно|получится|есть возможность)", re.I)
+EDIT_LEAD_RE = re.compile(r"^\s*(?:(?:а|и|ну|так|теперь|ещё|еще|тогда|плиз|пожалуйста|давай|слушай|окей|ок|ты|не мог бы ты|мог бы ты|можешь|сможешь|можно|получится ли|получится|есть возможность)[\s,]+)+", re.I)
+EDIT_INFO_RE = re.compile(r"расскажи|объясни|посоветуй|подскажи|что такое|чем отлич|в чём разниц|в чем разниц|спасибо|благодар|нравится|классн|круто|отличн|супер|здорово|молодец|прекрасн", re.I)
+# описание желаемого результата без глагола: «кнопка красная», «текст по центру», «шапка побольше»
+EDIT_HINT_RE = re.compile(r"сдел|постав|нужн|над[оа]\b|хоч|пусть|больш|меньш|ярч|т[её]мн|светл|красн|син[иеяю]|зел[её]н|жёлт|желт|чёрн|черн|бел[аыоу]|розов|фиолет|оранж|сер[аыоу]|крупн|мелк|шире|\bуже\b|выше|ниже|по центру|слева|справа|сверху|снизу|вниз|вверх|побольше|поменьше|покрупнее|помельче", re.I)
+
 EDIT_NEW_PROJECT_RE = re.compile(r"нов(?:ый|ую|ое|ого) (?:сайт|проект|лендинг|приложени|игр)|с нуля|ещ[её] один (?:сайт|проект)|друг(?:ой|ую) (?:сайт|проект)", re.I)
 
 def looks_like_edit(user_text: str) -> bool:
-    """True, если сообщение — просьба изменить текущий проект (а не вопрос, не новая сборка и не обычный чат)."""
+    """True, если сообщение — просьба изменить текущий проект (а не вопрос, не новая сборка и не обычный чат).
+    Вызывается только когда в недавних сообщениях уже есть проект, поэтому узнаём правку и в разговорной форме."""
     t = (user_text or "").strip().lower()
     if not t or len(t) > 600: return False
     if video_strength(t) == 2: return False   # однозначно просят видео — это не правка сайта
-    if "?" in t or BUILD_NEG_RE.search(t) or EDIT_NEW_PROJECT_RE.search(t): return False
-    if re.match(r"\s*(?:как|что|чем|почему|зачем|где|когда|сколько|какой|какая|какие|какое|кто)\b", t): return False
-    head = " ".join(t.split()[:8])  # глагол правки должен стоять в начале фразы
+    if BUILD_NEG_RE.search(t) or EDIT_NEW_PROJECT_RE.search(t) or EDIT_INFO_RE.search(t): return False
+    polite = bool(EDIT_POLITE_RE.match(t))
+    if "?" in t and not polite: return False
+    t = t.replace("?", " ").strip()
+    t2 = EDIT_LEAD_RE.sub("", t).strip() or t
+    if re.match(r"\s*(?:как|что|чем|почему|зачем|где|когда|сколько|какой|какая|какие|какое|кто)\b", t2): return False
+    head = " ".join(t2.split()[:8])  # глагол правки должен стоять в начале фразы
     if EDIT_STRONG_RE.search(head):
-        return not (build_intent(t) == "build" and not EDIT_TARGET_RE.search(t))  # «добавь сайт для кафе» — новая сборка
+        return not (build_intent(t2) == "build" and not EDIT_TARGET_RE.search(t2))  # «добавь сайт для кафе» — новая сборка
     if EDIT_SOFT_RE.search(head):
-        return bool(EDIT_TARGET_RE.search(t)) and build_intent(t) != "build"
-    return bool(EDIT_COMPLAINT_RE.search(t)) and bool(EDIT_TARGET_RE.search(t))
+        return bool(EDIT_TARGET_RE.search(t2)) and build_intent(t2) != "build"
+    if EDIT_COMPLAINT_RE.search(t2) and EDIT_TARGET_RE.search(t2):
+        return True
+    # короткое описание результата: «кнопка красная», «текст по центру»
+    return (bool(EDIT_TARGET_RE.search(t2)) and bool(EDIT_HINT_RE.search(t2))
+            and len(t2.split()) <= 15 and build_intent(t2) != "build")
 
 _FENCE_RE = re.compile(r"```[a-zA-Z]*[ \t]*\n(.*?)```", re.S)
 
@@ -2759,7 +2776,7 @@ async def ask(request: Request):
         if mode == "code" and not pro_pre["active"]:
             return JSONResponse({"text": CODE_NO_ACCESS_TEXT, "emotion": "sad", "pro": pro_pre, "mode_locked": "pro", "limit_reached": True}, status_code=402)
         skill_ids = []
-        if mode == "code" and pro_pre["active"]:
+        if SKILLS_ENABLED and mode == "code" and pro_pre["active"]:
             try: skill_ids = [int(x) for x in (data.get("skill_ids") or [])[:5] if str(x).isdigit()]
             except Exception: skill_ids = []
             _urls = _skills.GITHUB_URL_RE.findall(raw_text)
@@ -3464,6 +3481,8 @@ async def github_get(url):
 
 async def _skills_call(request, fn):
     data = await request.json()
+    if not SKILLS_ENABLED:
+        return JSONResponse({"status": "error", "text": "Навыки временно отключены."}, status_code=404)
     info = validate_init_data(data.get("init_data", ""))
     if not info: return JSONResponse({"status": "error", "text": "Ошибка авторизации."}, status_code=401)
     uid = info["user"]["id"]
