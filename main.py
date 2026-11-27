@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Body
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, Response
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Form, File, UploadFile
 from openai import AsyncOpenAI
 import os
 import io
@@ -2709,6 +2710,7 @@ async def publish(data: dict = Body(...)):
 
     now = time.monotonic()
     if now - _publish_last.get(uid, 0) < PUBLISH_COOLDOWN:
+        flag_abuse(uid, "publish_spam")
         return JSONResponse({"status": "error", "message": "Подожди несколько секунд перед следующей публикацией."}, status_code=429)
     _publish_last[uid] = now
     try:
@@ -2809,6 +2811,7 @@ async def ask(request: Request):
                     imported = None
             if imported is not None:
                 if not import_rate_ok(conn, uid, now):
+                    flag_abuse(uid, "import_spam")
                     return JSONResponse({"text": IMPORT_RATE_TEXT, "emotion": "thinking", "pro": pro_pre}, status_code=429)
                 imported = imported.strip()
                 if len(imported) > MAX_EDIT_CODE_LEN:
@@ -2972,6 +2975,7 @@ async def ask(request: Request):
             conn.execute("INSERT OR IGNORE INTO rate_state (user_id, last_ask, day, ask_count) VALUES (?, 0, ?, 0)", (uid, today))
             cur = conn.execute("UPDATE rate_state SET last_ask = ? WHERE user_id = ? AND last_ask <= ?", (now, uid, now - ASK_MIN_GAP))
             if cur.rowcount != 1:
+                flag_abuse(uid, "ask_flood")
                 conn.commit()
                 return JSONResponse({"text": "Подожди пару секунд…", "emotion": "thinking"}, status_code=429)
             if pro["active"]:
@@ -3410,6 +3414,7 @@ async def telegram_webhook(request: Request):
         if "pre_checkout_query" in data:
             q = data["pre_checkout_query"]
             ok, err = check_payment(q.get("from", {}).get("id"), q.get("invoice_payload", ""), q.get("currency"), q.get("total_amount"))
+            if not ok and q.get("from", {}).get("id"): flag_abuse(q["from"]["id"], "bad_payment")
             if ok:
                 try:
                     _uid, _item = q["invoice_payload"].split("|", 1)
@@ -3422,6 +3427,7 @@ async def telegram_webhook(request: Request):
         if "message" in data and "successful_payment" in data["message"]:
             msg = data["message"]; pay = msg["successful_payment"]; from_id = msg.get("from", {}).get("id")
             ok, _err = check_payment(from_id, pay.get("invoice_payload", ""), pay.get("currency"), pay.get("total_amount"))
+            if not ok and from_id: flag_abuse(from_id, "bad_payment")
             if ok:
                 _uid, item = pay["invoice_payload"].split("|", 1); charge = pay.get("telegram_payment_charge_id", "")
                 await asyncio.to_thread(_apply_payment, from_id, item, charge)
@@ -3512,6 +3518,149 @@ async def skills_delete(request: Request):
     async def go(conn, uid, data):
         _skills.delete_skill(conn, uid, int(data.get("id") or 0)); return {"status": "ok"}
     return await _skills_call(request, go)
+
+# --- АДМИН v2: пользователи, своя рассылка, подозрительные, репорты с фото/видео ---
+def _abuse_init(conn):
+    conn.execute("CREATE TABLE IF NOT EXISTS abuse_events (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, ts INTEGER NOT NULL)")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_abuse_user_ts ON abuse_events(user_id, ts)")
+
+def flag_abuse(uid, kind):
+    """Пишет подозрительное событие (флуд, обход лимитов, поддельная оплата). Никогда не ломает основной запрос."""
+    try:
+        conn = get_db_connection(); _abuse_init(conn)
+        conn.execute("INSERT INTO abuse_events (user_id, kind, ts) VALUES (?, ?, ?)", (int(uid), str(kind)[:40], int(time.time())))
+        conn.commit()
+    except Exception:
+        log.debug("flag_abuse failed", exc_info=True)
+
+ABUSE_WEIGHT = {"bad_payment": 20, "import_spam": 3, "publish_spam": 3, "ask_flood": 1}
+ABUSE_MIN_SCORE = 15
+
+@app.post("/admin/users")
+def admin_users(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    q = "".join(ch for ch in str(data.get("q") or "") if ch.isdigit())[:15]
+    try: off = max(0, int(data.get("offset") or 0))
+    except (TypeError, ValueError): off = 0
+    conn = get_db_connection(); now = int(time.time())
+    where, par = ("WHERE CAST(u.user_id AS TEXT) LIKE ?", [q + "%"]) if q else ("", [])
+    total = scalar(conn, f"SELECT COUNT(*) FROM users u {where}", tuple(par))
+    rows = conn.execute(
+        "SELECT u.user_id, m.first_seen, s.last_seen, p.expires_at, p.requests_left, b.user_id FROM users u "
+        "LEFT JOIN user_meta m ON m.user_id = u.user_id LEFT JOIN user_seen s ON s.user_id = u.user_id "
+        "LEFT JOIN pro_state p ON p.user_id = u.user_id LEFT JOIN banned_users b ON b.user_id = u.user_id "
+        f"{where} ORDER BY COALESCE(s.last_seen, 0) DESC LIMIT 50 OFFSET ?", tuple(par + [off])).fetchall()
+    return {"status": "ok", "total": total, "list": [
+        {"id": r[0], "first": r[1] or 0, "seen": r[2] or 0, "pro": bool(r[3] and r[3] > now and (r[4] or 0) > 0), "banned": r[5] is not None}
+        for r in rows]}
+
+@app.post("/admin/suspicious")
+def admin_suspicious(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    conn = get_db_connection(); _abuse_init(conn)
+    since = int(time.time()) - 24 * 3600
+    rows = conn.execute("SELECT user_id, kind, COUNT(*), MAX(ts) FROM abuse_events WHERE ts > ? GROUP BY user_id, kind", (since,)).fetchall()
+    users = {}
+    for uid, kind, cnt, last in rows:
+        u = users.setdefault(uid, {"id": uid, "score": 0, "kinds": {}, "last": 0})
+        u["score"] += ABUSE_WEIGHT.get(kind, 1) * cnt; u["kinds"][kind] = cnt; u["last"] = max(u["last"], last)
+    banned = {r[0] for r in conn.execute("SELECT user_id FROM banned_users").fetchall()}
+    out = sorted((u for u in users.values() if u["score"] >= ABUSE_MIN_SCORE), key=lambda u: -u["score"])[:50]
+    for u in out: u["banned"] = u["id"] in banned
+    return {"status": "ok", "list": out, "min_score": ABUSE_MIN_SCORE}
+
+def _bc_recipients(aud):
+    conn = get_db_connection(); _nt_init(conn); now = int(time.time())
+    skip = set()
+    for t in ("banned_users", "notify_blocked", "notify_optout"):
+        skip |= {r[0] for r in conn.execute(f"SELECT user_id FROM {t}").fetchall()}
+    pro = {r[0] for r in conn.execute("SELECT user_id FROM pro_state WHERE expires_at > ? AND requests_left > 0", (now,)).fetchall()}
+    out = []
+    for (uid,) in conn.execute("SELECT user_id FROM users").fetchall():
+        if uid in skip: continue
+        if aud == "pro" and uid not in pro: continue
+        if aud == "free" and uid in pro: continue
+        out.append(uid)
+    return out
+
+async def _bc_run(rec, text):
+    try:
+        for uid in rec:
+            res = await _nt_send_one(uid, text)
+            if res == "ok": _nt_state["sent"] += 1
+            elif res == "blocked":
+                _nt_state["blocked"] += 1
+                try: await asyncio.to_thread(_nt_mark, uid, "blocked")
+                except Exception: log.warning("bc mark blocked failed", exc_info=True)
+            else: _nt_state["failed"] += 1
+            await asyncio.sleep(NT_RATE_SLEEP)
+    except Exception:
+        log.exception("broadcast crashed")
+    finally:
+        _nt_state["running"] = False
+
+@app.post("/admin/bc/send")
+async def admin_bc_send(data: dict = Body(...)):
+    if not _nt_admin(data): return {"status": "error", "reason": "forbidden"}
+    aud = data.get("audience") if data.get("audience") in ("free", "pro", "all") else "all"
+    rec = await asyncio.to_thread(_bc_recipients, aud)
+    if data.get("dry"): return {"status": "ok", "total": len(rec)}
+    text = str(data.get("text") or "").strip()[:4000]
+    if not text: return {"status": "error", "reason": "empty_text"}
+    if _nt_state["running"]: return {"status": "error", "reason": "running"}
+    if data.get("test"):
+        return {"status": "ok", "result": await _nt_send_one(ADMIN_ID, "🧪 ТЕСТ\n\n" + text)}
+    if not rec: return {"status": "error", "reason": "empty"}
+    _nt_state.update(running=True, total=len(rec), sent=0, blocked=0, failed=0)
+    asyncio.get_running_loop().create_task(_bc_run(rec, text))
+    return {"status": "ok", "total": len(rec)}
+
+RP_PHOTO_MAX = 10 * 1024 * 1024
+RP_VIDEO_MAX = 45 * 1024 * 1024
+RP_MAX_FILES = 3
+
+def _rp_kind(b):
+    if b[:3] == b"\xff\xd8\xff": return "photo", "image/jpeg", "jpg"
+    if b[:8] == b"\x89PNG\r\n\x1a\n": return "photo", "image/png", "png"
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP": return "photo", "image/webp", "webp"
+    if b[4:8] == b"ftyp": return "video", "video/mp4", "mp4"
+    if b[:4] == b"\x1a\x45\xdf\xa3": return "video", "video/webm", "webm"
+    return None, None, None
+
+@app.post("/support/report")
+async def support_report(init_data: str = Form(""), message: str = Form(""), files: list[UploadFile] = File(default=[])):
+    info = validate_init_data(init_data)
+    if not info: return JSONResponse({"status": "error", "reason": "auth"}, status_code=401)
+    uid = info["user"]["id"]; message = (message or "").strip()
+    if not message: return JSONResponse({"status": "error", "reason": "empty"}, status_code=400)
+    if len(files) > RP_MAX_FILES: return JSONResponse({"status": "error", "reason": "too_many_files"}, status_code=400)
+    nowf = time.time()
+    if nowf - _support_last.get(uid, 0) < SUPPORT_GAP: return JSONResponse({"status": "error", "reason": "too_often"}, status_code=429)
+    media = []
+    for f in files:
+        b = await f.read(RP_VIDEO_MAX + 1)
+        kind, mime, ext = _rp_kind(b[:16])
+        if not kind: return JSONResponse({"status": "error", "reason": "bad_type"}, status_code=400)
+        if len(b) > (RP_PHOTO_MAX if kind == "photo" else RP_VIDEO_MAX): return JSONResponse({"status": "error", "reason": "too_big"}, status_code=413)
+        media.append((kind, mime, ext, b))
+    if len(_support_last) > 5000: _support_last.clear()
+    _support_last[uid] = nowf
+    username = _one_line(info["user"].get("username"), 40) or "нет юзернейма"
+    first_name = _one_line(info["user"].get("first_name"), 60) or "Без имени"
+    text = (f"🆘 Репорт о проблеме\n👤 {first_name} (@{username})\n📎 Вложений: {len(media)}\n\n💬 {message[:SUPPORT_MAX_LEN]}\n\n"
+            f"———\n🆔 ID отправителя (по подписи Telegram): {uid}")
+    try:
+        r = await tg_call("sendMessage", {"chat_id": ADMIN_ID, "text": text, "disable_web_page_preview": True})
+        if not r.json().get("ok"): return JSONResponse({"status": "error", "reason": "telegram_api_error"}, status_code=502)
+        for i, (kind, mime, ext, b) in enumerate(media, 1):
+            method, field = ("sendPhoto", "photo") if kind == "photo" else ("sendVideo", "video")
+            await _http.post(f"https://api.telegram.org/bot{BOT_TOKEN}/{method}",
+                             data={"chat_id": str(ADMIN_ID), "caption": f"Вложение {i}/{len(media)} · ID {uid}"},
+                             files={field: (f"report_{uid}_{i}.{ext}", b, mime)}, timeout=120)
+        return {"status": "ok"}
+    except Exception:
+        log.exception("support_report failed")
+        return JSONResponse({"status": "error", "reason": "send_failed"}, status_code=500)
 
 # --- VIDEO STUDIO (выключена по умолчанию: VIDEO_ENABLED=0) ---
 if "opus" in MODEL_FREE.lower():
